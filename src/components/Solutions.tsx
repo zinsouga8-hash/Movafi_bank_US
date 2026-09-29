@@ -11,6 +11,7 @@ import {
 } from 'lucide-react';
 import { SupportedLanguage } from '../types/banking';
 import { translations } from '../i18n/translations';
+import privateDeskImg from '../assets/images/movafi_wealth_vault_1790347351259.jpg';
 
 interface SolutionsProps {
   currentLang: SupportedLanguage;
@@ -99,9 +100,8 @@ export const Solutions: React.FC<SolutionsProps> = ({
           <div className="lg:col-span-6">
             <div className="relative rounded-2xl overflow-hidden shadow-xl border border-slate-200 dark:border-slate-800 aspect-4/3 group">
               <img
-                src="/src/assets/images/movafi_wealth_vault_1790347351259.jpg"
+                src={privateDeskImg}
                 alt="Movafi Private Wealth Management Lounge"
-                referrerPolicy="no-referrer"
                 className="w-full h-full object-cover object-center group-hover:scale-103 transition-transform duration-700"
               />
               <div className="absolute inset-0 bg-gradient-to-t from-slate-950/80 via-transparent to-transparent flex items-end p-6">

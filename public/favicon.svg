@@ -1,0 +1,35 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 128 128" width="128" height="128">
+  <defs>
+    <linearGradient id="bgGrad" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#0B132B" />
+      <stop offset="50%" stop-color="#070C1D" />
+      <stop offset="100%" stop-color="#02040A" />
+    </linearGradient>
+    <linearGradient id="goldGrad" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#FDE68A" />
+      <stop offset="35%" stop-color="#F59E0B" />
+      <stop offset="75%" stop-color="#D97706" />
+      <stop offset="100%" stop-color="#92400E" />
+    </linearGradient>
+  </defs>
+
+  <!-- Squircle Base with Bullion Trim -->
+  <rect x="6" y="6" width="116" height="116" rx="28" fill="url(#bgGrad)" stroke="url(#goldGrad)" stroke-width="4.5" />
+  
+  <!-- MB Geometric Monogram Symbol -->
+  <!-- Left Pillar of M & B -->
+  <rect x="28" y="30" width="13" height="68" rx="4" fill="url(#goldGrad)" />
+
+  <!-- Diagonal Chevron of M -->
+  <path d="M41 30 L64 64 L53 64 L37 39 Z" fill="url(#goldGrad)" />
+  <path d="M53 64 L64 64 L76 46 L68 33 Z" fill="url(#goldGrad)" />
+
+  <!-- Upper Lobe of B -->
+  <path d="M41 30 H75 C88 30 96 38 96 49 C96 59 88 64 76 64 H54 L62 53 H74 C80 53 84 51 84 47 C84 41 80 40 73 40 H41 Z" fill="url(#goldGrad)" />
+
+  <!-- Lower Lobe of B -->
+  <path d="M41 62 H78 C91 62 100 70 100 82 C100 93 90 98 76 98 H41 V87 H75 C82 87 87 85 87 80 C87 74 81 73 74 73 H41 Z" fill="url(#goldGrad)" />
+
+  <!-- Central Vault Spark -->
+  <polygon points="64,64 68,69 64,74 60,69" fill="#FDE68A" />
+</svg>

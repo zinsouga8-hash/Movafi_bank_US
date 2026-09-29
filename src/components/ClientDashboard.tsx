@@ -1417,6 +1417,7 @@ export const ClientDashboard: React.FC<ClientDashboardProps> = ({
                         <option value="CAD">CAD (C$)</option>
                         <option value="SAR">SAR (ر.س / SAR)</option>
                         <option value="AED">AED (د.إ / AED)</option>
+                        <option value="BHD">BHD (د.ب / BHD)</option>
                       </select>
                     </div>
 
@@ -2412,6 +2413,7 @@ export const ClientDashboard: React.FC<ClientDashboardProps> = ({
                     <option value="EUR">EUR — Euro (€)</option>
                     <option value="SAR">SAR — Saudi Riyal (ر.س / SAR)</option>
                     <option value="AED">AED — UAE Dirham (د.إ / AED)</option>
+                    <option value="BHD">BHD — Bahraini Dinar (د.ب / BHD)</option>
                   </select>
                 </div>
 
@@ -2563,6 +2565,9 @@ export const ClientDashboard: React.FC<ClientDashboardProps> = ({
                     <option value="GBP">GBP — British Pound (£)</option>
                     <option value="CHF">CHF — Swiss Franc (CHF)</option>
                     <option value="CAD">CAD — Canadian Dollar (C$)</option>
+                    <option value="BHD">BHD — Bahraini Dinar (د.ب / BHD)</option>
+                    <option value="SAR">SAR — Saudi Riyal (ر.س / SAR)</option>
+                    <option value="AED">AED — UAE Dirham (د.إ / AED)</option>
                   </select>
                 </div>
 

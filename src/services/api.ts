@@ -31,7 +31,7 @@ export const api = {
   },
 
   // Auth
-  async registerStep1(email: string, password: string): Promise<{ success: boolean; message: string; demoOtpHint?: string }> {
+  async registerStep1(email: string, password: string): Promise<{ success: boolean; message: string }> {
     const res = await fetch(`${API_BASE}/auth/register-step1`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },

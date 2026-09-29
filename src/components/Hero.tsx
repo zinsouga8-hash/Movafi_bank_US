@@ -2,6 +2,7 @@ import React from 'react';
 import { ArrowRight, ShieldCheck, Lock, Building2, Sparkles, Award } from 'lucide-react';
 import { SupportedLanguage } from '../types/banking';
 import { translations } from '../i18n/translations';
+import heroBuildingImg from '../assets/images/movafi_hero_building_1790347338293.jpg';
 
 interface HeroProps {
   currentLang: SupportedLanguage;
@@ -23,9 +24,8 @@ export const Hero: React.FC<HeroProps> = ({
       {/* Background Architectural Image with Luxury Multilayer Scrim */}
       <div className="absolute inset-0 z-0">
         <img
-          src="/src/assets/images/movafi_hero_building_1790347338293.jpg"
+          src={heroBuildingImg}
           alt="Movafi Bank United States Headquarters Tower"
-          referrerPolicy="no-referrer"
           className="w-full h-full object-cover object-center opacity-25 dark:opacity-20 scale-102 transform transition-transform duration-1000"
         />
         <div className="absolute inset-0 bg-gradient-to-r from-slate-50 via-slate-50/95 to-slate-50/80 dark:from-slate-950 dark:via-slate-950/95 dark:to-slate-950/80" />

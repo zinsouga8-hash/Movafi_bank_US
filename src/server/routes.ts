@@ -69,17 +69,15 @@ apiRouter.post('/auth/register-step1', async (req: Request, res: Response) => {
 
   res.json({
     success: true,
-    message: 'Verification code dispatched to your email.',
-    verificationCode: otpCode,
-    demoOtpHint: otpCode
+    message: 'Verification code dispatched to your email.'
   });
 });
 
 // Step 2: Verify OTP
 apiRouter.post('/auth/verify-otp', (req: Request, res: Response) => {
   const { email, otp } = req.body;
-  if (!email || !otp) {
-    return res.status(400).json({ success: false, message: 'Email and 6-digit OTP code are required.' });
+  if (!email || !otp || !/^\d{6}$/.test(String(otp).trim())) {
+    return res.status(400).json({ success: false, message: 'A valid 6-digit numeric verification code is required.' });
   }
 
   const state = db.getState();
@@ -234,7 +232,7 @@ apiRouter.post('/auth/submit-application', async (req: Request, res: Response) =
             last_step_reached: 'Inscription terminée — dossier soumis',
             reward_type: rewardType,
             reward_value: rewardVal,
-            reward_description: `${rewardVal} points fictifs`,
+            reward_description: `${rewardVal} points Privilège`,
             ip_address: clientIp,
             activity_history: [
               { stage: 'invitation_created', label: 'Code utilisé à l’inscription', timestamp: now },
@@ -2276,7 +2274,7 @@ apiRouter.post('/referrals/invite', async (req: Request, res: Response) => {
     last_step_reached: 'Invitation transmise',
     reward_type: settings.reward_type || 'points',
     reward_value: settings.reward_value || 10,
-    reward_description: `${settings.reward_value || 10} points fictifs`,
+    reward_description: `${settings.reward_value || 10} points Privilège`,
     ip_address: clientIp,
     notes: custom_message ? `Message personnalisé: ${custom_message.slice(0, 100)}` : undefined,
     activity_history: [

@@ -1,4 +1,4 @@
-export type SupportedCurrency = 'USD' | 'CAD' | 'EUR' | 'SAR' | 'AED';
+export type SupportedCurrency = 'USD' | 'CAD' | 'EUR' | 'SAR' | 'AED' | 'BHD';
 export type SupportedLanguage = 'en' | 'fr' | 'es' | 'ar';
 
 export type ReferralStatus =
