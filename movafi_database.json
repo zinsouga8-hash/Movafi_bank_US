@@ -1,0 +1,247 @@
+{
+  "profiles": [
+    {
+      "id": "prof_admin_001",
+      "email": "admin@movafibank.com",
+      "first_name": "Genevieve",
+      "last_name": "Rothschild",
+      "phone": "+1 (212) 555-0100",
+      "nationality": "United States",
+      "residence_country": "United States",
+      "city": "New York",
+      "preferred_currency": "USD",
+      "preferred_language": "fr",
+      "account_type": "Business",
+      "occupation": "Managing Director & Chief Risk Officer",
+      "monthly_income": 95000,
+      "activity_duration": "14 years",
+      "is_admin": true,
+      "admin_role": "admin",
+      "password_hash": "aa163422e098f8a463b38e5dedbe08d133d48fac0a8693582a48d3db59cd2a06",
+      "pin_hash": "c7e9988d0ac79f466bf33b7bc5a8e31ebad2fe1f6e17c78919f5717acce44230",
+      "created_at": "2026-01-15T09:00:00.000Z"
+    }
+  ],
+  "accounts": [
+    {
+      "id": "acc_admin_usd",
+      "profile_id": "prof_admin_001",
+      "client_id": "EXECUTIVE-01",
+      "account_number": "984000100201",
+      "iban": "US94MOVA021000021984000100201",
+      "bic_swift": "MOVAFUS33XXX",
+      "currency": "USD",
+      "balance": 50000000,
+      "account_status": "active",
+      "is_balance_visible": true,
+      "created_at": "2026-01-15T09:00:00.000Z"
+    }
+  ],
+  "transactions": [],
+  "transaction_requests": [],
+  "payment_methods": [
+    {
+      "id": "pm_001",
+      "name": "Fedwire Domestic Direct (USD)",
+      "category": "Bank Transfer",
+      "description": "Virement direct instantané Fedwire avec confirmation en temps réel.",
+      "account_info": "Routing: 021000021 · Movafi Bank US Treasury Desk",
+      "instructions": "Mentionnez votre identifiant client (Client ID) dans le motif du virement.",
+      "is_active": true,
+      "display_order": 1
+    },
+    {
+      "id": "pm_002",
+      "name": "SWIFT International Multi-Devises",
+      "category": "Bank Transfer",
+      "description": "Règlement bancaire international compatible EUR, USD, GBP, CHF et CAD.",
+      "account_info": "BIC/SWIFT: MOVAFUS33XXX · Movafi Bank New York",
+      "instructions": "Précisez votre numéro de compte et nom complet en tant que bénéficiaire.",
+      "is_active": true,
+      "display_order": 2
+    },
+    {
+      "id": "pm_003",
+      "name": "Passerelle Actifs Numériques & Stablecoins",
+      "category": "Digital Assets",
+      "description": "Dépôt institutionnel en stablecoins sécurisés (USDC / USDT).",
+      "account_info": "Réseau ERC-20 / TRC-20 vérifié",
+      "instructions": "Génération de l'adresse de dépôt dédiée sur confirmation de conformité.",
+      "is_active": true,
+      "display_order": 3
+    },
+    {
+      "id": "pm_004",
+      "name": "Service Conciergerie Privée & Dépôt Agence",
+      "category": "Cash / Agency",
+      "description": "Prise en charge personnalisée et dépôt haute sécurité en agence privée.",
+      "account_info": "Desk Privé: 540 Madison Avenue, New York, NY 10022",
+      "instructions": "Prenez contact avec votre banquier privé dédié pour planifier votre dépôt.",
+      "is_active": true,
+      "display_order": 4
+    }
+  ],
+  "cards": [],
+  "card_deliveries": [],
+  "loan_rates": [
+    {
+      "id": "lr_1",
+      "category": "Real Estate",
+      "annual_rate_percent": 2.45,
+      "min_amount": 50000,
+      "max_amount": 1000000,
+      "min_duration_months": 12,
+      "max_duration_months": 360
+    },
+    {
+      "id": "lr_2",
+      "category": "Automobile",
+      "annual_rate_percent": 3.8,
+      "min_amount": 5000,
+      "max_amount": 150000,
+      "min_duration_months": 6,
+      "max_duration_months": 84
+    },
+    {
+      "id": "lr_3",
+      "category": "Renovation",
+      "annual_rate_percent": 2.9,
+      "min_amount": 10000,
+      "max_amount": 300000,
+      "min_duration_months": 6,
+      "max_duration_months": 120
+    },
+    {
+      "id": "lr_4",
+      "category": "Business",
+      "annual_rate_percent": 3.2,
+      "min_amount": 25000,
+      "max_amount": 1000000,
+      "min_duration_months": 12,
+      "max_duration_months": 240
+    },
+    {
+      "id": "lr_5",
+      "category": "Working Capital",
+      "annual_rate_percent": 4.5,
+      "min_amount": 5000,
+      "max_amount": 500000,
+      "min_duration_months": 3,
+      "max_duration_months": 60
+    },
+    {
+      "id": "lr_6",
+      "category": "Education",
+      "annual_rate_percent": 1.9,
+      "min_amount": 2000,
+      "max_amount": 100000,
+      "min_duration_months": 6,
+      "max_duration_months": 120
+    },
+    {
+      "id": "lr_7",
+      "category": "Other",
+      "annual_rate_percent": 3.5,
+      "min_amount": 2000,
+      "max_amount": 250000,
+      "min_duration_months": 3,
+      "max_duration_months": 120
+    }
+  ],
+  "loan_applications": [],
+  "notifications": [],
+  "email_templates": [
+    {
+      "id": "tmpl_01",
+      "template_key": "account_created",
+      "name": "Account Application Received",
+      "language": "en",
+      "subject": "Your Movafi Bank Account is Ready",
+      "body_text": "Dear {{first_name}},\n\nThank you for choosing Movafi Bank United States. Your digital bank account is officially created. Your assigned Client ID is {{client_id}}.",
+      "updated_at": "2026-01-01T00:00:00.000Z"
+    },
+    {
+      "id": "tmpl_02",
+      "template_key": "account_approved",
+      "name": "Account Approved & Ready",
+      "language": "en",
+      "subject": "Welcome to Movafi Bank — Account Activated",
+      "body_text": "Dear {{first_name}},\n\nWe are pleased to inform you that your Movafi Bank account has been approved and activated. Your IBAN is {{iban}}.",
+      "updated_at": "2026-01-01T00:00:00.000Z"
+    },
+    {
+      "id": "tmpl_03",
+      "template_key": "transfer_completed",
+      "name": "Transfer Settlement Notice",
+      "language": "en",
+      "subject": "Wire Settlement Confirmation: {{reference}}",
+      "body_text": "Dear {{first_name}},\n\nYour transfer of {{currency}} {{amount}} with reference {{reference}} has been executed successfully from account {{account_id}}.",
+      "updated_at": "2026-01-01T00:00:00.000Z"
+    },
+    {
+      "id": "tmpl_04",
+      "template_key": "loan_disbursed",
+      "name": "Credit Facility Released",
+      "language": "en",
+      "subject": "Credit Facility Disbursement: {{currency}} {{amount}}",
+      "body_text": "Dear {{first_name}},\n\nYour credit facility of {{currency}} {{amount}} for project {{project_type}} has been released to your primary ledger.",
+      "updated_at": "2026-01-01T00:00:00.000Z"
+    }
+  ],
+  "email_logs": [],
+  "bank_settings": {
+    "id": "current_settings",
+    "bank_name": "MOVAFI BANK UNITED STATES",
+    "short_name": "Movafi Bank",
+    "city": "New York",
+    "country": "United States",
+    "support_email": "concierge@movafibank.com",
+    "support_phone": "+1 (212) 555-0198",
+    "disclaimer_notice": "Movafi Bank est une banque privée digitale internationale et une plateforme de trésorerie institutionnelle. Comptes sous ségrégation d'actifs et rails de paiement sécurisés.",
+    "updated_at": "2026-01-01T00:00:00.000Z"
+  },
+  "blocked_ips": [],
+  "audit_logs": [],
+  "otp_records": [],
+  "referral_settings": {
+    "is_enabled": true,
+    "invitation_validity_days": 30,
+    "max_referrals_per_user": 50,
+    "max_invitations_per_user": 100,
+    "validation_condition": "account_approved",
+    "reward_type": "points",
+    "reward_value": 25,
+    "reward_currency": "USD",
+    "tiers": [
+      {
+        "id": "tier_1",
+        "name": "Niveau 1 — Initié",
+        "min_referrals": 1,
+        "max_referrals": 5,
+        "badge": "Bronze Sovereign",
+        "reward_description": "25 points Privilège par recommandation validée"
+      },
+      {
+        "id": "tier_2",
+        "name": "Niveau 2 — Ambassadeur",
+        "min_referrals": 6,
+        "max_referrals": 20,
+        "badge": "Silver Ambassador",
+        "reward_description": "50 points Privilège par recommandation validée + Exonération de frais"
+      },
+      {
+        "id": "tier_3",
+        "name": "Niveau 3 — Cercle Privilège",
+        "min_referrals": 21,
+        "badge": "Gold Sovereign Elite",
+        "reward_description": "100 points Privilège par recommandation validée + Concierge dédié"
+      }
+    ],
+    "explanatory_text": "Invitez de nouveaux clients à découvrir l'expérience Movafi Bank et profitez de nos privilèges exclusifs.",
+    "terms_and_conditions": "Programme de parrainage et privilèges Movafi Bank. Les avantages sont attribués aux clients vérifiés sous réserve de validation de conformité des comptes parrainés.",
+    "default_share_message": "Découvrez Movafi Bank et ouvrez votre compte digital privé via mon lien d'invitation : {link}",
+    "updated_at": "2026-09-28T09:00:00.000Z"
+  },
+  "referral_codes": [],
+  "referrals": []
+}

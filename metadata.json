@@ -1,0 +1,6 @@
+{
+  "name": "MOVAFI BANK UNITED STATES",
+  "description": "Movafi Bank United States - Premier Private Digital Banking Prototype & Wealth Management Platform.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}
