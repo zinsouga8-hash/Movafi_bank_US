@@ -376,6 +376,23 @@ export const api = {
       return res.json();
     },
 
+    async regenerateSecurityCodes(id: string) {
+      const res = await fetch(`${API_BASE}/admin/accounts/${id}/regenerate-security-codes`, {
+        method: 'POST',
+        headers: getAuthHeaders()
+      });
+      return res.json();
+    },
+
+    async updateProfile(id: string, payload: any) {
+      const res = await fetch(`${API_BASE}/admin/accounts/${id}/update-profile`, {
+        method: 'POST',
+        headers: getAuthHeaders(),
+        body: JSON.stringify(payload)
+      });
+      return res.json();
+    },
+
     async getTransactions() {
       const res = await fetch(`${API_BASE}/admin/transactions`, {
         headers: getAuthHeaders()

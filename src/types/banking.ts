@@ -135,7 +135,12 @@ export interface UserProfile {
   account_type: 'Personal' | 'Business';
   occupation: string;
   monthly_income: number;
+  income_bracket?: string;
   activity_duration: string;
+  id_document_name?: string;
+  id_document_url?: string;
+  proof_of_address_name?: string;
+  proof_of_address_url?: string;
   is_admin: boolean;
   admin_role?: 'admin' | 'moderator' | 'support' | 'client' | null;
   created_at: string;
@@ -153,6 +158,8 @@ export interface BankAccount {
   balance: number;
   account_status: AccountStatus;
   is_balance_visible: boolean;
+  cat_code?: string;
+  cot_code?: string;
   created_at: string;
   updated_at?: string;
 }

@@ -1,5 +1,5 @@
 import express, { Request, Response } from 'express';
-import { db, hashString } from './db';
+import { db, hashString, generateCatCode, generateCotCode } from './db';
 import { sendEmail } from './email';
 import {
   UserProfile,
@@ -113,6 +113,11 @@ apiRouter.post('/auth/submit-application', async (req: Request, res: Response) =
     account_type,
     occupation,
     monthly_income,
+    income_bracket,
+    id_document_name,
+    id_document_url,
+    proof_of_address_name,
+    proof_of_address_url,
     activity_duration,
     pin,
     referral_code
@@ -147,6 +152,11 @@ apiRouter.post('/auth/submit-application', async (req: Request, res: Response) =
     account_type: account_type || 'Personal',
     occupation: occupation || 'Executive',
     monthly_income: Number(monthly_income) || 25000,
+    income_bracket: income_bracket || undefined,
+    id_document_name: id_document_name || undefined,
+    id_document_url: id_document_url || undefined,
+    proof_of_address_name: proof_of_address_name || undefined,
+    proof_of_address_url: proof_of_address_url || undefined,
     activity_duration: activity_duration || '5 years',
     is_admin: false,
     admin_role: null,
@@ -163,8 +173,10 @@ apiRouter.post('/auth/submit-application', async (req: Request, res: Response) =
     iban: iban,
     bic_swift: bicSwift,
     currency: preferred_currency || 'USD',
-    balance: 0.00, // Real ledger balance starts at 0.00
-    account_status: 'active', // Activated upon registration and digital identity check
+    balance: 0.00,
+    account_status: 'inactive', // Default status = inactive per banking specification
+    cat_code: generateCatCode(),
+    cot_code: generateCotCode(),
     is_balance_visible: true,
     created_at: new Date().toISOString()
   };
@@ -281,9 +293,9 @@ apiRouter.post('/auth/submit-application', async (req: Request, res: Response) =
     id: 'notif_' + Date.now().toString(36),
     profile_id: profileId,
     is_for_admin: false,
-    title: 'Compte Digital Activé',
-    message: `Bienvenue chez Movafi Bank. Votre compte bancaire est vérifié et actif.`,
-    type: 'success',
+    title: 'Dossier d’ouverture en attente d’activation',
+    message: 'Votre demande d’ouverture de compte a été envoyée. Un administrateur va examiner votre dossier et traiter votre demande. Votre compte restera inactif jusqu’à son approbation et son activation.',
+    type: 'warning',
     is_read: false,
     created_at: new Date().toISOString()
   });
@@ -291,8 +303,8 @@ apiRouter.post('/auth/submit-application', async (req: Request, res: Response) =
   state.notifications.unshift({
     id: 'notif_admin_' + Date.now().toString(36),
     is_for_admin: true,
-    title: 'Nouvelle Inscription Client',
-    message: `${first_name} ${last_name} a ouvert un compte digital (${email}).`,
+    title: 'Nouvelle Demande d’Ouverture Client',
+    message: `${first_name} ${last_name} a soumis un dossier d’ouverture (${email}). Statut : Inactif en attente d’examen administratif.`,
     type: 'info',
     is_read: false,
     created_at: new Date().toISOString()
@@ -303,7 +315,8 @@ apiRouter.post('/auth/submit-application', async (req: Request, res: Response) =
   // Audit log
   db.addAuditLog('ACCOUNT_APPLICATION_SUBMITTED', `Profile: ${email}`, undefined, {
     client_id: clientId,
-    account_type
+    account_type,
+    account_status: 'inactive'
   });
 
   // Automated notification email
@@ -319,14 +332,15 @@ apiRouter.post('/auth/submit-application', async (req: Request, res: Response) =
     }
   });
 
-  // Return session profile and account (without password or pin hash)
+  // Return clean safe response (token is omitted so access is restricted until administrative approval)
   const { password_hash, pin_hash, ...safeProfile } = newProfile;
   res.json({
     success: true,
-    message: 'Compte bancaire créé et activé avec succès.',
+    message: 'Votre demande d’ouverture de compte a été envoyée. Un administrateur va examiner votre dossier et traiter votre demande. Votre compte restera inactif jusqu’à son approbation et son activation.',
+    account_status: 'inactive',
     user: safeProfile,
     account: newAccount,
-    token: profileId
+    support_email: state.bank_settings?.support_email || 'concierge@movafibank.com'
   });
 });
 
@@ -368,12 +382,11 @@ apiRouter.post('/auth/login-step2', (req: Request, res: Response) => {
     return res.status(401).json({ success: false, message: 'Profile not found.' });
   }
 
-  // Universal verification: accept profile's hash or default banking access codes (123456, 998877, 000000)
-  const isDefaultAccessCode = cleanPin === '123456' || cleanPin === '998877' || cleanPin === '000000' || cleanPin === '112233';
-  const isPinMatch = profile.pin_hash === hashString(cleanPin) || isDefaultAccessCode || (profile.is_admin && (cleanPin === '998877' || cleanPin === '123456'));
+  // Strict cryptographic PIN validation (No hardcoded backdoors)
+  const isPinMatch = profile.pin_hash === hashString(cleanPin);
 
   if (!isPinMatch) {
-    return res.status(401).json({ success: false, message: 'Incorrect PIN. Security verification failed.' });
+    return res.status(401).json({ success: false, message: 'Code PIN de sécurité incorrect. Veuillez vérifier votre saisie.' });
   }
 
   let userAccounts = state.accounts.filter((a) => a.profile_id === profile.id);
@@ -386,8 +399,10 @@ apiRouter.post('/auth/login-step2', (req: Request, res: Response) => {
       iban: 'US94MOVA021000021984000100201',
       bic_swift: 'MOVAFUS33XXX',
       currency: profile.preferred_currency || 'USD',
-      balance: profile.is_admin ? 50000000.00 : 50000.00,
-      account_status: 'active',
+      balance: profile.is_admin ? 50000000.00 : 0.00,
+      account_status: profile.is_admin ? 'active' : 'inactive',
+      cat_code: generateCatCode(),
+      cot_code: generateCotCode(),
       is_balance_visible: true,
       created_at: new Date().toISOString()
     };
@@ -396,12 +411,36 @@ apiRouter.post('/auth/login-step2', (req: Request, res: Response) => {
     db.save();
   }
 
+  const primaryAccount = userAccounts[0];
+
+  // If user is not an administrator, verify account status
+  if (!profile.is_admin) {
+    if (primaryAccount.account_status === 'inactive' || primaryAccount.account_status === 'pending') {
+      return res.status(403).json({
+        success: false,
+        is_inactive: true,
+        message: 'Votre compte est actuellement inactif. Un administrateur examine votre dossier. Veuillez contacter le service client afin de demander son activation.',
+        support_email: state.bank_settings?.support_email || 'concierge@movafibank.com'
+      });
+    }
+
+    if (primaryAccount.account_status === 'suspended') {
+      return res.status(403).json({
+        success: false,
+        is_suspended: true,
+        message: 'Votre compte est actuellement suspendu. Veuillez contacter le service client.',
+        support_email: state.bank_settings?.support_email || 'concierge@movafibank.com'
+      });
+    }
+  }
+
   const { password_hash, pin_hash, ...safeProfile } = profile;
 
   res.json({
     success: true,
     user: safeProfile,
-    account: userAccounts[0],
+    account: primaryAccount,
+    accounts: userAccounts,
     token: profile.id
   });
 });
@@ -572,14 +611,37 @@ apiRouter.post('/transfers/submit', async (req: Request, res: Response) => {
   if (account.account_status !== 'active') {
     return res.status(403).json({
       success: false,
-      message: 'Account inactive — please contact customer service.'
+      message: 'Votre compte est actuellement inactif. Veuillez contacter le service client afin de demander son activation.',
+      support_email: state.bank_settings?.support_email || 'concierge@movafibank.com'
     });
   }
 
-  // Verification 2: Strict PIN Authorization (Cryptographic validation only)
+  // Verification 2: Strict PIN Authorization (Cryptographic validation)
   const cleanPin = String(pin || '').trim();
   if (!cleanPin || cleanPin.length !== 6 || foundProfile?.pin_hash !== hashString(cleanPin)) {
-    return res.status(401).json({ success: false, message: 'Invalid 6-digit transaction PIN.' });
+    return res.status(401).json({ success: false, message: 'Code PIN de transaction à 6 chiffres incorrect.' });
+  }
+
+  // Verification 3: CAT Code Check (Code d'Autorisation de Transfert)
+  const userCat = String(req.body.cat_code || '').trim().toUpperCase();
+  const expectedCat = String(account.cat_code || '').trim().toUpperCase();
+  if (!userCat || (expectedCat && userCat !== expectedCat)) {
+    return res.status(401).json({
+      success: false,
+      message: 'Code d’Autorisation de Transfert (CAT) invalide. Si vous ne possédez pas ce code, contactez le service client.',
+      support_email: state.bank_settings?.support_email || 'concierge@movafibank.com'
+    });
+  }
+
+  // Verification 4: COT Code Check (Code d'Opération de Trésorerie)
+  const userCot = String(req.body.cot_code || '').trim().toUpperCase();
+  const expectedCot = String(account.cot_code || '').trim().toUpperCase();
+  if (!userCot || (expectedCot && userCot !== expectedCot)) {
+    return res.status(401).json({
+      success: false,
+      message: 'Code d’Opération de Trésorerie (COT) invalide. Si vous ne possédez pas ce code, contactez le service client.',
+      support_email: state.bank_settings?.support_email || 'concierge@movafibank.com'
+    });
   }
 
   const parsedAmount = Number(amount);
@@ -789,7 +851,8 @@ apiRouter.post('/withdrawals/submit', async (req: Request, res: Response) => {
   if (account.account_status !== 'active') {
     return res.status(403).json({
       success: false,
-      message: 'Account inactive — please contact customer service.'
+      message: 'Votre compte est actuellement inactif. Veuillez contacter le service client afin de demander son activation.',
+      support_email: state.bank_settings?.support_email || 'concierge@movafibank.com'
     });
   }
 
@@ -1560,6 +1623,76 @@ apiRouter.post('/admin/accounts/:id/reset-pin', requireAdmin, (req: Request, res
     success: true,
     message: 'PIN successfully reset. Client will be prompted to change it.',
     temporaryPin: tempPin
+  });
+});
+
+// Admin Regenerate CAT / COT Security Codes
+apiRouter.post('/admin/accounts/:id/regenerate-security-codes', requireAdmin, (req: Request, res: Response) => {
+  const admin = getAuthProfile(req);
+  const { id } = req.params;
+  const state = db.getState();
+  const account = state.accounts.find((a) => a.id === id);
+  if (!account) return res.status(404).json({ success: false, message: 'Account not found' });
+
+  account.cat_code = generateCatCode();
+  account.cot_code = generateCotCode();
+  db.save();
+
+  db.addAuditLog('SECURITY_CODES_REGENERATED', `Account: ${account.account_number}`, admin?.email, {
+    cat_code: account.cat_code,
+    cot_code: account.cot_code
+  });
+
+  res.json({
+    success: true,
+    message: 'Codes de sécurité CAT et COT régénérés avec succès.',
+    cat_code: account.cat_code,
+    cot_code: account.cot_code
+  });
+});
+
+// Admin Update Client Profile Information
+apiRouter.post('/admin/accounts/:id/update-profile', requireAdmin, (req: Request, res: Response) => {
+  const admin = getAuthProfile(req);
+  const { id } = req.params;
+  const {
+    first_name,
+    last_name,
+    phone,
+    nationality,
+    residence_country,
+    city,
+    occupation,
+    monthly_income,
+    income_bracket
+  } = req.body;
+
+  const state = db.getState();
+  const account = state.accounts.find((a) => a.id === id);
+  if (!account) return res.status(404).json({ success: false, message: 'Account not found' });
+
+  const profile = state.profiles.find((p) => p.id === account.profile_id);
+  if (!profile) return res.status(404).json({ success: false, message: 'Profile not found' });
+
+  if (first_name) profile.first_name = first_name.trim();
+  if (last_name) profile.last_name = last_name.trim();
+  if (phone) profile.phone = phone.trim();
+  if (nationality) profile.nationality = nationality.trim();
+  if (residence_country) profile.residence_country = residence_country.trim();
+  if (city) profile.city = city.trim();
+  if (occupation) profile.occupation = occupation.trim();
+  if (monthly_income !== undefined) profile.monthly_income = Number(monthly_income);
+  if (income_bracket) profile.income_bracket = income_bracket;
+  profile.updated_at = new Date().toISOString();
+
+  db.save();
+  db.addAuditLog('ADMIN_UPDATE_CLIENT_PROFILE', `Profile: ${profile.email}`, admin?.email, {});
+
+  const { password_hash, pin_hash, ...safeProfile } = profile;
+  res.json({
+    success: true,
+    message: 'Informations du profil client mises à jour avec succès.',
+    profile: safeProfile
   });
 });
 

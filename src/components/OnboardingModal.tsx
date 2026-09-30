@@ -30,13 +30,15 @@ interface OnboardingModalProps {
   onClose: () => void;
   currentLang: SupportedLanguage;
   onSuccess: (user: UserProfile, account: BankAccount) => void;
+  supportEmail?: string;
 }
 
 export const OnboardingModal: React.FC<OnboardingModalProps> = ({
   isOpen,
   onClose,
   currentLang,
-  onSuccess
+  onSuccess,
+  supportEmail = 'concierge@movafibank.com'
 }) => {
   const t = translations[currentLang] || translations.en;
   const isRtl = currentLang === 'ar';
@@ -1208,40 +1210,40 @@ export const OnboardingModal: React.FC<OnboardingModalProps> = ({
             </form>
           )}
 
-          {/* STEP 6: APPLICATION COMPLETED & CREDENTIALS DISPLAY */}
+          {/* STEP 6: APPLICATION COMPLETED & INACTIVE STATUS CONFIRMATION (REQUIREMENT 8) */}
           {step === 6 && generatedAccount && (
             <div className="space-y-4 text-center py-2">
-              <div className="w-14 h-14 rounded-full bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 flex items-center justify-center mx-auto shadow-inner">
-                <CheckCircle2 className="w-8 h-8" />
+              <div className="w-14 h-14 rounded-full bg-amber-500/10 text-amber-600 dark:text-amber-400 flex items-center justify-center mx-auto shadow-inner border border-amber-500/20">
+                <ShieldCheck className="w-8 h-8" />
               </div>
 
-              <div className="space-y-1">
+              <div className="space-y-1.5">
+                <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-amber-500/10 text-amber-700 dark:text-amber-400 font-semibold text-[11px] border border-amber-500/20">
+                  <span className="w-2 h-2 rounded-full bg-amber-500 animate-pulse" />
+                  <span>{t.accountInactiveBadge || 'Statut du compte : Inactif — En attente d\'approbation administrative'}</span>
+                </div>
+
                 <h3 className="text-lg sm:text-xl font-bold text-slate-900 dark:text-white">
-                  {currentLang === 'fr'
-                    ? 'Compte Bancaire Activé avec Succès'
-                    : currentLang === 'es'
-                    ? 'Cuenta Bancaria Activada con Éxito'
-                    : currentLang === 'ar'
-                    ? 'تم تفعيل الحساب المصرفي بنجاح'
-                    : 'Digital Banking Account Successfully Activated'}
+                  {t.applicationSubmittedTitle || 'Demande d’ouverture de compte envoyée'}
                 </h3>
-                <p className="text-xs font-semibold text-emerald-600 dark:text-emerald-400">
-                  {currentLang === 'fr'
-                    ? '« Vos rails de paiement et coordonnées IBAN sont opérationnels »'
-                    : '« Your payment rails and international IBAN are active »'}
+
+                <p className="text-xs sm:text-sm text-slate-700 dark:text-slate-300 font-medium leading-relaxed max-w-lg mx-auto bg-slate-100/70 dark:bg-slate-800/60 p-3 rounded-xl border border-slate-200 dark:border-slate-700">
+                  « {t.accountInactiveNotice || 'Votre demande d’ouverture de compte a été envoyée. Un administrateur va examiner votre dossier et traiter votre demande. Votre compte restera inactif jusqu’à son approbation et son activation.'} »
                 </p>
-                <p className="text-xs text-slate-500 dark:text-slate-400">
-                  {currentLang === 'fr'
-                    ? 'Vos coordonnées bancaires officielles sont prêtes. Vous pouvez déposer des fonds et gérer vos comptes.'
-                    : 'Your official banking coordinates are ready. You can now deposit capital and manage your accounts.'}
+
+                <p className="text-[11px] text-slate-500 dark:text-slate-400">
+                  {t.noFixedDelayNotice || 'Aucun délai fixe n’est garanti. Vous recevrez une notification par e-mail dès le traitement de votre dossier.'}
                 </p>
               </div>
 
-              {/* Banking Identifiers */}
-              <div className="p-4 rounded-2xl bg-slate-50 dark:bg-slate-800/80 border border-slate-200 dark:border-slate-700 text-left space-y-2.5 text-xs">
+              {/* Banking Identifiers for client's record */}
+              <div className="p-4 rounded-2xl bg-slate-50 dark:bg-slate-800/80 border border-slate-200 dark:border-slate-700 text-left space-y-2 text-xs">
+                <div className="text-[11px] font-bold text-slate-400 uppercase tracking-wider mb-1">
+                  {currentLang === 'fr' ? 'Coordonnées du Dossier Déposé' : currentLang === 'es' ? 'Datos del Expediente' : currentLang === 'ar' ? 'بيانات الملف المصرفي' : 'Application Dossier Coordinates'}
+                </div>
                 <div className="flex justify-between items-center py-1 border-b border-slate-200/60 dark:border-slate-700/60">
                   <span className="text-slate-500">
-                    {currentLang === 'fr' ? 'Identifiant Client (Client ID)' : 'Client ID'}
+                    {currentLang === 'fr' ? 'Identifiant Client' : 'Client ID'}
                   </span>
                   <span className="font-mono font-bold text-slate-900 dark:text-white">
                     {generatedAccount.client_id}
@@ -1281,12 +1283,27 @@ export const OnboardingModal: React.FC<OnboardingModalProps> = ({
                 </div>
               </div>
 
+              {/* Customer Service mailto: link */}
+              <div className="p-3 rounded-xl bg-amber-500/5 border border-amber-500/20 text-xs flex flex-col sm:flex-row items-center justify-between gap-2">
+                <span className="text-slate-600 dark:text-slate-300">
+                  {t.contactSupportPrompt || 'Pour toute question concernant votre dossier, contactez le service client :'}
+                </span>
+                <a
+                  href={`mailto:${supportEmail}?subject=Dossier%20Ouverture%20Compte%20${generatedAccount.client_id}`}
+                  className="font-bold text-amber-600 dark:text-amber-400 underline hover:no-underline inline-flex items-center gap-1.5 shrink-0"
+                >
+                  <Mail className="w-3.5 h-3.5" />
+                  <span>{supportEmail}</span>
+                </a>
+              </div>
+
+              {/* Return to Home (Requirement 8: Replace Access My Banking Space) */}
               <button
-                onClick={handleCompleteAndEnter}
-                className="w-full py-3.5 rounded-2xl bg-amber-600 hover:bg-amber-700 text-white font-semibold text-xs shadow-lg transition-colors cursor-pointer flex items-center justify-center gap-2"
+                onClick={onClose}
+                className="w-full py-3.5 rounded-2xl bg-slate-900 hover:bg-slate-800 dark:bg-white dark:hover:bg-slate-100 text-white dark:text-slate-950 font-bold text-xs shadow-lg transition-all cursor-pointer flex items-center justify-center gap-2"
               >
-                <span>{currentLang === 'fr' ? 'Accéder à mon espace bancaire digital' : 'Access My Digital Banking Portal'}</span>
-                <ArrowRight className="w-4 h-4" />
+                <span>{t.backToHome || 'Retour à l\'accueil'}</span>
+                <ArrowRight className={`w-4 h-4 ${isRtl ? 'rotate-180' : ''}`} />
               </button>
             </div>
           )}

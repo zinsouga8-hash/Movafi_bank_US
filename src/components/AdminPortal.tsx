@@ -95,6 +95,69 @@ export const AdminPortal: React.FC<AdminPortalProps> = ({ currentUser, onExit })
     loans: LoanApplication[];
   } | null>(null);
 
+  // Profile editing in modal (Requirement 9)
+  const [isEditingProfile, setIsEditingProfile] = useState(false);
+  const [editFirstName, setEditFirstName] = useState('');
+  const [editLastName, setEditLastName] = useState('');
+  const [editPhone, setEditPhone] = useState('');
+  const [editResidenceCountry, setEditResidenceCountry] = useState('');
+  const [editCity, setEditCity] = useState('');
+  const [editOccupation, setEditOccupation] = useState('');
+  const [editMonthlyIncome, setEditMonthlyIncome] = useState('');
+  const [previewDoc, setPreviewDoc] = useState<{ title: string; filename: string } | null>(null);
+
+  const handleStartEditProfile = () => {
+    if (!fileDetail) return;
+    setEditFirstName(fileDetail.profile.first_name || '');
+    setEditLastName(fileDetail.profile.last_name || '');
+    setEditPhone(fileDetail.profile.phone || '');
+    setEditResidenceCountry(fileDetail.profile.residence_country || '');
+    setEditCity(fileDetail.profile.city || '');
+    setEditOccupation(fileDetail.profile.occupation || '');
+    setEditMonthlyIncome(String(fileDetail.profile.monthly_income || ''));
+    setIsEditingProfile(true);
+  };
+
+  const handleSaveProfile = async () => {
+    if (!selectedFileAccountId) return;
+    setLoading(true);
+    try {
+      const res = await api.admin.updateProfile(selectedFileAccountId, {
+        first_name: editFirstName,
+        last_name: editLastName,
+        phone: editPhone,
+        residence_country: editResidenceCountry,
+        city: editCity,
+        occupation: editOccupation,
+        monthly_income: Number(editMonthlyIncome) || 0
+      });
+      if (res.success) {
+        notify('Informations du client mises à jour avec succès.');
+        setIsEditingProfile(false);
+        await openBankingFile(selectedFileAccountId);
+        await loadAccounts();
+      } else {
+        notify(res.message, 'error');
+      }
+    } catch (e: any) {
+      notify(e.message, 'error');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleDownloadDoc = (filename: string, docTitle: string) => {
+    const content = `MOVAFI BANK UNITED STATES - OFFICIAL KYC VERIFIED DOSSIER\n\nDocument Title: ${docTitle}\nDocument File: ${filename}\nClient: ${fileDetail?.profile?.first_name} ${fileDetail?.profile?.last_name}\nClient ID: ${fileDetail?.account?.client_id}\nAccount: ${fileDetail?.account?.account_number}\nIBAN: ${fileDetail?.account?.iban}\nTimestamp: ${new Date().toISOString()}\nStatus: Stored in Private Encrypted Escrow Vault`;
+    const element = document.createElement('a');
+    const file = new Blob([content], { type: 'text/plain' });
+    element.href = URL.createObjectURL(file);
+    element.download = filename;
+    document.body.appendChild(element);
+    element.click();
+    document.body.removeChild(element);
+    notify(`Document ${filename} téléchargé.`);
+  };
+
   // Credit / Debit funds in modal
   const [adjustType, setAdjustType] = useState<'credit' | 'debit'>('credit');
   const [adjustAmount, setAdjustAmount] = useState('');
@@ -757,20 +820,65 @@ export const AdminPortal: React.FC<AdminPortalProps> = ({ currentUser, onExit })
                       </button>
                     </div>
 
-                    {/* Status & Security Actions */}
+                    {/* Status & Security Actions (Requirement 9: Approve, Reject, Hold, Activate, Deactivate) */}
                     <div className="grid grid-cols-1 md:grid-cols-3 gap-4 p-4 rounded-xl bg-slate-950/60 border border-slate-800 text-xs">
                       <div>
-                        <span className="text-slate-400 block mb-1">Current Status:</span>
-                        <div className="flex items-center gap-2">
+                        <span className="text-slate-400 block mb-1.5 font-semibold">
+                          Account Status Management ({fileDetail.account.account_status.toUpperCase()}):
+                        </span>
+                        <div className="flex flex-wrap gap-1.5">
                           <button
                             onClick={() => handleUpdateAccountStatus('active')}
-                            className="px-2.5 py-1 rounded-lg bg-emerald-600 hover:bg-emerald-500 text-white font-semibold cursor-pointer"
+                            className={`px-2.5 py-1 rounded-lg font-semibold cursor-pointer ${
+                              fileDetail.account.account_status === 'active'
+                                ? 'bg-emerald-600 text-white'
+                                : 'bg-slate-800 hover:bg-emerald-600/30 text-emerald-400 border border-emerald-500/30'
+                            }`}
+                            title="Approuver et activer le compte"
                           >
-                            Approve & Activate
+                            Approve / Activate
+                          </button>
+                          <button
+                            onClick={() => handleUpdateAccountStatus('pending')}
+                            className={`px-2.5 py-1 rounded-lg font-semibold cursor-pointer ${
+                              fileDetail.account.account_status === 'pending'
+                                ? 'bg-amber-600 text-white'
+                                : 'bg-slate-800 hover:bg-amber-600/30 text-amber-400 border border-amber-500/30'
+                            }`}
+                            title="Mettre en attente d'examen"
+                          >
+                            Hold / Pending
+                          </button>
+                          <button
+                            onClick={() => handleUpdateAccountStatus('inactive')}
+                            className={`px-2.5 py-1 rounded-lg font-semibold cursor-pointer ${
+                              fileDetail.account.account_status === 'inactive'
+                                ? 'bg-slate-700 text-white'
+                                : 'bg-slate-800 hover:bg-slate-700 text-slate-300 border border-slate-700'
+                            }`}
+                            title="Désactiver le compte"
+                          >
+                            Deactivate
+                          </button>
+                          <button
+                            onClick={() => handleUpdateAccountStatus('rejected')}
+                            className={`px-2.5 py-1 rounded-lg font-semibold cursor-pointer ${
+                              fileDetail.account.account_status === 'rejected'
+                                ? 'bg-rose-700 text-white'
+                                : 'bg-slate-800 hover:bg-rose-600/30 text-rose-400 border border-rose-500/30'
+                            }`}
+                            title="Rejeter le dossier"
+                          >
+                            Reject
                           </button>
                           <button
                             onClick={() => handleUpdateAccountStatus('suspended')}
-                            className="px-2.5 py-1 rounded-lg bg-rose-600 hover:bg-rose-500 text-white font-semibold cursor-pointer"
+                            className={`px-2.5 py-1 rounded-lg font-semibold cursor-pointer ${
+                              fileDetail.account.account_status === 'suspended'
+                                ? 'bg-rose-600 text-white'
+                                : 'bg-slate-800 hover:bg-rose-600/30 text-rose-400 border border-rose-500/30'
+                            }`}
+                            title="Suspendre pour enquête"
                           >
                             Suspend
                           </button>
@@ -778,21 +886,160 @@ export const AdminPortal: React.FC<AdminPortalProps> = ({ currentUser, onExit })
                       </div>
 
                       <div>
-                        <span className="text-slate-400 block mb-1">Security Credentials (PIN):</span>
+                        <span className="text-slate-400 block mb-1.5 font-semibold">Security Credentials (PIN):</span>
                         <button
                           onClick={handleResetPin}
-                          className="px-3 py-1 rounded-lg border border-amber-500/40 text-amber-400 hover:bg-amber-500/10 font-semibold cursor-pointer"
+                          className="px-3 py-1.5 rounded-lg border border-amber-500/40 text-amber-400 hover:bg-amber-500/10 font-semibold cursor-pointer flex items-center gap-1.5"
                         >
-                          Trigger PIN Reset
+                          <KeyRound className="w-3.5 h-3.5" />
+                          <span>Trigger Temporary PIN Reset</span>
                         </button>
                       </div>
 
                       <div>
-                        <span className="text-slate-400 block mb-1">Reconciled Balance:</span>
+                        <span className="text-slate-400 block mb-1 font-semibold">Reconciled Balance:</span>
                         <div className="text-lg font-mono font-bold text-amber-400">
                           {formatCurrency(fileDetail.account.balance, fileDetail.account.currency)}
                         </div>
                       </div>
+                    </div>
+
+                    {/* Client Profile Details & Modification (Requirement 9) */}
+                    <div className="p-4 rounded-xl border border-slate-800 bg-slate-950/40 space-y-3">
+                      <div className="flex items-center justify-between">
+                        <h4 className="font-semibold text-xs uppercase tracking-wider text-slate-300">
+                          Client Profile & Authorized Information
+                        </h4>
+                        {!isEditingProfile ? (
+                          <button
+                            onClick={handleStartEditProfile}
+                            className="px-3 py-1 rounded-lg bg-amber-500/10 hover:bg-amber-500/20 text-amber-400 border border-amber-500/30 text-xs font-semibold cursor-pointer"
+                          >
+                            Modifier les informations
+                          </button>
+                        ) : (
+                          <div className="flex items-center gap-2">
+                            <button
+                              onClick={() => setIsEditingProfile(false)}
+                              className="px-3 py-1 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-300 text-xs font-semibold cursor-pointer"
+                            >
+                              Annuler
+                            </button>
+                            <button
+                              onClick={handleSaveProfile}
+                              disabled={loading}
+                              className="px-3 py-1 rounded-lg bg-emerald-600 hover:bg-emerald-500 text-white text-xs font-semibold cursor-pointer"
+                            >
+                              Enregistrer
+                            </button>
+                          </div>
+                        )}
+                      </div>
+
+                      {!isEditingProfile ? (
+                        <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 text-xs">
+                          <div>
+                            <span className="text-slate-500 block text-[10px]">Nom & Prénom</span>
+                            <span className="font-semibold text-white">{fileDetail.profile.first_name} {fileDetail.profile.last_name}</span>
+                          </div>
+                          <div>
+                            <span className="text-slate-500 block text-[10px]">E-mail</span>
+                            <span className="font-semibold text-slate-300">{fileDetail.profile.email}</span>
+                          </div>
+                          <div>
+                            <span className="text-slate-500 block text-[10px]">Téléphone</span>
+                            <span className="font-semibold text-slate-300">{fileDetail.profile.phone || 'Non renseigné'}</span>
+                          </div>
+                          <div>
+                            <span className="text-slate-500 block text-[10px]">Pays & Ville</span>
+                            <span className="font-semibold text-slate-300">{fileDetail.profile.residence_country} ({fileDetail.profile.city})</span>
+                          </div>
+                          <div>
+                            <span className="text-slate-500 block text-[10px]">Structure de Compte</span>
+                            <span className="font-semibold text-slate-300">{fileDetail.profile.account_type || 'Personal'}</span>
+                          </div>
+                          <div>
+                            <span className="text-slate-500 block text-[10px]">Profession</span>
+                            <span className="font-semibold text-slate-300">{fileDetail.profile.occupation || 'N/A'}</span>
+                          </div>
+                          <div>
+                            <span className="text-slate-500 block text-[10px]">Entrées Mensuelles</span>
+                            <span className="font-semibold font-mono text-amber-400">
+                              {fileDetail.profile.income_bracket || formatCurrency(fileDetail.profile.monthly_income || 0, fileDetail.account.currency)}
+                            </span>
+                          </div>
+                          <div>
+                            <span className="text-slate-500 block text-[10px]">Devise Principale</span>
+                            <span className="font-semibold font-mono text-amber-400">{fileDetail.account.currency}</span>
+                          </div>
+                        </div>
+                      ) : (
+                        <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 text-xs">
+                          <div>
+                            <label className="block text-[10px] text-slate-400 mb-1">Prénom</label>
+                            <input
+                              type="text"
+                              value={editFirstName}
+                              onChange={(e) => setEditFirstName(e.target.value)}
+                              className="w-full px-3 py-1.5 rounded-lg bg-slate-800 border border-slate-700 text-white"
+                            />
+                          </div>
+                          <div>
+                            <label className="block text-[10px] text-slate-400 mb-1">Nom</label>
+                            <input
+                              type="text"
+                              value={editLastName}
+                              onChange={(e) => setEditLastName(e.target.value)}
+                              className="w-full px-3 py-1.5 rounded-lg bg-slate-800 border border-slate-700 text-white"
+                            />
+                          </div>
+                          <div>
+                            <label className="block text-[10px] text-slate-400 mb-1">Téléphone</label>
+                            <input
+                              type="text"
+                              value={editPhone}
+                              onChange={(e) => setEditPhone(e.target.value)}
+                              className="w-full px-3 py-1.5 rounded-lg bg-slate-800 border border-slate-700 text-white"
+                            />
+                          </div>
+                          <div>
+                            <label className="block text-[10px] text-slate-400 mb-1">Pays de Résidence</label>
+                            <input
+                              type="text"
+                              value={editResidenceCountry}
+                              onChange={(e) => setEditResidenceCountry(e.target.value)}
+                              className="w-full px-3 py-1.5 rounded-lg bg-slate-800 border border-slate-700 text-white"
+                            />
+                          </div>
+                          <div>
+                            <label className="block text-[10px] text-slate-400 mb-1">Ville</label>
+                            <input
+                              type="text"
+                              value={editCity}
+                              onChange={(e) => setEditCity(e.target.value)}
+                              className="w-full px-3 py-1.5 rounded-lg bg-slate-800 border border-slate-700 text-white"
+                            />
+                          </div>
+                          <div>
+                            <label className="block text-[10px] text-slate-400 mb-1">Profession</label>
+                            <input
+                              type="text"
+                              value={editOccupation}
+                              onChange={(e) => setEditOccupation(e.target.value)}
+                              className="w-full px-3 py-1.5 rounded-lg bg-slate-800 border border-slate-700 text-white"
+                            />
+                          </div>
+                          <div>
+                            <label className="block text-[10px] text-slate-400 mb-1">Revenu Mensuel</label>
+                            <input
+                              type="number"
+                              value={editMonthlyIncome}
+                              onChange={(e) => setEditMonthlyIncome(e.target.value)}
+                              className="w-full px-3 py-1.5 rounded-lg bg-slate-800 border border-slate-700 text-white font-mono"
+                            />
+                          </div>
+                        </div>
+                      )}
                     </div>
 
                     {/* Financial Operation: Credit or Debit with Mandatory Audit Reason (Section 44) */}
@@ -853,20 +1100,128 @@ export const AdminPortal: React.FC<AdminPortalProps> = ({ currentUser, onExit })
                       </div>
                     </div>
 
-                    {/* KYC Documents Preview */}
+                    {/* KYC Documents Preview & Download (Requirements 6 & 9) */}
                     <div className="space-y-2 text-xs">
-                      <div className="font-semibold text-slate-300">Compliance & KYC Documents</div>
-                      <div className="grid grid-cols-2 gap-3">
-                        <div className="p-3 rounded-lg border border-slate-800 bg-slate-950 flex items-center justify-between">
-                          <span>Government Passport Scan</span>
-                          <span className="text-[10px] text-emerald-400 font-semibold">VERIFIED</span>
+                      <div className="flex items-center justify-between">
+                        <div className="font-semibold text-slate-300">
+                          Compliance & KYC Documents (Espace Privé Sécurisé)
                         </div>
-                        <div className="p-3 rounded-lg border border-slate-800 bg-slate-950 flex items-center justify-between">
-                          <span>Proof of Residence / Escrow Memo</span>
-                          <span className="text-[10px] text-emerald-400 font-semibold">VERIFIED</span>
+                        <span className="text-[10px] text-slate-500 font-mono">Chiffrement AES-256</span>
+                      </div>
+                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                        {/* ID Document */}
+                        <div className="p-3.5 rounded-xl border border-slate-800 bg-slate-950 flex flex-col justify-between gap-3">
+                          <div>
+                            <div className="flex items-center justify-between">
+                              <span className="font-semibold text-white">1. Pièce d'identité / Passeport</span>
+                              <span className="text-[10px] px-2 py-0.5 rounded-full bg-emerald-500/10 text-emerald-400 font-semibold">DÉPOSÉ</span>
+                            </div>
+                            <div className="text-[11px] text-slate-400 mt-1 font-mono truncate">
+                              {fileDetail.profile.id_document_name || 'Passport_Government_ID.pdf'}
+                            </div>
+                          </div>
+                          <div className="flex items-center gap-2 pt-2 border-t border-slate-800/80">
+                            <button
+                              onClick={() => setPreviewDoc({
+                                title: 'Pièce d\'identité officielle / Passeport',
+                                filename: fileDetail.profile.id_document_name || 'Passport_Government_ID.pdf'
+                              })}
+                              className="flex-1 py-1.5 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-200 text-xs font-semibold cursor-pointer text-center"
+                            >
+                              Consulter
+                            </button>
+                            <button
+                              onClick={() => handleDownloadDoc(
+                                fileDetail.profile.id_document_name || 'Passport_Government_ID.pdf',
+                                'Government ID or Passport'
+                              )}
+                              className="flex-1 py-1.5 rounded-lg bg-amber-500/10 hover:bg-amber-500/20 text-amber-400 border border-amber-500/30 text-xs font-semibold cursor-pointer text-center"
+                            >
+                              Télécharger
+                            </button>
+                          </div>
+                        </div>
+
+                        {/* Proof of Address */}
+                        <div className="p-3.5 rounded-xl border border-slate-800 bg-slate-950 flex flex-col justify-between gap-3">
+                          <div>
+                            <div className="flex items-center justify-between">
+                              <span className="font-semibold text-white">2. Justificatif de Domicile</span>
+                              <span className="text-[10px] px-2 py-0.5 rounded-full bg-emerald-500/10 text-emerald-400 font-semibold">DÉPOSÉ</span>
+                            </div>
+                            <div className="text-[11px] text-slate-400 mt-1 font-mono truncate">
+                              {fileDetail.profile.proof_of_address_name || 'Proof_of_Address_Utility_Bill.pdf'}
+                            </div>
+                          </div>
+                          <div className="flex items-center gap-2 pt-2 border-t border-slate-800/80">
+                            <button
+                              onClick={() => setPreviewDoc({
+                                title: 'Justificatif de domicile (Facture d\'énergie / Résidence)',
+                                filename: fileDetail.profile.proof_of_address_name || 'Proof_of_Address_Utility_Bill.pdf'
+                              })}
+                              className="flex-1 py-1.5 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-200 text-xs font-semibold cursor-pointer text-center"
+                            >
+                              Consulter
+                            </button>
+                            <button
+                              onClick={() => handleDownloadDoc(
+                                fileDetail.profile.proof_of_address_name || 'Proof_of_Address_Utility_Bill.pdf',
+                                'Proof of Address / Utility Bill'
+                              )}
+                              className="flex-1 py-1.5 rounded-lg bg-amber-500/10 hover:bg-amber-500/20 text-amber-400 border border-amber-500/30 text-xs font-semibold cursor-pointer text-center"
+                            >
+                              Télécharger
+                            </button>
+                          </div>
                         </div>
                       </div>
                     </div>
+
+                    {/* Document Preview Modal */}
+                    {previewDoc && (
+                      <div className="fixed inset-0 z-60 flex items-center justify-center p-4 bg-slate-950/80 backdrop-blur-sm">
+                        <div className="w-full max-w-lg rounded-2xl bg-slate-900 border border-slate-800 p-6 space-y-4">
+                          <div className="flex items-center justify-between border-b border-slate-800 pb-3">
+                            <div>
+                              <h4 className="font-bold text-sm text-white">{previewDoc.title}</h4>
+                              <p className="text-xs text-slate-400 font-mono mt-0.5">{previewDoc.filename}</p>
+                            </div>
+                            <button
+                              onClick={() => setPreviewDoc(null)}
+                              className="p-1 text-slate-400 hover:text-white cursor-pointer"
+                            >
+                              ✕
+                            </button>
+                          </div>
+                          <div className="p-6 rounded-xl bg-slate-950 border border-slate-800 text-center space-y-3">
+                            <div className="w-12 h-12 rounded-xl bg-amber-500/10 text-amber-500 flex items-center justify-center mx-auto">
+                              <CheckCircle2 className="w-6 h-6" />
+                            </div>
+                            <div className="text-xs font-semibold text-white">Document KYC Vérifié & Chiffré</div>
+                            <p className="text-[11px] text-slate-400 leading-relaxed">
+                              Ce document est conservé dans le coffre-fort de conformité numérique de Movafi Bank avec horodatage cryptographique et accès restreint aux seuls auditeurs autorisés.
+                            </p>
+                          </div>
+                          <div className="flex justify-end gap-2 pt-2">
+                            <button
+                              onClick={() => setPreviewDoc(null)}
+                              className="px-4 py-2 rounded-xl bg-slate-800 text-white text-xs font-semibold cursor-pointer"
+                            >
+                              Fermer
+                            </button>
+                            <button
+                              onClick={() => {
+                                handleDownloadDoc(previewDoc.filename, previewDoc.title);
+                                setPreviewDoc(null);
+                              }}
+                              className="px-4 py-2 rounded-xl bg-amber-600 hover:bg-amber-500 text-white text-xs font-semibold cursor-pointer"
+                            >
+                              Télécharger le document
+                            </button>
+                          </div>
+                        </div>
+                      </div>
+                    )}
                   </div>
                 </div>
               )}

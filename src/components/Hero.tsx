@@ -49,7 +49,7 @@ export const Hero: React.FC<HeroProps> = ({
 
           {/* Body Prose */}
           <p className="text-lg sm:text-xl text-slate-600 dark:text-slate-300 leading-relaxed font-normal max-w-2xl">
-            {t.subTagline} Built on sovereign banking architecture, zero-latency settlement rails, and bespoke multi-currency reserves.
+            {t.subTagline} {t.heroSubText}
           </p>
 
           {/* Primary Action Buttons */}
@@ -75,12 +75,12 @@ export const Hero: React.FC<HeroProps> = ({
           <div className="pt-2 flex flex-wrap items-center gap-3 sm:gap-4 text-xs text-slate-500 dark:text-slate-400">
             <div className="flex items-center gap-1.5 font-medium text-slate-700 dark:text-slate-300">
               <ShieldCheck className="w-4 h-4 text-emerald-600 dark:text-emerald-400" />
-              <span>Cryptographic Multi-Factor Ledger</span>
+              <span>{t.heroTrustLedger || 'Cryptographic Multi-Factor Ledger'}</span>
             </div>
             <span>·</span>
-            <span>Multi-Currency Treasury (USD / CAD / EUR)</span>
+            <span>{t.heroTrustTreasury || 'Multi-Currency Treasury (USD / CAD / EUR / BHD / SAR / AED)'}</span>
             <span>·</span>
-            <span>Institutional Escrow & Custody</span>
+            <span>{t.heroTrustCustody || 'Institutional Escrow & Custody'}</span>
           </div>
         </div>
 

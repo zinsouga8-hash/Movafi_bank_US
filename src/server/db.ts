@@ -38,6 +38,14 @@ export function generateReferralCode(): string {
   return `MOV-${random}`;
 }
 
+export function generateCatCode(): string {
+  return `CAT-${Math.floor(100000 + Math.random() * 900000)}`;
+}
+
+export function generateCotCode(): string {
+  return `COT-${Math.floor(100000 + Math.random() * 900000)}`;
+}
+
 export function createDefaultReferralSettings(): ReferralProgramSettings {
   return {
     is_enabled: true,
@@ -344,6 +352,17 @@ class DatabaseService {
           parsed.referrals = [];
           modified = true;
         }
+
+        parsed.accounts?.forEach((acc: BankAccount) => {
+          if (!acc.cat_code) {
+            acc.cat_code = generateCatCode();
+            modified = true;
+          }
+          if (!acc.cot_code) {
+            acc.cot_code = generateCotCode();
+            modified = true;
+          }
+        });
 
         if (modified) {
           this.save(parsed);

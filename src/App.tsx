@@ -23,7 +23,7 @@ export default function App() {
   // Language state
   const [currentLang, setCurrentLang] = useState<SupportedLanguage>(() => {
     const saved = localStorage.getItem('movafi_lang');
-    if (saved === 'fr' || saved === 'es' || saved === 'en') return saved;
+    if (saved === 'fr' || saved === 'es' || saved === 'en' || saved === 'ar') return saved as SupportedLanguage;
     return 'en';
   });
 
@@ -272,6 +272,7 @@ export default function App() {
           <LoanSimulatorPreview
             onOpenRegister={() => setIsRegisterOpen(true)}
             currency={currentAccount?.currency || 'USD'}
+            currentLang={currentLang}
           />
         </div>
       </main>
@@ -290,10 +291,14 @@ export default function App() {
         isOpen={isRegisterOpen}
         onClose={() => setIsRegisterOpen(false)}
         currentLang={currentLang}
+        supportEmail={bankSettings?.support_email}
         onSuccess={(newUser, newAccount) => {
-          setCurrentUser(newUser);
-          setCurrentAccount(newAccount);
-          setView('client');
+          // If approved/active, can enter; otherwise stays inactive awaiting admin validation
+          if (newAccount.account_status === 'active') {
+            setCurrentUser(newUser);
+            setCurrentAccount(newAccount);
+            setView('client');
+          }
         }}
       />
 
@@ -302,6 +307,7 @@ export default function App() {
         isOpen={isLoginOpen}
         onClose={() => setIsLoginOpen(false)}
         currentLang={currentLang}
+        supportEmail={bankSettings?.support_email}
         onSuccess={handleLoginSuccess}
         onSwitchToRegister={() => {
           setIsLoginOpen(false);

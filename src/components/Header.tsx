@@ -206,15 +206,15 @@ export const Header: React.FC<HeaderProps> = ({
 
   // 3x3 Grid items specification (Requirement 22)
   const gridItems = [
-    { id: 'deposit', label: t.menuDeposit || 'Dépôt', icon: ArrowDownLeft, desc: 'Liquidity Inflow' },
-    { id: 'withdraw', label: t.menuWithdraw || 'Retrait', icon: ArrowUpRight, desc: 'Treasury Payout' },
-    { id: 'transfer', label: t.menuTransfer || 'Virement', icon: Send, desc: 'Wire Settlement' },
-    { id: 'cards', label: t.menuCards || 'Cartes', icon: CreditCard, desc: 'Metal & Virtual' },
-    { id: 'financing', label: t.menuFinancing || 'Financement', icon: Landmark, desc: 'Credit Facilities' },
-    { id: 'referrals', label: t.menuReferrals || 'Parrainage', icon: Gift, desc: 'Affiliate Network' },
-    { id: 'profile', label: t.menuProfile || 'Profil', icon: User, desc: 'Client Identity' },
-    { id: 'security', label: t.menuSecurity || 'Sécurité', icon: Shield, desc: 'PIN & Keys' },
-    { id: 'about', label: t.menuAbout || 'À propos', icon: Building2, desc: 'Institutional' }
+    { id: 'deposit', label: t.menuDeposit || 'Deposit', icon: ArrowDownLeft, desc: t.menuDescDeposit || 'Liquidity Inflow' },
+    { id: 'withdraw', label: t.menuWithdraw || 'Withdrawal', icon: ArrowUpRight, desc: t.menuDescWithdraw || 'Treasury Payout' },
+    { id: 'transfer', label: t.menuTransfer || 'Transfer', icon: Send, desc: t.menuDescTransfer || 'Wire Settlement' },
+    { id: 'cards', label: t.menuCards || 'Cards', icon: CreditCard, desc: t.menuDescCards || 'Metal & Virtual' },
+    { id: 'financing', label: t.menuFinancing || 'Financing', icon: Landmark, desc: t.menuDescFinancing || 'Credit Facilities' },
+    { id: 'referrals', label: t.menuReferrals || 'Referrals', icon: Gift, desc: t.menuDescReferrals || 'Affiliate Network' },
+    { id: 'profile', label: t.menuProfile || 'Profile', icon: User, desc: t.menuDescProfile || 'Client Identity' },
+    { id: 'security', label: t.menuSecurity || 'Security', icon: Shield, desc: t.menuDescSecurity || 'PIN & Keys' },
+    { id: 'about', label: t.menuAbout || 'About', icon: Building2, desc: t.menuDescAbout || 'Institutional' }
   ];
 
   return (
@@ -225,7 +225,7 @@ export const Header: React.FC<HeaderProps> = ({
           <Shield className="w-3.5 h-3.5 text-amber-400 shrink-0" />
           <span className="text-slate-300">{t.demoBadge}</span>
           <span className="text-slate-600">·</span>
-          <span className="text-amber-400/90 font-medium">United States Division</span>
+          <span className="text-amber-400/90 font-medium">{t.usDivision || 'United States Division'}</span>
         </div>
         <div className="flex items-center gap-4 text-[11px]">
           <button
@@ -473,10 +473,10 @@ export const Header: React.FC<HeaderProps> = ({
                   </div>
                   <div className="min-w-0 flex-1">
                     <div className="font-bold text-xs text-slate-900 dark:text-white truncate">
-                      {currentUser ? `${currentUser.first_name} ${currentUser.last_name}` : 'Compte Client Movafi'}
+                      {currentUser ? `${currentUser.first_name} ${currentUser.last_name}` : (t.userMenuAccount || 'Compte Client Movafi')}
                     </div>
                     <div className="text-[11px] text-slate-500 dark:text-slate-400 truncate">
-                      {currentUser ? currentUser.email : 'Accès sécurisé'}
+                      {currentUser ? currentUser.email : (t.userMenuAccess || 'Accès sécurisé')}
                     </div>
                   </div>
                 </div>
@@ -546,7 +546,7 @@ export const Header: React.FC<HeaderProps> = ({
                     <div className="font-semibold text-xs leading-none">
                       {t.menuProfile || 'Profil'}
                     </div>
-                    <div className="text-[10px] text-slate-400 mt-0.5">Identité, sécurité et PIN de transaction</div>
+                    <div className="text-[10px] text-slate-400 mt-0.5">{t.userMenuProfileSubtitle || 'Identité, sécurité et PIN de transaction'}</div>
                   </div>
                   <ChevronRight className="w-3.5 h-3.5 text-slate-400" />
                 </button>
@@ -566,7 +566,7 @@ export const Header: React.FC<HeaderProps> = ({
                     <div className="font-semibold text-xs leading-none">
                       {t.customerService || 'Services Clients'}
                     </div>
-                    <div className="text-[10px] text-slate-400 mt-0.5">Conciergerie privée 24/7 ({supportEmail})</div>
+                    <div className="text-[10px] text-slate-400 mt-0.5">{(t.userMenuSupportSubtitle || 'Conciergerie privée 24/7')} ({supportEmail})</div>
                   </div>
                   <ChevronRight className="w-3.5 h-3.5 text-slate-400" />
                 </button>
@@ -586,7 +586,7 @@ export const Header: React.FC<HeaderProps> = ({
                     <div className="font-semibold text-xs leading-none">
                       {t.menuAbout || 'À propos'}
                     </div>
-                    <div className="text-[10px] text-slate-400 mt-0.5">Informations institutionnelles Movafi Bank</div>
+                    <div className="text-[10px] text-slate-400 mt-0.5">{t.userMenuAboutSubtitle || 'Informations institutionnelles Movafi Bank'}</div>
                   </div>
                   <ChevronRight className="w-3.5 h-3.5 text-slate-400" />
                 </button>
@@ -707,7 +707,7 @@ export const Header: React.FC<HeaderProps> = ({
             {/* Menu Header Banner */}
             <div className="pt-3 pb-1">
               <span className="text-[10px] font-bold uppercase tracking-widest text-slate-400">
-                Navigation Rapide · Movafi Core
+                {t.quickNav || 'Navigation Rapide · Movafi Core'}
               </span>
             </div>
 
@@ -755,7 +755,7 @@ export const Header: React.FC<HeaderProps> = ({
                       onClick={() => { setMobileMenuOpen(false); onOpenPortal(); }}
                       className="px-2.5 py-1 rounded-lg bg-slate-900 text-white dark:bg-white dark:text-slate-900 text-[11px] font-semibold"
                     >
-                      Espace
+                      {t.navPortal}
                     </button>
                   </div>
 
@@ -768,7 +768,7 @@ export const Header: React.FC<HeaderProps> = ({
                       className="w-full py-2.5 px-4 rounded-xl border border-amber-500/40 text-amber-700 dark:text-amber-300 bg-amber-50 dark:bg-amber-950/40 text-xs font-semibold flex items-center justify-center gap-1.5 cursor-pointer"
                     >
                       <Lock className="w-3.5 h-3.5" />
-                      <span>Console d'Administration</span>
+                      <span>{t.adminConsole || 'Console d\'Administration'}</span>
                     </button>
                   )}
 
