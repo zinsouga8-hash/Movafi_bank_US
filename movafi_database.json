@@ -2,7 +2,7 @@
   "profiles": [
     {
       "id": "prof_admin_001",
-      "email": "admin@movafibank.com",
+      "email": "support@movafigroupes.com",
       "first_name": "Genevieve",
       "last_name": "Rothschild",
       "phone": "+1 (212) 555-0100",
@@ -34,7 +34,9 @@
       "balance": 50000000,
       "account_status": "active",
       "is_balance_visible": true,
-      "created_at": "2026-01-15T09:00:00.000Z"
+      "created_at": "2026-01-15T09:00:00.000Z",
+      "cat_code": "CAT-180152",
+      "cot_code": "COT-872854"
     }
   ],
   "transactions": [],
@@ -152,6 +154,15 @@
   "notifications": [],
   "email_templates": [
     {
+      "id": "tmpl_otp",
+      "template_key": "otp_verification",
+      "name": "Vérification de Sécurité (Code OTP)",
+      "language": "fr",
+      "subject": "Movafi Bank · Votre code de sécurité confidentiel : {{code}}",
+      "body_text": "Cher Client,\n\nVoici votre code confidentiel de vérification Movafi Bank : {{code}}\n\nCe code expire dans 15 minutes. Ne le communiquez à personne.",
+      "updated_at": "2026-01-01T00:00:00.000Z"
+    },
+    {
       "id": "tmpl_01",
       "template_key": "account_created",
       "name": "Account Application Received",
@@ -188,21 +199,37 @@
       "updated_at": "2026-01-01T00:00:00.000Z"
     }
   ],
-  "email_logs": [],
+  "email_logs": [
+    {
+      "id": "elog_muo1qkv3ipel",
+      "recipient_email": "test.client.otp@gmail.com",
+      "subject": "Movafi Bank · Votre code de sécurité confidentiel : 461011",
+      "template_key": "otp_verification",
+      "resend_message_id": "01a0f229-4cb6-7529-8f7e-2022af4e9ef8",
+      "status": "sent",
+      "created_at": "2026-09-30T11:53:08.127Z"
+    }
+  ],
   "bank_settings": {
     "id": "current_settings",
     "bank_name": "MOVAFI BANK UNITED STATES",
     "short_name": "Movafi Bank",
     "city": "New York",
     "country": "United States",
-    "support_email": "concierge@movafibank.com",
+    "support_email": "support@movafigroupes.com",
     "support_phone": "+1 (212) 555-0198",
     "disclaimer_notice": "Movafi Bank est une banque privée digitale internationale et une plateforme de trésorerie institutionnelle. Comptes sous ségrégation d'actifs et rails de paiement sécurisés.",
     "updated_at": "2026-01-01T00:00:00.000Z"
   },
   "blocked_ips": [],
   "audit_logs": [],
-  "otp_records": [],
+  "otp_records": [
+    {
+      "email": "test.client.otp@gmail.com",
+      "otp_hash": "ad5d896fd5497782101f2a415310398d91538ab6ff3c186ebd2b500965bf2e1c",
+      "expires_at": 1790770086908
+    }
+  ],
   "referral_settings": {
     "is_enabled": true,
     "invitation_validity_days": 30,

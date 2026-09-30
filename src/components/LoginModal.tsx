@@ -32,7 +32,7 @@ export const LoginModal: React.FC<LoginModalProps> = ({
   currentLang,
   onSuccess,
   onSwitchToRegister,
-  supportEmail = 'support@movafi-groupes.com'
+  supportEmail = 'support@movafigroupes.com'
 }) => {
   const t = translations[currentLang] || translations.en;
   const isRtl = currentLang === 'ar';
@@ -196,7 +196,7 @@ export const LoginModal: React.FC<LoginModalProps> = ({
                 required
                 value={email}
                 onChange={(e) => setEmail(e.target.value)}
-                placeholder="name@movafibank.com"
+                placeholder="support@movafigroupes.com ou votre e-mail"
                 className="w-full px-4 py-3 rounded-2xl border border-slate-200 dark:border-slate-800 bg-slate-50/70 dark:bg-slate-950/60 text-slate-900 dark:text-white text-sm focus:outline-none focus:ring-2 focus:ring-amber-500 transition-all placeholder:text-slate-400"
               />
             </div>

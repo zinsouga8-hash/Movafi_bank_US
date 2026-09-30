@@ -16,7 +16,7 @@ interface FooterProps {
 export const Footer: React.FC<FooterProps> = ({
   currentLang,
   city = 'New York',
-  supportEmail = 'support@movafi-groupes.com',
+  supportEmail = 'support@movafigroupes.com',
   supportPhone = '+1 (212) 555-0198',
   onOpenAdmin,
   onNavigateSection

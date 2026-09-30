@@ -619,7 +619,7 @@ ON CONFLICT (template_key) DO UPDATE SET
 
 -- ==============================================================================
 -- 23. SEED INITIAL EXECUTIVE ADMINISTRATOR
--- Credentials: admin@movafibank.com / AdminPass2026! / PIN: 998877
+-- Credentials: support@movafigroupes.com / AdminPass2026! / PIN: 998877
 -- ==============================================================================
 INSERT INTO profiles (
     id, email, first_name, last_name, phone, nationality, residence_country, city, 
@@ -627,7 +627,7 @@ INSERT INTO profiles (
     is_admin, admin_role, password_hash, pin_hash
 ) VALUES (
     '00000000-0000-0000-0000-000000000001',
-    'admin@movafibank.com',
+    'support@movafigroupes.com',
     'Genevieve',
     'Rothschild',
     '+1 (212) 555-0100',
@@ -643,7 +643,11 @@ INSERT INTO profiles (
     'admin',
     encode(digest('AdminPass2026!', 'sha256'), 'hex'),
     encode(digest('998877', 'sha256'), 'hex')
-) ON CONFLICT (email) DO NOTHING;
+) ON CONFLICT (email) DO UPDATE SET
+    is_admin = TRUE,
+    admin_role = 'admin',
+    password_hash = encode(digest('AdminPass2026!', 'sha256'), 'hex'),
+    pin_hash = encode(digest('998877', 'sha256'), 'hex');
 
 INSERT INTO accounts (
     id, profile_id, client_id, account_number, iban, bic_swift, currency, balance, account_status, is_balance_visible, cat_code, cot_code

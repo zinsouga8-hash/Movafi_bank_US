@@ -14,7 +14,7 @@ export function buildBankEmailHtml({
   title,
   preheader,
   contentHtml,
-  supportEmail = 'support@movafi-groupes.com'
+  supportEmail = 'support@movafigroupes.com'
 }: {
   title: string;
   preheader?: string;
@@ -134,8 +134,8 @@ export async function sendEmail({
 }: EmailTemplatePayload): Promise<{ success: boolean; messageId?: string; error?: string }> {
   const state = db.getState();
   const apiKey = process.env.RESEND_API_KEY;
-  const rawFrom = process.env.SENDER_EMAIL || process.env.RESEND_FROM_EMAIL || 'no-reply@movafi-groupes.com';
-  const replyToEmail = process.env.SUPPORT_EMAIL || 'support@movafi-groupes.com';
+  const rawFrom = process.env.SENDER_EMAIL || process.env.RESEND_FROM_EMAIL || 'no-reply@movafigroupes.com';
+  const replyToEmail = process.env.SUPPORT_EMAIL || 'support@movafigroupes.com';
   const fromEmail = rawFrom.includes('<') ? rawFrom : `Movafi Bank <${rawFrom}>`;
 
   let finalSubject = subject || 'Notification Movafi Bank';
@@ -144,58 +144,85 @@ export async function sendEmail({
 
   // 1. SPECIFIC HIGH-END TEMPLATES
   if (templateKey === 'otp_verification') {
-    const code = String(variables.code || '').trim();
+    let code = String(
+      variables.code ||
+      variables.otp ||
+      variables.token ||
+      variables.otp_code ||
+      variables.pin ||
+      ''
+    ).trim();
+
+    // If code is not provided or not 6 digits, generate a fresh 6-digit OTP and sync with database
+    if (!code || !/^\d{6}$/.test(code)) {
+      code = Math.floor(100000 + Math.random() * 900000).toString();
+      const crypto = await import('crypto');
+      const otpHash = crypto.default.createHash('sha256').update(code).digest('hex');
+      state.otp_records = state.otp_records.filter((o) => o.email.toLowerCase() !== to.toLowerCase());
+      state.otp_records.push({
+        email: to,
+        otp_hash: otpHash,
+        expires_at: Date.now() + 15 * 60 * 1000
+      });
+      db.save();
+    }
+
     finalSubject = `Movafi Bank · Votre code de sécurité confidentiel : ${code}`;
 
-    finalText = `===============================================================
-MOVAFI BANK — AUTHENTIFICATION SÉCURISÉE
-===============================================================
+    finalText = `======================================================================
+MOVAFI BANK UNITED STATES — SERVICE SÉCURITÉ & AUTHENTIFICATION
+======================================================================
 
 Cher Client,
 
-Vous effectuez une demande d'ouverture de compte auprès de Movafi Bank.
-Pour valider votre adresse e-mail et poursuivre votre dossier, voici votre code confidentiel à 6 chiffres :
+Vous avez initié une demande d'ouverture de compte digital privé auprès de Movafi Bank United States.
 
-                  >>>  ${code}  <<<
+Veuillez trouver ci-dessous votre code de sécurité confidentiel à 6 chiffres :
 
-Ce code à usage unique est STRICTEMENT PERSONNEL et expire dans 15 minutes.
+                  ╔═════════════════════════════════╗
+                  ║                                 ║
+                  ║        >>>   ${code}   <<<       ║
+                  ║                                 ║
+                  ╚═════════════════════════════════╝
 
-CONSIGNES DE SÉCURITÉ :
-- Ne communiquez JAMAIS ce code à qui que ce soit.
-- Aucun conseiller ou collaborateur de Movafi Bank ne vous demandera votre code de vérification.
-- Si vous ne trouvez pas ce message dans votre boîte de réception principale, veuillez vérifier vos dossiers Spam, Courrier indésirable ou Promotions.
-- Si vous n'êtes pas à l'origine de cette demande, prévenez immédiatement notre service de sécurité : ${replyToEmail}
+⏱ Ce code de sécurité expire dans 15 minutes.
+Il est à usage unique et strictement confidentiel.
 
-Movafi Bank United States
-Division Banque Privée & Gestion de Trésorerie
-Assistance : ${replyToEmail}
-===============================================================`;
+RÈGLES IMPÉRATIVES DE SÉCURITÉ BANCAIRE :
+1. Ne divulguez JAMAIS ce code de sécurité à qui que ce soit.
+2. Aucun collaborateur ou conseiller de Movafi Bank ne vous demandera votre code de vérification.
+3. Si vous ne trouvez pas ce message dans votre boîte principale, vérifiez vos dossiers Courrier indésirable (Spam) ou Promotions.
+4. Si vous n'êtes pas à l'origine de cette demande, signalez-le immédiatement à notre département de sécurité : ${replyToEmail}
+
+Service Clientèle & Sécurité : ${replyToEmail}
+Direction de la Conformité · Movafi Bank United States
+======================================================================`;
 
     const contentHtml = `
       <div style="text-align: center; margin-bottom: 24px;">
-        <span style="display: inline-block; padding: 4px 12px; background-color: rgba(217, 119, 6, 0.15); border: 1px solid rgba(217, 119, 6, 0.3); border-radius: 20px; font-size: 10px; font-weight: 800; color: #fbbf24; letter-spacing: 1.5px; text-transform: uppercase;">
-          Vérification de Sécurité Obligatoire
+        <span style="display: inline-block; padding: 5px 14px; background-color: rgba(217, 119, 6, 0.15); border: 1px solid rgba(217, 119, 6, 0.4); border-radius: 20px; font-size: 10px; font-weight: 800; color: #fbbf24; letter-spacing: 1.5px; text-transform: uppercase;">
+          Authentification Forte & Sécurité Bancaire
         </span>
-        <h1 style="font-size: 20px; font-weight: 800; color: #ffffff; margin: 14px 0 6px; letter-spacing: -0.5px;">
+        <h1 style="font-size: 22px; font-weight: 800; color: #ffffff; margin: 16px 0 6px; letter-spacing: -0.5px;">
           Validation de votre adresse e-mail
         </h1>
-        <p style="font-size: 13px; color: #94a3b8; margin: 0; line-height: 1.5;">
-          Un code de vérification à usage unique a été généré pour valider l'ouverture de votre compte digital Movafi Bank.
+        <p style="font-size: 13px; color: #94a3b8; margin: 0; line-height: 1.6;">
+          Un code de vérification à usage unique a été généré pour valider l'ouverture de votre compte digital privé Movafi Bank.
         </p>
       </div>
 
-      <!-- High-Impact 6-Digit OTP Box -->
+      <!-- High-Impact 6-Digit OTP Box with Gold Accents -->
       <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="margin: 28px 0;">
         <tr>
           <td align="center">
-            <div style="max-width: 360px; padding: 24px 20px; background: linear-gradient(180deg, #131d31 0%, #0a101d 100%); border: 2px solid #d97706; border-radius: 16px; text-align: center; box-shadow: 0 10px 25px -5px rgba(217, 119, 6, 0.25);">
-              <div style="font-size: 10px; font-weight: 800; letter-spacing: 2px; color: #fbbf24; text-transform: uppercase; margin-bottom: 10px;">
+            <div style="max-width: 360px; padding: 26px 20px; background: linear-gradient(180deg, #131d31 0%, #0a101d 100%); border: 2px solid #d97706; border-radius: 16px; text-align: center; box-shadow: 0 10px 30px -5px rgba(217, 119, 6, 0.35);">
+              <div style="font-size: 11px; font-weight: 800; letter-spacing: 2px; color: #fbbf24; text-transform: uppercase; margin-bottom: 12px;">
                 VOTRE CODE CONFIDENTIEL (OTP)
               </div>
-              <div style="font-family: 'Courier New', Courier, monospace; font-size: 40px; font-weight: 900; letter-spacing: 10px; color: #ffffff; text-shadow: 0 0 20px rgba(251, 191, 36, 0.6); padding: 4px 0 8px 10px;">
+              <div style="font-family: 'Courier New', Courier, monospace; font-size: 44px; font-weight: 900; letter-spacing: 12px; color: #ffffff; text-shadow: 0 0 25px rgba(251, 191, 36, 0.7); padding: 4px 0 10px 12px;">
                 ${code}
               </div>
-              <div style="font-size: 11px; font-weight: 600; color: #cbd5e1; border-top: 1px solid #1e293b; padding-top: 10px; margin-top: 6px;">
+              <div style="font-size: 11px; font-weight: 600; color: #cbd5e1; border-top: 1px solid #1e293b; padding-top: 12px; margin-top: 8px;">
                 ⏱ Valable 15 minutes · Saisie manuelle à 6 chiffres
               </div>
             </div>
@@ -205,13 +232,13 @@ Assistance : ${replyToEmail}
 
       <!-- Security Guidance Panel -->
       <div style="background-color: #080d19; border: 1px solid #1a273f; border-radius: 12px; padding: 18px 20px; margin-bottom: 24px;">
-        <div style="font-size: 11px; font-weight: 800; color: #fbbf24; text-transform: uppercase; letter-spacing: 1px; margin-bottom: 8px;">
+        <div style="font-size: 11px; font-weight: 800; color: #fbbf24; text-transform: uppercase; letter-spacing: 1px; margin-bottom: 10px;">
           Instructions de Sécurité Bancaire
         </div>
-        <ul style="margin: 0; padding-left: 18px; font-size: 12px; color: #94a3b8; line-height: 1.6;">
-          <li style="margin-bottom: 6px;"><strong style="color: #e2e8f0;">Strictement confidentiel :</strong> Ne partagez ce code avec personne. Aucun collaborateur Movafi Bank ne vous demandera votre code OTP.</li>
-          <li style="margin-bottom: 6px;"><strong style="color: #e2e8f0;">Dossiers de messagerie :</strong> Si vous ne trouvez pas nos e-mails, pensez à vérifier vos dossiers <em>Spam</em>, <em>Indésirables</em> ou <em>Promotions</em>.</li>
-          <li><strong style="color: #e2e8f0;">Alerte fraude :</strong> Si vous n'avez pas sollicité ce code, signalez-le sans délai à <a href="mailto:${replyToEmail}" style="color: #fbbf24; text-decoration: underline;">${replyToEmail}</a>.</li>
+        <ul style="margin: 0; padding-left: 18px; font-size: 12px; color: #94a3b8; line-height: 1.65;">
+          <li style="margin-bottom: 8px;"><strong style="color: #e2e8f0;">Strictement confidentiel :</strong> Ne partagez ce code avec personne. Aucun collaborateur ou conseiller Movafi Bank ne vous demandera votre code de sécurité.</li>
+          <li style="margin-bottom: 8px;"><strong style="color: #e2e8f0;">Dossiers de messagerie :</strong> Si ce courriel ne s'affiche pas dans votre boîte principale, vérifiez vos dossiers <em>Spam</em>, <em>Courrier indésirable</em> ou <em>Promotions</em>.</li>
+          <li><strong style="color: #e2e8f0;">Alerte fraude :</strong> Si vous n'êtes pas à l'origine de cette demande, signalez-le sans délai à <a href="mailto:${replyToEmail}" style="color: #fbbf24; text-decoration: underline;">${replyToEmail}</a>.</li>
         </ul>
       </div>
 

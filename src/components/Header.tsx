@@ -59,7 +59,7 @@ export const Header: React.FC<HeaderProps> = ({
   onOpenReferrals,
   onNavigateTab,
   onLogout,
-  supportEmail = 'support@movafi-groupes.com',
+  supportEmail = 'support@movafigroupes.com',
   onNavigateSection,
   onLogoClick
 }) => {

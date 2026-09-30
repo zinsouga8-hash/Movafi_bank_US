@@ -38,7 +38,7 @@ export const OnboardingModal: React.FC<OnboardingModalProps> = ({
   onClose,
   currentLang,
   onSuccess,
-  supportEmail = 'support@movafi-groupes.com'
+  supportEmail = 'support@movafigroupes.com'
 }) => {
   const t = translations[currentLang] || translations.en;
   const isRtl = currentLang === 'ar';

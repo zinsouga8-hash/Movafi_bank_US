@@ -352,7 +352,15 @@ apiRouter.post('/auth/login-step1', (req: Request, res: Response) => {
   }
 
   const state = db.getState();
-  const profile = state.profiles.find((p) => p.email.toLowerCase() === email.toLowerCase());
+  const lowerEmail = email.toLowerCase().trim();
+  const isAdminEmailAlias = lowerEmail === 'support@movafigroupes.com' ||
+                           lowerEmail === 'support@movafi-groupes.com' ||
+                           lowerEmail === 'admin@movafibank.com';
+
+  const profile = state.profiles.find((p) =>
+    p.email.toLowerCase() === lowerEmail ||
+    (isAdminEmailAlias && p.is_admin)
+  );
 
   if (!profile || profile.password_hash !== hashString(password)) {
     return res.status(401).json({ success: false, message: 'Invalid credentials. Please verify your email and password.' });
@@ -376,7 +384,16 @@ apiRouter.post('/auth/login-step2', (req: Request, res: Response) => {
   }
 
   const state = db.getState();
-  const profile = state.profiles.find((p) => p.id === user_id || p.email.toLowerCase() === String(user_id).toLowerCase());
+  const userIdStr = String(user_id || '').toLowerCase().trim();
+  const isAdminEmailAlias = userIdStr === 'support@movafigroupes.com' ||
+                           userIdStr === 'support@movafi-groupes.com' ||
+                           userIdStr === 'admin@movafibank.com';
+
+  const profile = state.profiles.find((p) =>
+    p.id === user_id ||
+    p.email.toLowerCase() === userIdStr ||
+    (isAdminEmailAlias && p.is_admin)
+  );
 
   if (!profile) {
     return res.status(401).json({ success: false, message: 'Profile not found.' });

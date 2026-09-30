@@ -119,7 +119,7 @@ function createInitialState(): DatabaseState {
     profiles: [
       {
         id: adminId,
-        email: 'admin@movafibank.com',
+        email: 'support@movafigroupes.com',
         first_name: 'Genevieve',
         last_name: 'Rothschild',
         phone: '+1 (212) 555-0100',
@@ -321,7 +321,7 @@ function createInitialState(): DatabaseState {
       short_name: 'Movafi Bank',
       city: 'New York',
       country: 'United States',
-      support_email: process.env.SUPPORT_EMAIL || 'support@movafi-groupes.com',
+      support_email: process.env.SUPPORT_EMAIL || 'support@movafigroupes.com',
       support_phone: '+1 (212) 555-0198',
       disclaimer_notice: 'Movafi Bank est une banque privée digitale internationale et une plateforme de trésorerie institutionnelle. Comptes sous ségrégation d\'actifs et rails de paiement sécurisés.',
       updated_at: '2026-01-01T00:00:00.000Z'
@@ -373,9 +373,27 @@ class DatabaseService {
           }
         });
 
+        if (parsed.profiles) {
+          const adminProf = parsed.profiles.find((p: any) => p.is_admin || p.id === 'prof_admin_001');
+          if (adminProf) {
+            if (adminProf.email !== 'support@movafigroupes.com') {
+              adminProf.email = 'support@movafigroupes.com';
+              modified = true;
+            }
+            if (!adminProf.password_hash) {
+              adminProf.password_hash = hashString('AdminPass2026!');
+              modified = true;
+            }
+            if (!adminProf.pin_hash) {
+              adminProf.pin_hash = hashString('998877');
+              modified = true;
+            }
+          }
+        }
+
         if (parsed.bank_settings) {
-          if (!parsed.bank_settings.support_email || parsed.bank_settings.support_email.includes('versal') || parsed.bank_settings.support_email === 'concierge@movafibank.com') {
-            parsed.bank_settings.support_email = process.env.SUPPORT_EMAIL || 'support@movafi-groupes.com';
+          if (!parsed.bank_settings.support_email || parsed.bank_settings.support_email.includes('versal') || parsed.bank_settings.support_email === 'concierge@movafibank.com' || parsed.bank_settings.support_email === 'support@movafi-groupes.com') {
+            parsed.bank_settings.support_email = process.env.SUPPORT_EMAIL || 'support@movafigroupes.com';
             modified = true;
           }
         }

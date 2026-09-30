@@ -27,7 +27,7 @@ interface AboutSectionProps {
 
 export const AboutSection: React.FC<AboutSectionProps> = ({
   currentLang,
-  supportEmail = 'support@movafi-groupes.com',
+  supportEmail = 'support@movafigroupes.com',
   supportPhone = '+1 (212) 847-9200',
   onOpenRegister
 }) => {
