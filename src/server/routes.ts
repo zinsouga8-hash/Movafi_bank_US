@@ -59,10 +59,10 @@ apiRouter.post('/auth/register-step1', async (req: Request, res: Response) => {
   state.otp_records.push({ email, otp_hash: otpHash, expires_at: expiresAt });
   db.save();
 
-  // Send OTP email
+  // Send OTP email with prestigious executive formatting
   await sendEmail({
     to: email,
-    subject: 'Your Movafi Bank Verification Code (OTP)',
+    subject: `Movafi Bank · Votre code de sécurité confidentiel : ${otpCode}`,
     templateKey: 'otp_verification',
     variables: { code: otpCode }
   });

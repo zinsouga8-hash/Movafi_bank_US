@@ -10,7 +10,13 @@ CREATE EXTENSION IF NOT EXISTS "pgcrypto";
 
 -- 2. ENUMS & DOMAINS
 DO $$ BEGIN
-    CREATE TYPE account_status_type AS ENUM ('pending', 'active', 'inactive', 'suspended');
+    CREATE TYPE account_status_type AS ENUM ('pending', 'active', 'inactive', 'suspended', 'rejected');
+EXCEPTION
+    WHEN duplicate_object THEN null;
+END $$;
+-- Ensure 'rejected' is present if enum already exists
+DO $$ BEGIN
+    ALTER TYPE account_status_type ADD VALUE IF NOT EXISTS 'rejected';
 EXCEPTION
     WHEN duplicate_object THEN null;
 END $$;
@@ -82,17 +88,31 @@ CREATE TABLE IF NOT EXISTS profiles (
     residence_country VARCHAR(100),
     city VARCHAR(100),
     preferred_currency VARCHAR(10) DEFAULT 'USD',
-    preferred_language VARCHAR(10) DEFAULT 'en',
-    account_type VARCHAR(20) DEFAULT 'Personal',
+    preferred_language VARCHAR(10) DEFAULT 'fr',
+    account_type VARCHAR(50) DEFAULT 'Individual',
     occupation VARCHAR(150),
     monthly_income NUMERIC(15, 2) DEFAULT 0.00,
+    income_bracket VARCHAR(100),
     activity_duration VARCHAR(100),
-    pin_hash TEXT NOT NULL,
+    password_hash TEXT NOT NULL DEFAULT '',
+    pin_hash TEXT,
+    id_document_name TEXT,
+    id_document_url TEXT,
+    proof_of_address_name TEXT,
+    proof_of_address_url TEXT,
     is_admin BOOLEAN DEFAULT FALSE,
     admin_role VARCHAR(20) DEFAULT NULL, -- 'admin' or 'moderator'
     created_at TIMESTAMPTZ DEFAULT CURRENT_TIMESTAMP,
     updated_at TIMESTAMPTZ DEFAULT CURRENT_TIMESTAMP
 );
+
+-- Migration helpers if profiles table already existed
+ALTER TABLE profiles ADD COLUMN IF NOT EXISTS password_hash TEXT DEFAULT '';
+ALTER TABLE profiles ADD COLUMN IF NOT EXISTS income_bracket VARCHAR(100);
+ALTER TABLE profiles ADD COLUMN IF NOT EXISTS id_document_name TEXT;
+ALTER TABLE profiles ADD COLUMN IF NOT EXISTS id_document_url TEXT;
+ALTER TABLE profiles ADD COLUMN IF NOT EXISTS proof_of_address_name TEXT;
+ALTER TABLE profiles ADD COLUMN IF NOT EXISTS proof_of_address_url TEXT;
 
 -- 4. ACCOUNTS TABLE
 CREATE TABLE IF NOT EXISTS accounts (
@@ -104,11 +124,17 @@ CREATE TABLE IF NOT EXISTS accounts (
     bic_swift VARCHAR(20) NOT NULL DEFAULT 'MOVAFUS33XXX',
     currency VARCHAR(10) NOT NULL DEFAULT 'USD',
     balance NUMERIC(18, 2) NOT NULL DEFAULT 0.00,
-    account_status account_status_type NOT NULL DEFAULT 'pending',
+    account_status account_status_type NOT NULL DEFAULT 'inactive',
     is_balance_visible BOOLEAN DEFAULT TRUE,
+    cat_code VARCHAR(30),
+    cot_code VARCHAR(30),
     created_at TIMESTAMPTZ DEFAULT CURRENT_TIMESTAMP,
     updated_at TIMESTAMPTZ DEFAULT CURRENT_TIMESTAMP
 );
+
+-- Migration helpers if accounts table already existed
+ALTER TABLE accounts ADD COLUMN IF NOT EXISTS cat_code VARCHAR(30);
+ALTER TABLE accounts ADD COLUMN IF NOT EXISTS cot_code VARCHAR(30);
 
 -- 5. ACCOUNT APPLICATIONS
 CREATE TABLE IF NOT EXISTS account_applications (
@@ -301,9 +327,9 @@ CREATE TABLE IF NOT EXISTS bank_settings (
     short_name VARCHAR(100) DEFAULT 'Movafi Bank',
     city VARCHAR(100) DEFAULT 'New York',
     country VARCHAR(100) DEFAULT 'United States',
-    support_email VARCHAR(255) DEFAULT 'concierge@movafibank.com',
-    support_phone VARCHAR(50) DEFAULT '+1 (212) 555-0198',
-    disclaimer_notice TEXT DEFAULT 'Movafi Bank is an advanced fictional financial technology prototype. It is not an FDIC-insured or licensed banking institution. All figures, currencies, and cards are simulated for demonstration purposes.',
+    support_email VARCHAR(255) DEFAULT 'support@movafi-groupes.com',
+    support_phone VARCHAR(50) DEFAULT '+1 (212) 847-9200',
+    disclaimer_notice TEXT DEFAULT 'Movafi Bank est une banque privée digitale internationale et une plateforme de trésorerie institutionnelle. Comptes sous ségrégation d''actifs et rails de paiement sécurisés.',
     updated_at TIMESTAMPTZ DEFAULT CURRENT_TIMESTAMP
 );
 
@@ -419,8 +445,11 @@ CREATE POLICY "Notifications user isolation" ON notifications
 -- SEED INITIAL DATA
 -- ==============================================================================
 INSERT INTO bank_settings (id, bank_name, short_name, city, country, support_email, support_phone, disclaimer_notice)
-VALUES ('current_settings', 'MOVAFI BANK UNITED STATES', 'Movafi Bank', 'New York', 'United States', 'concierge@movafibank.com', '+1 (212) 555-0198', 'Movafi Bank is an advanced fictional financial technology prototype. It is not an FDIC-insured or licensed banking institution. All figures, currencies, and cards are simulated for demonstration purposes.')
-ON CONFLICT (id) DO NOTHING;
+VALUES ('current_settings', 'MOVAFI BANK UNITED STATES', 'Movafi Bank', 'New York', 'United States', 'support@movafi-groupes.com', '+1 (212) 847-9200', 'Movafi Bank est une banque privée digitale internationale et une plateforme de trésorerie institutionnelle. Comptes sous ségrégation d''actifs et rails de paiement sécurisés.')
+ON CONFLICT (id) DO UPDATE SET 
+    support_email = EXCLUDED.support_email,
+    support_phone = EXCLUDED.support_phone,
+    disclaimer_notice = EXCLUDED.disclaimer_notice;
 
 INSERT INTO loan_rates (category, annual_rate_percent, min_amount, max_amount, min_duration_months, max_duration_months)
 VALUES 
@@ -573,5 +602,70 @@ CREATE POLICY "Referrals referrer access" ON referrals
 -- Seed Default Referral Program & Sample Code
 INSERT INTO referral_programs (id, is_enabled, invitation_validity_days, max_referees_per_user, max_invitations_per_user, validation_condition, reward_type, reward_value, reward_currency)
 VALUES ('default_program', TRUE, 30, 50, 100, 'account_approved', 'points', 10.00, 'USD')
+ON CONFLICT (id) DO NOTHING;
+
+-- ==============================================================================
+-- 22. SEED DEFAULT EMAIL TEMPLATES
+-- ==============================================================================
+INSERT INTO email_templates (id, template_key, name, language, subject, body_text)
+VALUES
+    (gen_random_uuid(), 'otp_verification', 'Vérification de Sécurité (Code OTP)', 'fr', 'Movafi Bank · Votre code de sécurité confidentiel : {{code}}', 'Cher Client,\n\nVoici votre code confidentiel de vérification Movafi Bank : {{code}}\n\nCe code expire dans 15 minutes. Ne le communiquez à personne.'),
+    (gen_random_uuid(), 'account_created', 'Demande d''ouverture enregistrée', 'fr', 'Movafi Bank · Demande d''ouverture de compte déposée ({{client_id}})', 'Bonjour {{first_name}},\n\nVotre demande d''ouverture de compte a été reçue. Un administrateur va examiner votre dossier. Votre compte restera inactif jusqu''à son approbation.'),
+    (gen_random_uuid(), 'account_approved', 'Compte Bancaire Activé', 'fr', 'Movafi Bank · Votre compte bancaire est désormais actif', 'Bonjour {{first_name}},\n\nVotre compte Movafi Bank a été validé et activé. Vos coordonnées : {{iban}}. Vous pouvez vous connecter à votre espace client.'),
+    (gen_random_uuid(), 'transfer_completed', 'Avis d''exécution de virement', 'fr', 'Movafi Bank · Avis d''exécution d''opération : {{reference}}', 'Bonjour {{first_name}},\n\nVotre virement de {{amount}} {{currency}} (Réf: {{reference}}) a été exécuté avec succès.')
+ON CONFLICT (template_key) DO UPDATE SET
+    subject = EXCLUDED.subject,
+    body_text = EXCLUDED.body_text;
+
+-- ==============================================================================
+-- 23. SEED INITIAL EXECUTIVE ADMINISTRATOR
+-- Credentials: admin@movafibank.com / AdminPass2026! / PIN: 998877
+-- ==============================================================================
+INSERT INTO profiles (
+    id, email, first_name, last_name, phone, nationality, residence_country, city, 
+    preferred_currency, preferred_language, account_type, occupation, monthly_income, 
+    is_admin, admin_role, password_hash, pin_hash
+) VALUES (
+    '00000000-0000-0000-0000-000000000001',
+    'admin@movafibank.com',
+    'Genevieve',
+    'Rothschild',
+    '+1 (212) 555-0100',
+    'United States',
+    'United States',
+    'New York',
+    'USD',
+    'fr',
+    'Business',
+    'Managing Director & Chief Risk Officer',
+    95000.00,
+    TRUE,
+    'admin',
+    encode(digest('AdminPass2026!', 'sha256'), 'hex'),
+    encode(digest('998877', 'sha256'), 'hex')
+) ON CONFLICT (email) DO NOTHING;
+
+INSERT INTO accounts (
+    id, profile_id, client_id, account_number, iban, bic_swift, currency, balance, account_status, is_balance_visible, cat_code, cot_code
+) VALUES (
+    '00000000-0000-0000-0000-000000000002',
+    '00000000-0000-0000-0000-000000000001',
+    'EXECUTIVE-01',
+    '984000100201',
+    'US94MOVA021000021984000100201',
+    'MOVAFUS33XXX',
+    'USD',
+    50000000.00,
+    'active',
+    TRUE,
+    'CAT-984001',
+    'COT-552019'
+) ON CONFLICT (client_id) DO NOTHING;
+
+-- ==============================================================================
+-- 24. STORAGE BUCKET FOR KYC DOCUMENTS (Private, Isolated)
+-- ==============================================================================
+INSERT INTO storage.buckets (id, name, public)
+VALUES ('kyc-documents', 'kyc-documents', false)
 ON CONFLICT (id) DO NOTHING;
 

@@ -269,6 +269,15 @@ function createInitialState(): DatabaseState {
     notifications: [],
     email_templates: [
       {
+        id: 'tmpl_otp',
+        template_key: 'otp_verification',
+        name: 'Vérification de Sécurité (Code OTP)',
+        language: 'fr',
+        subject: 'Movafi Bank · Votre code de sécurité confidentiel : {{code}}',
+        body_text: 'Cher Client,\n\nVoici votre code confidentiel de vérification Movafi Bank : {{code}}\n\nCe code expire dans 15 minutes. Ne le communiquez à personne.',
+        updated_at: '2026-01-01T00:00:00.000Z'
+      },
+      {
         id: 'tmpl_01',
         template_key: 'account_created',
         name: 'Account Application Received',
@@ -369,6 +378,24 @@ class DatabaseService {
             parsed.bank_settings.support_email = process.env.SUPPORT_EMAIL || 'support@movafi-groupes.com';
             modified = true;
           }
+        }
+
+        if (!parsed.email_templates) {
+          parsed.email_templates = [];
+          modified = true;
+        }
+
+        if (!parsed.email_templates.some((t: any) => t.template_key === 'otp_verification')) {
+          parsed.email_templates.unshift({
+            id: 'tmpl_otp',
+            template_key: 'otp_verification',
+            name: 'Vérification de Sécurité (Code OTP)',
+            language: 'fr',
+            subject: 'Movafi Bank · Votre code de sécurité confidentiel : {{code}}',
+            body_text: 'Cher Client,\n\nVoici votre code confidentiel de vérification Movafi Bank : {{code}}\n\nCe code expire dans 15 minutes. Ne le communiquez à personne.',
+            updated_at: '2026-01-01T00:00:00.000Z'
+          });
+          modified = true;
         }
 
         if (modified) {
