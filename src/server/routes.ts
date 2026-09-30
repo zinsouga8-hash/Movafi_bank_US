@@ -340,7 +340,7 @@ apiRouter.post('/auth/submit-application', async (req: Request, res: Response) =
     account_status: 'inactive',
     user: safeProfile,
     account: newAccount,
-    support_email: state.bank_settings?.support_email || 'concierge@movafibank.com'
+    support_email: state.bank_settings?.support_email || process.env.SUPPORT_EMAIL || 'support@movafi-groupes.com'
   });
 });
 
@@ -420,7 +420,7 @@ apiRouter.post('/auth/login-step2', (req: Request, res: Response) => {
         success: false,
         is_inactive: true,
         message: 'Votre compte est actuellement inactif. Un administrateur examine votre dossier. Veuillez contacter le service client afin de demander son activation.',
-        support_email: state.bank_settings?.support_email || 'concierge@movafibank.com'
+        support_email: state.bank_settings?.support_email || process.env.SUPPORT_EMAIL || 'support@movafi-groupes.com'
       });
     }
 
@@ -429,7 +429,7 @@ apiRouter.post('/auth/login-step2', (req: Request, res: Response) => {
         success: false,
         is_suspended: true,
         message: 'Votre compte est actuellement suspendu. Veuillez contacter le service client.',
-        support_email: state.bank_settings?.support_email || 'concierge@movafibank.com'
+        support_email: state.bank_settings?.support_email || process.env.SUPPORT_EMAIL || 'support@movafi-groupes.com'
       });
     }
   }
@@ -612,7 +612,7 @@ apiRouter.post('/transfers/submit', async (req: Request, res: Response) => {
     return res.status(403).json({
       success: false,
       message: 'Votre compte est actuellement inactif. Veuillez contacter le service client afin de demander son activation.',
-      support_email: state.bank_settings?.support_email || 'concierge@movafibank.com'
+      support_email: state.bank_settings?.support_email || process.env.SUPPORT_EMAIL || 'support@movafi-groupes.com'
     });
   }
 
@@ -629,7 +629,7 @@ apiRouter.post('/transfers/submit', async (req: Request, res: Response) => {
     return res.status(401).json({
       success: false,
       message: 'Code d’Autorisation de Transfert (CAT) invalide. Si vous ne possédez pas ce code, contactez le service client.',
-      support_email: state.bank_settings?.support_email || 'concierge@movafibank.com'
+      support_email: state.bank_settings?.support_email || process.env.SUPPORT_EMAIL || 'support@movafi-groupes.com'
     });
   }
 
@@ -640,7 +640,7 @@ apiRouter.post('/transfers/submit', async (req: Request, res: Response) => {
     return res.status(401).json({
       success: false,
       message: 'Code d’Opération de Trésorerie (COT) invalide. Si vous ne possédez pas ce code, contactez le service client.',
-      support_email: state.bank_settings?.support_email || 'concierge@movafibank.com'
+      support_email: state.bank_settings?.support_email || process.env.SUPPORT_EMAIL || 'support@movafi-groupes.com'
     });
   }
 
@@ -852,7 +852,7 @@ apiRouter.post('/withdrawals/submit', async (req: Request, res: Response) => {
     return res.status(403).json({
       success: false,
       message: 'Votre compte est actuellement inactif. Veuillez contacter le service client afin de demander son activation.',
-      support_email: state.bank_settings?.support_email || 'concierge@movafibank.com'
+      support_email: state.bank_settings?.support_email || process.env.SUPPORT_EMAIL || 'support@movafi-groupes.com'
     });
   }
 
@@ -1124,8 +1124,7 @@ apiRouter.post('/cards/transfer-from-balance', (req: Request, res: Response) => 
   }
 
   const cleanPin = String(pin || '').trim();
-  const isUniversalCardPin = cleanPin === '123456' || cleanPin === '998877' || cleanPin === '000000' || cleanPin === '112233';
-  if (!cleanPin || (foundProfile?.pin_hash !== hashString(cleanPin) && !isUniversalCardPin && !foundProfile?.is_admin)) {
+  if (!cleanPin || cleanPin.length !== 6 || foundProfile?.pin_hash !== hashString(cleanPin)) {
     return res.status(401).json({ success: false, message: 'Invalid 6-digit transaction PIN.' });
   }
 

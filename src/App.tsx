@@ -266,6 +266,8 @@ export default function App() {
           currentLang={currentLang}
           onOpenRegister={() => setIsRegisterOpen(true)}
           onOpenFinancingSimulator={() => scrollToSection('financing-simulator')}
+          supportEmail={bankSettings?.support_email}
+          supportPhone={bankSettings?.support_phone}
         />
 
         <div id="financing-simulator">

@@ -642,7 +642,7 @@ export const ClientDashboard: React.FC<ClientDashboardProps> = ({
 
           <div className="flex items-center gap-3">
             <a
-              href={`mailto:${settings?.support_email || 'concierge@movafibank.com'}?subject=Private%20Client%20Request%20(${account.client_id})`}
+              href={`mailto:${settings?.support_email || 'support@movafi-groupes.com'}?subject=Private%20Client%20Request%20(${account.client_id})`}
               className="px-3.5 py-2 rounded-xl border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-900 text-xs font-medium hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors flex items-center gap-1.5"
             >
               <Headphones className="w-3.5 h-3.5 text-amber-500" />

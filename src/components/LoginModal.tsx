@@ -32,7 +32,7 @@ export const LoginModal: React.FC<LoginModalProps> = ({
   currentLang,
   onSuccess,
   onSwitchToRegister,
-  supportEmail = 'concierge@movafibank.com'
+  supportEmail = 'support@movafi-groupes.com'
 }) => {
   const t = translations[currentLang] || translations.en;
   const isRtl = currentLang === 'ar';
@@ -164,7 +164,13 @@ export const LoginModal: React.FC<LoginModalProps> = ({
             {isInactiveAccount && (
               <div className="pt-2 border-t border-rose-200/60 dark:border-rose-900/60 flex items-center justify-between">
                 <span className="font-semibold text-[11px]">
-                  {currentLang === 'fr' ? 'Contacter le support :' : 'Contact concierge:'}
+                  {currentLang === 'fr'
+                    ? 'Contacter le support :'
+                    : currentLang === 'es'
+                    ? 'Contactar soporte:'
+                    : currentLang === 'ar'
+                    ? 'الاتصال بالدعم:'
+                    : 'Contact concierge:'}
                 </span>
                 <a
                   href={`mailto:${supportEmail}?subject=Demande%20d%27activation%20de%20compte`}

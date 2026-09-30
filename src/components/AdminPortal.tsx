@@ -25,7 +25,8 @@ import {
   ArrowLeft,
   Lock,
   Building2,
-  Gift
+  Gift,
+  Shield
 } from 'lucide-react';
 import { api } from '../services/api';
 import {
@@ -256,6 +257,24 @@ export const AdminPortal: React.FC<AdminPortalProps> = ({ currentUser, onExit })
       const res = await api.admin.resetPin(selectedFileAccountId);
       if (res.success) {
         notify(`PIN reset initiated. Temporary code dispatched to client: ${res.temporaryPin}`);
+      }
+    } catch (e: any) {
+      notify(e.message, 'error');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleRegenerateCodes = async () => {
+    if (!selectedFileAccountId) return;
+    setLoading(true);
+    try {
+      const res = await api.admin.regenerateSecurityCodes(selectedFileAccountId);
+      if (res.success) {
+        notify('Codes de sécurité CAT et COT régénérés avec succès.');
+        await openBankingFile(selectedFileAccountId);
+      } else {
+        notify(res.message, 'error');
       }
     } catch (e: any) {
       notify(e.message, 'error');
@@ -900,6 +919,47 @@ export const AdminPortal: React.FC<AdminPortalProps> = ({ currentUser, onExit })
                         <span className="text-slate-400 block mb-1 font-semibold">Reconciled Balance:</span>
                         <div className="text-lg font-mono font-bold text-amber-400">
                           {formatCurrency(fileDetail.account.balance, fileDetail.account.currency)}
+                        </div>
+                      </div>
+                    </div>
+
+                    {/* CAT & COT Internal Security Codes (Requirement 10) */}
+                    <div className="p-4 rounded-xl border border-amber-500/30 bg-amber-950/20 space-y-3">
+                      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
+                        <div>
+                          <h4 className="font-bold text-xs uppercase tracking-wider text-amber-400 flex items-center gap-1.5">
+                            <Shield className="w-3.5 h-3.5 text-amber-400" />
+                            <span>Codes de Sécurité Internes (CAT & COT)</span>
+                          </h4>
+                          <p className="text-[11px] text-slate-400 mt-0.5">
+                            Codes de sécurité internes au workflow du prototype Movafi Bank. Ne sont jamais exposés publiquement.
+                          </p>
+                        </div>
+                        <button
+                          onClick={handleRegenerateCodes}
+                          disabled={loading}
+                          className="px-3 py-1.5 rounded-lg border border-amber-500/40 bg-amber-500/10 hover:bg-amber-500/20 text-amber-300 font-semibold text-xs cursor-pointer flex items-center gap-1.5 shrink-0 transition-colors"
+                        >
+                          <RefreshCw className="w-3.5 h-3.5" />
+                          <span>Régénérer CAT / COT</span>
+                        </button>
+                      </div>
+
+                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 text-xs">
+                        <div className="p-3 rounded-xl bg-slate-900/90 border border-slate-800">
+                          <span className="text-[10px] text-slate-400 uppercase font-semibold block">Code d'Autorisation de Transfert (CAT)</span>
+                          <div className="text-base font-mono font-bold text-amber-300 mt-1 select-all tracking-wider">
+                            {fileDetail.account.cat_code || 'CAT-NON-GÉNÉRÉ'}
+                          </div>
+                          <span className="text-[10px] text-slate-500 mt-0.5 block">Requis lors de l'étape 2 du transfert après activation</span>
+                        </div>
+
+                        <div className="p-3 rounded-xl bg-slate-900/90 border border-slate-800">
+                          <span className="text-[10px] text-slate-400 uppercase font-semibold block">Code d'Opération de Trésorerie (COT)</span>
+                          <div className="text-base font-mono font-bold text-amber-300 mt-1 select-all tracking-wider">
+                            {fileDetail.account.cot_code || 'COT-NON-GÉNÉRÉ'}
+                          </div>
+                          <span className="text-[10px] text-slate-500 mt-0.5 block">Requis lors de l'étape 3 avant transmission au gestionnaire</span>
                         </div>
                       </div>
                     </div>

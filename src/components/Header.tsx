@@ -59,7 +59,7 @@ export const Header: React.FC<HeaderProps> = ({
   onOpenReferrals,
   onNavigateTab,
   onLogout,
-  supportEmail = 'concierge@movafibank.com',
+  supportEmail = 'support@movafi-groupes.com',
   onNavigateSection,
   onLogoClick
 }) => {
@@ -299,38 +299,81 @@ export const Header: React.FC<HeaderProps> = ({
 
           {/* Nav Links (Desktop) */}
           <nav className="hidden lg:flex items-center gap-3.5 xl:gap-6 2xl:gap-8 text-xs xl:text-sm font-medium text-slate-600 dark:text-slate-300 min-w-0">
-            <button
-              onClick={() => handleNavClick('wealth')}
-              className="hover:text-amber-600 dark:hover:text-amber-400 transition-colors cursor-pointer whitespace-nowrap"
-            >
-              {t.navWealth}
-            </button>
-            <button
-              onClick={() => handleNavClick('financing')}
-              className="hover:text-amber-600 dark:hover:text-amber-400 transition-colors cursor-pointer whitespace-nowrap"
-            >
-              {t.navFinancing}
-            </button>
-            <button
-              onClick={() => handleNavClick('digital')}
-              className="hover:text-amber-600 dark:hover:text-amber-400 transition-colors cursor-pointer whitespace-nowrap"
-            >
-              {t.navDigital}
-            </button>
-            <button
-              onClick={() => handleNavClick('about')}
-              className="hover:text-amber-600 dark:hover:text-amber-400 transition-colors cursor-pointer whitespace-nowrap"
-            >
-              {t.navAbout}
-            </button>
-            {onOpenReferrals && (
-              <button
-                onClick={onOpenReferrals}
-                className="hidden xl:flex hover:text-amber-600 dark:hover:text-amber-400 transition-colors cursor-pointer whitespace-nowrap items-center gap-1.5 text-amber-600 dark:text-amber-400 font-semibold"
-              >
-                <Gift className="w-3.5 h-3.5" />
-                <span>{t.navReferrals}</span>
-              </button>
+            {!currentUser ? (
+              <>
+                <button
+                  onClick={() => handleNavClick('wealth')}
+                  className="hover:text-amber-600 dark:hover:text-amber-400 transition-colors cursor-pointer whitespace-nowrap"
+                >
+                  {t.navWealth}
+                </button>
+                <button
+                  onClick={() => handleNavClick('financing')}
+                  className="hover:text-amber-600 dark:hover:text-amber-400 transition-colors cursor-pointer whitespace-nowrap"
+                >
+                  {t.navFinancing}
+                </button>
+                <button
+                  onClick={() => handleNavClick('digital')}
+                  className="hover:text-amber-600 dark:hover:text-amber-400 transition-colors cursor-pointer whitespace-nowrap"
+                >
+                  {t.navDigital}
+                </button>
+                <button
+                  onClick={() => handleNavClick('about')}
+                  className="hover:text-amber-600 dark:hover:text-amber-400 transition-colors cursor-pointer whitespace-nowrap"
+                >
+                  {t.navAbout}
+                </button>
+                {onOpenReferrals && (
+                  <button
+                    onClick={onOpenReferrals}
+                    className="hidden xl:flex hover:text-amber-600 dark:hover:text-amber-400 transition-colors cursor-pointer whitespace-nowrap items-center gap-1.5 text-amber-600 dark:text-amber-400 font-semibold"
+                  >
+                    <Gift className="w-3.5 h-3.5" />
+                    <span>{t.navReferrals}</span>
+                  </button>
+                )}
+              </>
+            ) : (
+              <>
+                <button
+                  onClick={() => onNavigateTab?.('overview')}
+                  className="hover:text-amber-600 dark:hover:text-amber-400 transition-colors cursor-pointer whitespace-nowrap font-bold text-amber-600 dark:text-amber-400"
+                >
+                  {t.navPortal}
+                </button>
+                <button
+                  onClick={() => onNavigateTab?.('transfer')}
+                  className="hover:text-amber-600 dark:hover:text-amber-400 transition-colors cursor-pointer whitespace-nowrap"
+                >
+                  {t.menuTransfer}
+                </button>
+                <button
+                  onClick={() => onNavigateTab?.('recharge')}
+                  className="hover:text-amber-600 dark:hover:text-amber-400 transition-colors cursor-pointer whitespace-nowrap"
+                >
+                  {t.menuDeposit}
+                </button>
+                <button
+                  onClick={() => onNavigateTab?.('withdraw')}
+                  className="hover:text-amber-600 dark:hover:text-amber-400 transition-colors cursor-pointer whitespace-nowrap"
+                >
+                  {t.menuWithdraw}
+                </button>
+                <button
+                  onClick={() => onNavigateTab?.('cards')}
+                  className="hover:text-amber-600 dark:hover:text-amber-400 transition-colors cursor-pointer whitespace-nowrap"
+                >
+                  {t.menuCards}
+                </button>
+                <button
+                  onClick={() => handleNavClick('about')}
+                  className="hover:text-amber-600 dark:hover:text-amber-400 transition-colors cursor-pointer whitespace-nowrap"
+                >
+                  {t.navAbout}
+                </button>
+              </>
             )}
           </nav>
 
@@ -751,12 +794,10 @@ export const Header: React.FC<HeaderProps> = ({
                         <div className="text-[10px] text-slate-500">{currentUser.email}</div>
                       </div>
                     </div>
-                    <button
-                      onClick={() => { setMobileMenuOpen(false); onOpenPortal(); }}
-                      className="px-2.5 py-1 rounded-lg bg-slate-900 text-white dark:bg-white dark:text-slate-900 text-[11px] font-semibold"
-                    >
-                      {t.navPortal}
-                    </button>
+                    <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 text-[11px] font-bold border border-emerald-500/20">
+                      <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse" />
+                      <span>{currentLang === 'fr' ? 'Connecté' : currentLang === 'es' ? 'Conectado' : currentLang === 'ar' ? 'متصل' : 'Connected'}</span>
+                    </span>
                   </div>
 
                   {currentUser.is_admin && (

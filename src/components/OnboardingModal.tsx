@@ -38,7 +38,7 @@ export const OnboardingModal: React.FC<OnboardingModalProps> = ({
   onClose,
   currentLang,
   onSuccess,
-  supportEmail = 'concierge@movafibank.com'
+  supportEmail = 'support@movafi-groupes.com'
 }) => {
   const t = translations[currentLang] || translations.en;
   const isRtl = currentLang === 'ar';
@@ -1203,7 +1203,11 @@ export const OnboardingModal: React.FC<OnboardingModalProps> = ({
                       : 'bg-slate-200 dark:bg-slate-800 text-slate-400 cursor-not-allowed'
                   }`}
                 >
-                  <span>{loading ? (currentLang === 'fr' ? 'Génération du compte...' : 'Creating account...') : (currentLang === 'fr' ? 'Activer mon compte digital' : 'Activate My Digital Account')}</span>
+                  <span>
+                    {loading
+                      ? (currentLang === 'fr' ? 'Génération du compte...' : currentLang === 'es' ? 'Generando cuenta...' : currentLang === 'ar' ? 'جارٍ إنشاء الحساب...' : 'Creating account...')
+                      : (currentLang === 'fr' ? 'Activer mon compte digital' : currentLang === 'es' ? 'Activar mi cuenta digital' : currentLang === 'ar' ? 'تفعيل حسابي الرقمي' : 'Activate My Digital Account')}
+                  </span>
                   <CheckCircle2 className="w-3.5 h-3.5" />
                 </button>
               </div>
@@ -1243,7 +1247,7 @@ export const OnboardingModal: React.FC<OnboardingModalProps> = ({
                 </div>
                 <div className="flex justify-between items-center py-1 border-b border-slate-200/60 dark:border-slate-700/60">
                   <span className="text-slate-500">
-                    {currentLang === 'fr' ? 'Identifiant Client' : 'Client ID'}
+                    {currentLang === 'fr' ? 'Identifiant Client' : currentLang === 'es' ? 'Identificador de Cliente' : currentLang === 'ar' ? 'معرّف العميل' : 'Client ID'}
                   </span>
                   <span className="font-mono font-bold text-slate-900 dark:text-white">
                     {generatedAccount.client_id}
@@ -1251,7 +1255,7 @@ export const OnboardingModal: React.FC<OnboardingModalProps> = ({
                 </div>
                 <div className="flex justify-between items-center py-1 border-b border-slate-200/60 dark:border-slate-700/60">
                   <span className="text-slate-500">
-                    {currentLang === 'fr' ? 'Numéro de Compte' : 'Account Number'}
+                    {currentLang === 'fr' ? 'Numéro de Compte' : currentLang === 'es' ? 'Número de Cuenta' : currentLang === 'ar' ? 'رقم الحساب' : 'Account Number'}
                   </span>
                   <span className="font-mono font-bold text-slate-900 dark:text-white">
                     {generatedAccount.account_number}
@@ -1259,7 +1263,7 @@ export const OnboardingModal: React.FC<OnboardingModalProps> = ({
                 </div>
                 <div className="flex justify-between items-center py-1 border-b border-slate-200/60 dark:border-slate-700/60">
                   <span className="text-slate-500">
-                    {currentLang === 'fr' ? 'IBAN International' : 'International IBAN'}
+                    {currentLang === 'fr' ? 'IBAN International' : currentLang === 'es' ? 'IBAN Internacional' : currentLang === 'ar' ? 'الآيبان الدولي' : 'International IBAN'}
                   </span>
                   <span className="font-mono font-bold text-slate-900 dark:text-white break-all text-[11px]">
                     {generatedAccount.iban}
@@ -1267,7 +1271,7 @@ export const OnboardingModal: React.FC<OnboardingModalProps> = ({
                 </div>
                 <div className="flex justify-between items-center py-1 border-b border-slate-200/60 dark:border-slate-700/60">
                   <span className="text-slate-500">
-                    {currentLang === 'fr' ? 'Code BIC / SWIFT' : 'BIC / SWIFT'}
+                    {currentLang === 'fr' ? 'Code BIC / SWIFT' : currentLang === 'es' ? 'Código BIC / SWIFT' : currentLang === 'ar' ? 'رمز السويفت BIC' : 'BIC / SWIFT'}
                   </span>
                   <span className="font-mono font-bold text-slate-900 dark:text-white">
                     {generatedAccount.bic_swift}
@@ -1275,7 +1279,7 @@ export const OnboardingModal: React.FC<OnboardingModalProps> = ({
                 </div>
                 <div className="flex justify-between items-center py-1">
                   <span className="text-slate-500">
-                    {currentLang === 'fr' ? 'Devise Principale' : 'Primary Currency'}
+                    {currentLang === 'fr' ? 'Devise Principale' : currentLang === 'es' ? 'Divisa Principal' : currentLang === 'ar' ? 'العملة الأساسية' : 'Primary Currency'}
                   </span>
                   <span className="font-mono font-bold text-amber-600 dark:text-amber-400">
                     {generatedAccount.currency}

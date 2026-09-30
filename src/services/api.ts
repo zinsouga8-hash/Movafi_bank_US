@@ -86,6 +86,9 @@ export const api = {
     account?: BankAccount;
     token?: string;
     message?: string;
+    is_inactive?: boolean;
+    is_suspended?: boolean;
+    support_email?: string;
   }> {
     const res = await fetch(`${API_BASE}/auth/login-step2`, {
       method: 'POST',

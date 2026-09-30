@@ -13,17 +13,22 @@ import {
 import { SupportedLanguage } from '../types/banking';
 import { translations } from '../i18n/translations';
 import privateDeskImg from '../assets/images/movafi_wealth_vault_1790347351259.jpg';
+import { AboutSection } from './AboutSection';
 
 interface SolutionsProps {
   currentLang: SupportedLanguage;
   onOpenRegister: () => void;
   onOpenFinancingSimulator: () => void;
+  supportEmail?: string;
+  supportPhone?: string;
 }
 
 export const Solutions: React.FC<SolutionsProps> = ({
   currentLang,
   onOpenRegister,
-  onOpenFinancingSimulator
+  onOpenFinancingSimulator,
+  supportEmail,
+  supportPhone
 }) => {
   const t = translations[currentLang] || translations.en;
   const [imageError, setImageError] = useState(false);
@@ -253,37 +258,13 @@ export const Solutions: React.FC<SolutionsProps> = ({
         </div>
       </section>
 
-      {/* Section 4: About Movafi Architecture */}
-      <section id="about" className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 pt-8">
-        <div className="border border-slate-200 dark:border-slate-800 rounded-3xl p-8 sm:p-12 bg-slate-50/50 dark:bg-slate-900/30">
-          <div className="grid grid-cols-1 lg:grid-cols-12 gap-8 items-center">
-            <div className="lg:col-span-8 space-y-4">
-              <div className="text-xs font-semibold text-amber-600 dark:text-amber-400 uppercase tracking-wider">
-                {t.solutionAboutSub || 'About Movafi Bank Corporation'}
-              </div>
-              <h3 className="text-2xl sm:text-3xl font-bold text-slate-900 dark:text-white">
-                {t.solutionAboutTitle || 'Fintech Engineering Elevated to Private Banking Standard'}
-              </h3>
-              <p className="text-sm text-slate-600 dark:text-slate-300 leading-relaxed">
-                {t.solutionAboutDesc || 'Movafi Bank United States unites high-frequency fintech architecture with the discretion and precision of traditional private banking. Every account, transaction, and credit line is monitored under strict cryptographic access controls and audit logging.'}
-              </p>
-              <div className="text-xs text-slate-500 dark:text-slate-400 pt-2 flex items-center gap-2">
-                <ShieldCheck className="w-4 h-4 text-emerald-500 shrink-0" />
-                <span className="font-mono text-[11px]">{t.solutionInfrastructure || 'Infrastructure: Segregated Vault Reserves · End-to-End Cryptography · Multi-Jurisdictional Treasury · ISO 20022 Financial Messaging'}</span>
-              </div>
-            </div>
-
-            <div className="lg:col-span-4 flex justify-center">
-              <button
-                onClick={onOpenRegister}
-                className="w-full sm:w-auto px-8 py-4 rounded-xl bg-slate-950 dark:bg-white text-white dark:text-slate-950 font-semibold text-sm hover:bg-slate-800 dark:hover:bg-slate-100 transition-colors shadow-lg cursor-pointer"
-              >
-                {t.navOpenAccount || 'Open an Account'}
-              </button>
-            </div>
-          </div>
-        </div>
-      </section>
+      {/* Section 4: Full Institutional About Movafi Bank */}
+      <AboutSection
+        currentLang={currentLang}
+        supportEmail={supportEmail}
+        supportPhone={supportPhone}
+        onOpenRegister={onOpenRegister}
+      />
     </div>
   );
 };

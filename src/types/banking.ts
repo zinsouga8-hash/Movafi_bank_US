@@ -92,7 +92,7 @@ export interface ReferralStats {
   tier_badge: string;
 }
 
-export type AccountStatus = 'pending' | 'active' | 'inactive' | 'suspended';
+export type AccountStatus = 'pending' | 'active' | 'inactive' | 'suspended' | 'rejected';
 export type ApplicationStatus = 'pending' | 'approved' | 'rejected';
 export type TransactionType =
   | 'deposit'

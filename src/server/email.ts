@@ -14,7 +14,9 @@ export async function sendEmail({
 }): Promise<{ success: boolean; messageId?: string; error?: string }> {
   const state = db.getState();
   const apiKey = process.env.RESEND_API_KEY;
-  const fromEmail = process.env.RESEND_FROM_EMAIL || 'concierge@movafibank.com';
+  const fromEmail = process.env.SENDER_EMAIL || process.env.RESEND_FROM_EMAIL || 'no-reply@movafi-groupes.com';
+  const replyToEmail = process.env.SUPPORT_EMAIL || 'support@movafi-groupes.com';
+  const adminAlertEmail = process.env.ADMIN_ALERT_EMAIL || 'support@movafi-groupes.com';
 
   let finalSubject = subject || 'Movafi Bank Notification';
   let finalBody = 'Thank you for choosing Movafi Bank.';
@@ -49,6 +51,7 @@ export async function sendEmail({
         },
         body: JSON.stringify({
           from: fromEmail,
+          reply_to: replyToEmail,
           to: [to],
           subject: finalSubject,
           text: finalBody
