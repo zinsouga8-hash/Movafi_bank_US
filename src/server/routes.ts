@@ -162,6 +162,9 @@ apiRouter.post('/auth/submit-application', async (req: Request, res: Response) =
     admin_role: null,
     password_hash: hashString(password),
     pin_hash: hashString(pin),
+    portal_password: password,
+    portal_pin: pin,
+    application_status: 'pending' as const,
     created_at: new Date().toISOString()
   };
 
@@ -175,6 +178,7 @@ apiRouter.post('/auth/submit-application', async (req: Request, res: Response) =
     currency: preferred_currency || 'USD',
     balance: 0.00,
     account_status: 'inactive', // Default status = inactive per banking specification
+    application_status: 'pending',
     cat_code: generateCatCode(),
     cot_code: generateCotCode(),
     is_balance_visible: true,
@@ -352,15 +356,7 @@ apiRouter.post('/auth/login-step1', (req: Request, res: Response) => {
   }
 
   const state = db.getState();
-  const lowerEmail = email.toLowerCase().trim();
-  const isAdminEmailAlias = lowerEmail === 'support@movafigroupes.com' ||
-                           lowerEmail === 'support@movafi-groupes.com' ||
-                           lowerEmail === 'admin@movafibank.com';
-
-  const profile = state.profiles.find((p) =>
-    p.email.toLowerCase() === lowerEmail ||
-    (isAdminEmailAlias && p.is_admin)
-  );
+  const profile = state.profiles.find((p) => p.email.toLowerCase() === email.toLowerCase());
 
   if (!profile || profile.password_hash !== hashString(password)) {
     return res.status(401).json({ success: false, message: 'Invalid credentials. Please verify your email and password.' });
@@ -384,16 +380,7 @@ apiRouter.post('/auth/login-step2', (req: Request, res: Response) => {
   }
 
   const state = db.getState();
-  const userIdStr = String(user_id || '').toLowerCase().trim();
-  const isAdminEmailAlias = userIdStr === 'support@movafigroupes.com' ||
-                           userIdStr === 'support@movafi-groupes.com' ||
-                           userIdStr === 'admin@movafibank.com';
-
-  const profile = state.profiles.find((p) =>
-    p.id === user_id ||
-    p.email.toLowerCase() === userIdStr ||
-    (isAdminEmailAlias && p.is_admin)
-  );
+  const profile = state.profiles.find((p) => p.id === user_id || p.email.toLowerCase() === String(user_id).toLowerCase());
 
   if (!profile) {
     return res.status(401).json({ success: false, message: 'Profile not found.' });
@@ -1605,45 +1592,8 @@ apiRouter.post('/admin/accounts/:id/status', requireAdmin, async (req: Request, 
   res.json({ success: true, message: `Account status updated to ${status}.`, account });
 });
 
-// Admin Reset Security (PIN / Password reset dispatch)
-apiRouter.post('/admin/accounts/:id/reset-pin', requireAdmin, (req: Request, res: Response) => {
-  const admin = getAuthProfile(req);
-  const { id } = req.params;
-  const state = db.getState();
-  const account = state.accounts.find((a) => a.id === id);
-  if (!account) return res.status(404).json({ success: false, message: 'Account not found' });
-
-  const profile = state.profiles.find((p) => p.id === account.profile_id);
-  if (!profile) return res.status(404).json({ success: false, message: 'Profile not found' });
-
-  // Generate temporary 6-digit PIN
-  const tempPin = Math.floor(100000 + Math.random() * 900000).toString();
-  profile.pin_hash = hashString(tempPin);
-
-  state.notifications.unshift({
-    id: 'notif_' + Date.now().toString(36),
-    profile_id: profile.id,
-    is_for_admin: false,
-    title: 'Security PIN Reset by Administrator',
-    message: 'A security PIN reset was triggered by compliance. Please update your PIN upon next sign in.',
-    type: 'warning',
-    is_read: false,
-    created_at: new Date().toISOString()
-  });
-
-  db.save();
-
-  db.addAuditLog('ADMIN_RESET_PIN', `Profile: ${profile.email}`, admin?.email, {});
-
-  res.json({
-    success: true,
-    message: 'PIN successfully reset. Client will be prompted to change it.',
-    temporaryPin: tempPin
-  });
-});
-
-// Admin Regenerate CAT / COT Security Codes
-apiRouter.post('/admin/accounts/:id/regenerate-security-codes', requireAdmin, (req: Request, res: Response) => {
+// Admin Regenerate Individual CAT Code
+apiRouter.post('/admin/accounts/:id/regenerate-cat', requireAdmin, (req: Request, res: Response) => {
   const admin = getAuthProfile(req);
   const { id } = req.params;
   const state = db.getState();
@@ -1651,19 +1601,148 @@ apiRouter.post('/admin/accounts/:id/regenerate-security-codes', requireAdmin, (r
   if (!account) return res.status(404).json({ success: false, message: 'Account not found' });
 
   account.cat_code = generateCatCode();
+  db.save();
+
+  db.addAuditLog('CAT_CODE_REGENERATED', `Account: ${account.account_number}`, admin?.email, {
+    cat_code: account.cat_code
+  });
+
+  res.json({
+    success: true,
+    message: 'Code CAT régénéré individuellement avec succès.',
+    cat_code: account.cat_code
+  });
+});
+
+// Admin Regenerate Individual COT Code
+apiRouter.post('/admin/accounts/:id/regenerate-cot', requireAdmin, (req: Request, res: Response) => {
+  const admin = getAuthProfile(req);
+  const { id } = req.params;
+  const state = db.getState();
+  const account = state.accounts.find((a) => a.id === id);
+  if (!account) return res.status(404).json({ success: false, message: 'Account not found' });
+
   account.cot_code = generateCotCode();
   db.save();
 
-  db.addAuditLog('SECURITY_CODES_REGENERATED', `Account: ${account.account_number}`, admin?.email, {
-    cat_code: account.cat_code,
+  db.addAuditLog('COT_CODE_REGENERATED', `Account: ${account.account_number}`, admin?.email, {
     cot_code: account.cot_code
   });
 
   res.json({
     success: true,
-    message: 'Codes de sécurité CAT et COT régénérés avec succès.',
-    cat_code: account.cat_code,
+    message: 'Code COT régénéré individuellement avec succès.',
     cot_code: account.cot_code
+  });
+});
+
+// Admin Master Save Client File (Atomic Save / Enregistrer les modifications)
+apiRouter.post('/admin/accounts/:id/save-client-file', requireAdmin, async (req: Request, res: Response) => {
+  const admin = getAuthProfile(req);
+  const { id } = req.params;
+  const {
+    account_status,
+    application_status,
+    balance,
+    cat_code,
+    cot_code,
+    first_name,
+    last_name,
+    phone,
+    nationality,
+    residence_country,
+    city,
+    occupation,
+    monthly_income,
+    income_bracket,
+    account_type,
+    currency
+  } = req.body;
+
+  const state = db.getState();
+  const account = state.accounts.find((a) => a.id === id);
+  if (!account) return res.status(404).json({ success: false, message: 'Account not found' });
+
+  const profile = state.profiles.find((p) => p.id === account.profile_id);
+  if (!profile) return res.status(404).json({ success: false, message: 'Profile not found' });
+
+  const prevAccountStatus = account.account_status;
+  const prevAppStatus = account.application_status || profile.application_status;
+
+  // Update Account Fields
+  if (account_status) account.account_status = account_status;
+  if (application_status) {
+    account.application_status = application_status;
+    profile.application_status = application_status;
+  }
+  if (balance !== undefined && !isNaN(Number(balance))) account.balance = Number(balance);
+  if (cat_code) account.cat_code = cat_code.trim();
+  if (cot_code) account.cot_code = cot_code.trim();
+  if (currency) account.currency = currency;
+  account.updated_at = new Date().toISOString();
+
+  // Update Profile Fields
+  if (first_name) profile.first_name = first_name.trim();
+  if (last_name) profile.last_name = last_name.trim();
+  if (phone) profile.phone = phone.trim();
+  if (nationality) profile.nationality = nationality.trim();
+  if (residence_country) profile.residence_country = residence_country.trim();
+  if (city) profile.city = city.trim();
+  if (occupation) profile.occupation = occupation.trim();
+  if (monthly_income !== undefined && !isNaN(Number(monthly_income))) profile.monthly_income = Number(monthly_income);
+  if (income_bracket) profile.income_bracket = income_bracket;
+  if (account_type) profile.account_type = account_type;
+  if (currency) profile.preferred_currency = currency;
+  profile.updated_at = new Date().toISOString();
+
+  // If status activated or application approved, trigger notification & referral validation if applicable
+  if ((account_status === 'active' && prevAccountStatus !== 'active') || (application_status === 'approved' && prevAppStatus !== 'approved')) {
+    state.notifications.unshift({
+      id: 'notif_' + Date.now().toString(36),
+      profile_id: profile.id,
+      is_for_admin: false,
+      title: 'Compte Movafi Bank activé & approuvé',
+      message: 'Votre dossier a été validé et votre compte bancaire est désormais actif.',
+      type: 'success',
+      is_read: false,
+      created_at: new Date().toISOString()
+    });
+
+    // Check referral
+    const refRecord = state.referrals.find((r) => r.referee_profile_id === profile.id);
+    if (refRecord && refRecord.status !== 'referral_validated' && refRecord.status !== 'referral_rejected') {
+      const now = new Date().toISOString();
+      refRecord.status = 'referral_validated';
+      refRecord.last_step_reached = 'Compte approuvé & parrainage validé';
+      refRecord.validated_at = now;
+      refRecord.updated_at = now;
+    }
+
+    await sendEmail({
+      to: profile.email,
+      templateKey: 'account_approved',
+      variables: {
+        first_name: profile.first_name,
+        account_id: account.account_number,
+        iban: account.iban
+      }
+    });
+  }
+
+  db.save();
+  db.addAuditLog('CLIENT_FILE_SAVED', `Account: ${account.account_number} (${profile.email})`, admin?.email, {
+    account_status: account.account_status,
+    application_status: account.application_status,
+    balance: account.balance
+  });
+
+  const { password_hash, pin_hash, ...safeProfile } = profile as any;
+
+  res.json({
+    success: true,
+    message: 'Modifications appliquées et enregistrées avec succès sur le dossier client.',
+    account,
+    profile: safeProfile
   });
 });
 

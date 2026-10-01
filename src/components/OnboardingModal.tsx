@@ -18,12 +18,14 @@ import {
   Search,
   AlertCircle,
   HelpCircle,
-  Mail
+  Mail,
+  Server
 } from 'lucide-react';
 import { api } from '../services/api';
 import { SupportedLanguage, SupportedCurrency, UserProfile, BankAccount } from '../types/banking';
 import { translations } from '../i18n/translations';
 import { COUNTRIES, CountryInfo, getLocalizedCountryName } from '../utils/countries';
+import { MovafiLogo } from './MovafiLogo';
 
 interface OnboardingModalProps {
   isOpen: boolean;
@@ -38,7 +40,7 @@ export const OnboardingModal: React.FC<OnboardingModalProps> = ({
   onClose,
   currentLang,
   onSuccess,
-  supportEmail = 'support@movafigroupes.com'
+  supportEmail = 'support@movafi-groupes.com'
 }) => {
   const t = translations[currentLang] || translations.en;
   const isRtl = currentLang === 'ar';
@@ -100,13 +102,19 @@ export const OnboardingModal: React.FC<OnboardingModalProps> = ({
   const [residenceSearchQuery, setResidenceSearchQuery] = useState('');
   const [showResidencePicker, setShowResidencePicker] = useState(false);
   const [city, setCity] = useState('New York');
+  const [isCustomCity, setIsCustomCity] = useState(false);
 
   // Currency & Account Parameters
   const [currency, setCurrency] = useState<SupportedCurrency>('USD');
   const [accountType, setAccountType] = useState<'Personal' | 'Business'>('Personal');
-  const [occupation, setOccupation] = useState('');
-  const [monthlyIncome, setMonthlyIncome] = useState<number>(35000);
+  const [professionCategory, setProfessionCategory] = useState<string>('Salarié');
+  const [occupation, setOccupation] = useState('Salarié');
+  const [incomeBracket, setIncomeBracket] = useState<string>('10 000 - 25 000');
+  const [monthlyIncome, setMonthlyIncome] = useState<number>(15000);
   const [activityDuration] = useState('5 years');
+
+  // Server Processing Simulation for Step 5
+  const [serverProcessingStep, setServerProcessingStep] = useState<number>(0);
 
   // Step 4: Digital Identity Documents
   const [idFileName, setIdFileName] = useState<string | null>(null);
@@ -482,11 +490,15 @@ export const OnboardingModal: React.FC<OnboardingModalProps> = ({
     }
 
     setLoading(true);
+    setServerProcessingStep(1);
+    const t1 = setTimeout(() => setServerProcessingStep(2), 400);
+    const t2 = setTimeout(() => setServerProcessingStep(3), 850);
+
     const fullPhone = `${selectedPhoneCountry.dialCode} ${phoneNumberOnly.trim()}`;
     const countryName = getLocalizedCountryName(selectedResidenceCountry, 'en');
 
     try {
-      const res = await api.submitApplication({
+      const resPromise = api.submitApplication({
         email,
         password,
         first_name: firstName.trim(),
@@ -499,10 +511,17 @@ export const OnboardingModal: React.FC<OnboardingModalProps> = ({
         account_type: accountType,
         occupation: occupation.trim(),
         monthly_income: monthlyIncome,
+        income_bracket: incomeBracket,
         activity_duration: activityDuration,
         pin,
         referral_code: referralCode ? referralCode.trim() : undefined
       });
+
+      // Quick 1.4s execution with visual server feedback
+      const [res] = await Promise.all([
+        resPromise,
+        new Promise((resolve) => setTimeout(resolve, 1400))
+      ]);
 
       if (res.success && res.account && res.user) {
         setGeneratedAccount(res.account);
@@ -514,7 +533,10 @@ export const OnboardingModal: React.FC<OnboardingModalProps> = ({
     } catch (err: any) {
       setError(err.message || 'Submission error.');
     } finally {
+      clearTimeout(t1);
+      clearTimeout(t2);
       setLoading(false);
+      setServerProcessingStep(0);
     }
   };
 
@@ -534,9 +556,7 @@ export const OnboardingModal: React.FC<OnboardingModalProps> = ({
         {/* Header with Title and Close Button */}
         <div className="flex items-center justify-between pb-3 border-b border-slate-100 dark:border-slate-800 shrink-0">
           <div className="flex items-center gap-3">
-            <div className="w-10 h-10 rounded-2xl bg-amber-600/10 text-amber-600 flex items-center justify-center font-bold text-base shadow-inner">
-              MB
-            </div>
+            <MovafiLogo size="sm" layout="icon" />
             <div>
               <h2 className="font-bold text-base sm:text-lg text-slate-900 dark:text-white leading-tight">
                 {currentLang === 'fr'
@@ -624,6 +644,17 @@ export const OnboardingModal: React.FC<OnboardingModalProps> = ({
           {/* STEP 1: SECURITY CREDENTIALS */}
           {step === 1 && (
             <form onSubmit={handleStep1Submit} className="space-y-4">
+              {/* Prestigious Bank Logo Header for Step 1 */}
+              <div className="p-4 rounded-2xl bg-gradient-to-r from-slate-950 via-slate-900 to-slate-950 border border-amber-500/30 flex flex-col items-center justify-center text-center shadow-lg relative overflow-hidden">
+                <div className="absolute inset-0 bg-radial from-amber-500/10 via-transparent to-transparent pointer-events-none" />
+                <MovafiLogo size="md" layout="horizontal" />
+                <p className="text-[11px] text-amber-500/90 font-medium tracking-wide mt-2">
+                  {currentLang === 'fr'
+                    ? 'Ouverture de Compte Bancaire Privé & Trésorerie Sécurisée'
+                    : 'Private Wealth Banking & Secure Treasury Application'}
+                </p>
+              </div>
+
               <div>
                 <label className="block text-xs font-semibold text-slate-700 dark:text-slate-300 mb-1">
                   {currentLang === 'fr' ? 'Adresse E-mail Professionnelle ou Personnelle' : 'Professional or Personal Email'}
@@ -889,7 +920,7 @@ export const OnboardingModal: React.FC<OnboardingModalProps> = ({
                 </div>
               </div>
 
-              {/* Country of Residence & City / State of Residence (Rule 16) */}
+              {/* Country of Residence & City / State of Residence */}
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                 {/* Country of Residence */}
                 <div className="relative">
@@ -930,9 +961,12 @@ export const OnboardingModal: React.FC<OnboardingModalProps> = ({
                             setSelectedResidenceCountry(c);
                             setShowResidencePicker(false);
                             setResidenceSearchQuery('');
-                            // Propose first city from selected country as convenient suggestion
+                            setIsCustomCity(false);
                             if (c.cities && c.cities.length > 0) {
                               setCity(c.cities[0]);
+                            } else {
+                              setCity('');
+                              setIsCustomCity(true);
                             }
                           }}
                           className="w-full px-2.5 py-1.5 rounded-lg hover:bg-amber-500/10 text-left flex items-center gap-2 text-xs cursor-pointer"
@@ -947,31 +981,62 @@ export const OnboardingModal: React.FC<OnboardingModalProps> = ({
                   )}
                 </div>
 
-                {/* City / State of Residence */}
+                {/* City of Residence (Display ALL cities of selected country) */}
                 <div>
-                  <label className="block text-xs font-semibold text-slate-700 dark:text-slate-300 mb-1">
-                    {currentLang === 'fr' ? 'Ville / État de résidence *' : 'City / State of Residence *'}
-                  </label>
-                  <div className="relative">
-                    <input
-                      type="text"
-                      required
-                      list="city-suggestions"
-                      value={city}
-                      onChange={(e) => setCity(e.target.value)}
-                      placeholder={currentLang === 'fr' ? 'Ex: Cotonou, Paris, New York...' : 'Ex: New York, London, Manama...'}
-                      className="w-full px-3 py-2 rounded-xl border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800 text-xs focus:ring-2 focus:ring-amber-500"
-                    />
-                    <datalist id="city-suggestions">
+                  <div className="flex items-center justify-between mb-1">
+                    <label className="block text-xs font-semibold text-slate-700 dark:text-slate-300">
+                      {currentLang === 'fr' ? 'Ville de résidence *' : 'City of Residence *'}
+                    </label>
+                    <span className="text-[10px] text-amber-600 dark:text-amber-400 font-medium">
+                      {selectedResidenceCountry.cities.length} {currentLang === 'fr' ? 'villes' : 'cities'}
+                    </span>
+                  </div>
+
+                  <div className="space-y-1.5">
+                    <select
+                      value={selectedResidenceCountry.cities.includes(city) ? city : 'custom'}
+                      onChange={(e) => {
+                        if (e.target.value === 'custom') {
+                          setIsCustomCity(true);
+                          setCity('');
+                        } else {
+                          setIsCustomCity(false);
+                          setCity(e.target.value);
+                        }
+                      }}
+                      className="w-full px-3 py-2 rounded-xl border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800 text-xs font-medium focus:ring-2 focus:ring-amber-500 shadow-sm"
+                    >
+                      <option value="" disabled>
+                        {currentLang === 'fr'
+                          ? `Sélectionner une ville (${selectedResidenceCountry.flag} ${getLocalizedCountryName(selectedResidenceCountry, currentLang)})...`
+                          : `Select a city (${selectedResidenceCountry.nameEn})...`}
+                      </option>
                       {selectedResidenceCountry.cities.map((ct) => (
-                        <option key={ct} value={ct} />
+                        <option key={ct} value={ct}>
+                          {ct}
+                        </option>
                       ))}
-                    </datalist>
+                      <option value="custom">
+                        {currentLang === 'fr' ? '➕ Autre ville (saisie libre manuelle)...' : '➕ Other city (manual entry)...'}
+                      </option>
+                    </select>
+
+                    {isCustomCity && (
+                      <input
+                        type="text"
+                        required
+                        autoFocus
+                        value={city}
+                        onChange={(e) => setCity(e.target.value)}
+                        placeholder={currentLang === 'fr' ? 'Saisissez le nom exact de votre ville...' : 'Type your city name...'}
+                        className="w-full px-3 py-2 rounded-xl border border-amber-400 dark:border-amber-600 bg-amber-50/40 dark:bg-slate-800 text-xs focus:ring-2 focus:ring-amber-500"
+                      />
+                    )}
                   </div>
                 </div>
               </div>
 
-              {/* Currency Selector (Rule 15: USD, EUR, CAD, SAR, AED, BHD) */}
+              {/* Currency Selector (Rule 15: USD, EUR, CAD, SAR, AED, BHD, MXN) */}
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                 <div>
                   <label className="block text-xs font-semibold text-slate-700 dark:text-slate-300 mb-1">
@@ -982,12 +1047,13 @@ export const OnboardingModal: React.FC<OnboardingModalProps> = ({
                     onChange={(e) => setCurrency(e.target.value as SupportedCurrency)}
                     className="w-full px-3 py-2 rounded-xl border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800 text-xs font-medium focus:ring-2 focus:ring-amber-500"
                   >
-                    <option value="USD">USD — US Dollar ($)</option>
-                    <option value="EUR">EUR — Euro (€)</option>
-                    <option value="CAD">CAD — Canadian Dollar (C$)</option>
-                    <option value="BHD">BHD — Bahraini Dinar (د.ب / BHD)</option>
-                    <option value="SAR">SAR — Saudi Riyal (ر.س / SAR)</option>
-                    <option value="AED">AED — UAE Dirham (د.إ / AED)</option>
+                    <option value="USD">USD — Dollar Américain ($ / USD)</option>
+                    <option value="EUR">EUR — Euro (€ / EUR)</option>
+                    <option value="CAD">CAD — Dollar Canadien (C$ / CAD)</option>
+                    <option value="MXN">MXN — Peso Mexicain ($ / MXN)</option>
+                    <option value="BHD">BHD — Dinar de Bahreïn (د.ب / BHD)</option>
+                    <option value="SAR">SAR — Riyal Saoudien (ر.س / SAR)</option>
+                    <option value="AED">AED — Dirham des Émirats (د.إ / AED)</option>
                   </select>
                 </div>
 
@@ -1010,36 +1076,114 @@ export const OnboardingModal: React.FC<OnboardingModalProps> = ({
                 </div>
               </div>
 
-              {/* Profession & Monthly Inflow */}
+              {/* Profession (Dropdown category + Direct text input) */}
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                 <div>
                   <label className="block text-xs font-semibold text-slate-700 dark:text-slate-300 mb-1">
                     {currentLang === 'fr' ? 'Profession / Activité économique *' : 'Professional Occupation *'}
                   </label>
-                  <input
-                    type="text"
-                    required
-                    value={occupation}
-                    onChange={(e) => setOccupation(e.target.value)}
-                    placeholder={currentLang === 'fr' ? 'Ex: Directeur d’entreprise, Consultant...' : 'Ex: Managing Director, Consultant...'}
-                    className="w-full px-3 py-2 rounded-xl border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800 text-xs focus:ring-2 focus:ring-amber-500"
-                  />
+                  <div className="space-y-1.5">
+                    <select
+                      value={professionCategory}
+                      onChange={(e) => {
+                        const val = e.target.value;
+                        setProfessionCategory(val);
+                        if (val && val !== 'autre') {
+                          setOccupation(val);
+                        } else if (val === 'autre') {
+                          setOccupation('');
+                        }
+                      }}
+                      className="w-full px-3 py-2 rounded-xl border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800 text-xs font-medium focus:ring-2 focus:ring-amber-500 shadow-sm"
+                    >
+                      <option value="Salarié">{currentLang === 'fr' ? 'Salarié' : 'Salaried Employee'}</option>
+                      <option value="Retraité">{currentLang === 'fr' ? 'Retraité' : 'Retired'}</option>
+                      <option value="Étudiant">{currentLang === 'fr' ? 'Étudiant' : 'Student'}</option>
+                      <option value="Travailleur indépendant à son compte">
+                        {currentLang === 'fr' ? 'Travailleur indépendant à son compte' : 'Self-employed / Freelance'}
+                      </option>
+                      <option value="autre">
+                        {currentLang === 'fr' ? 'Autre / Préciser sa profession (saisie libre)...' : 'Other / Custom occupation...'}
+                      </option>
+                    </select>
+
+                    <input
+                      type="text"
+                      required
+                      value={occupation}
+                      onChange={(e) => {
+                        setOccupation(e.target.value);
+                        if (professionCategory !== 'autre' && e.target.value !== professionCategory) {
+                          setProfessionCategory('autre');
+                        }
+                      }}
+                      placeholder={currentLang === 'fr' ? 'Précisez votre poste ou métier exact...' : 'Specify job title or role...'}
+                      className="w-full px-3 py-2 rounded-xl border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800 text-xs focus:ring-2 focus:ring-amber-500"
+                    />
+                  </div>
                 </div>
 
+                {/* Monthly Income (Brackets Dropdown + Exact Input) */}
                 <div>
-                  <label className="block text-xs font-semibold text-slate-700 dark:text-slate-300 mb-1">
-                    {currentLang === 'fr'
-                      ? `Revenus mensuels estimés (${currency}) *`
-                      : `Est. Monthly Inflow (${currency}) *`}
-                  </label>
-                  <input
-                    type="number"
-                    required
-                    min={1}
-                    value={monthlyIncome}
-                    onChange={(e) => setMonthlyIncome(Number(e.target.value))}
-                    className="w-full px-3 py-2 rounded-xl border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800 text-xs focus:ring-2 focus:ring-amber-500"
-                  />
+                  <div className="flex items-center justify-between mb-1">
+                    <label className="block text-xs font-semibold text-slate-700 dark:text-slate-300">
+                      {currentLang === 'fr'
+                        ? `Revenus mensuels (${currency}) *`
+                        : `Monthly Income (${currency}) *`}
+                    </label>
+                    {incomeBracket && (
+                      <span className="text-[10px] px-2 py-0.5 rounded bg-amber-500/10 text-amber-600 dark:text-amber-400 font-semibold font-mono">
+                        {incomeBracket}
+                      </span>
+                    )}
+                  </div>
+                  <div className="space-y-1.5">
+                    <select
+                      value={incomeBracket}
+                      onChange={(e) => {
+                        const val = e.target.value;
+                        setIncomeBracket(val);
+                        if (val === '0 - 2 000') setMonthlyIncome(1500);
+                        else if (val === '2 000 - 5 000') setMonthlyIncome(3500);
+                        else if (val === '5 000 - 10 000') setMonthlyIncome(7500);
+                        else if (val === '10 000 - 25 000') setMonthlyIncome(15000);
+                        else if (val === '25 000 ou plus') setMonthlyIncome(30000);
+                      }}
+                      className="w-full px-3 py-2 rounded-xl border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800 text-xs font-medium focus:ring-2 focus:ring-amber-500 shadow-sm"
+                    >
+                      <option value="0 - 2 000">Entre 0 et 2 000 {currency}</option>
+                      <option value="2 000 - 5 000">Entre 2 000 et 5 000 {currency}</option>
+                      <option value="5 000 - 10 000">Entre 5 000 et 10 000 {currency}</option>
+                      <option value="10 000 - 25 000">Entre 10 000 et 25 000 {currency}</option>
+                      <option value="25 000 ou plus">25 000 {currency} ou plus</option>
+                      <option value="custom">
+                        {currentLang === 'fr' ? 'Saisie d\'un montant exact...' : 'Exact amount...'}
+                      </option>
+                    </select>
+
+                    <div className="relative">
+                      <input
+                        type="number"
+                        required
+                        min={1}
+                        value={monthlyIncome || ''}
+                        onChange={(e) => {
+                          const val = Number(e.target.value);
+                          setMonthlyIncome(val);
+                          if (val <= 2000) setIncomeBracket('0 - 2 000');
+                          else if (val <= 5000) setIncomeBracket('2 000 - 5 000');
+                          else if (val <= 10000) setIncomeBracket('5 000 - 10 000');
+                          else if (val <= 25000) setIncomeBracket('10 000 - 25 000');
+                          else setIncomeBracket('25 000 ou plus');
+                        }}
+                        placeholder={currentLang === 'fr' ? 'Montant exact (ex: 4500)...' : 'Exact amount...'}
+                        className="w-full px-3 py-2 rounded-xl border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800 text-xs font-mono focus:ring-2 focus:ring-amber-500 pr-14"
+                      />
+                      <span className="absolute right-3 top-2 text-xs font-mono font-bold text-amber-600 dark:text-amber-400">
+                        {currency}
+                      </span>
+                    </div>
+                  </div>
                 </div>
               </div>
 
@@ -1205,13 +1349,49 @@ export const OnboardingModal: React.FC<OnboardingModalProps> = ({
                 >
                   <span>
                     {loading
-                      ? (currentLang === 'fr' ? 'Génération du compte...' : currentLang === 'es' ? 'Generando cuenta...' : currentLang === 'ar' ? 'جارٍ إنشاء الحساب...' : 'Creating account...')
-                      : (currentLang === 'fr' ? 'Activer mon compte digital' : currentLang === 'es' ? 'Activar mi cuenta digital' : currentLang === 'ar' ? 'تفعيل حسابي الرقمي' : 'Activate My Digital Account')}
+                      ? (currentLang === 'fr' ? 'Génération sécurisée...' : currentLang === 'es' ? 'Generando cuenta...' : currentLang === 'ar' ? 'جارٍ إنشاء الحساب...' : 'Generating account...')
+                      : (currentLang === 'fr' ? 'Générer les informations de mon compte' : currentLang === 'es' ? 'Generar información de la cuenta' : currentLang === 'ar' ? 'إنشاء بيانات الحساب' : 'Generate Account Information')}
                   </span>
                   <CheckCircle2 className="w-3.5 h-3.5" />
                 </button>
               </div>
             </form>
+          )}
+
+          {/* Animated Fast Server Processing Overlay */}
+          {loading && serverProcessingStep > 0 && (
+            <div className="absolute inset-0 z-50 flex flex-col items-center justify-center p-6 bg-slate-950/90 backdrop-blur-md rounded-3xl text-center space-y-4 animate-in fade-in duration-200">
+              <div className="relative w-20 h-20 flex items-center justify-center">
+                <div className="absolute inset-0 rounded-full border-2 border-dashed border-amber-400 animate-spin" />
+                <div className="w-14 h-14 rounded-2xl bg-amber-500/10 border border-amber-500/30 flex items-center justify-center text-amber-400">
+                  <Server className="w-7 h-7 animate-pulse" />
+                </div>
+              </div>
+
+              <div className="space-y-1.5 max-w-sm">
+                <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-amber-500/10 text-amber-400 font-semibold text-xs border border-amber-500/20">
+                  <span className="w-2 h-2 rounded-full bg-amber-400 animate-ping" />
+                  <span>Serveur Central Sécurisé · Traitement en direct</span>
+                </div>
+                <h3 className="text-base font-bold text-white">
+                  Génération des informations du compte
+                </h3>
+                <p className="text-xs text-slate-300 font-mono">
+                  {serverProcessingStep === 1 && 'Chiffrement et sécurisation des protocoles bancaires...'}
+                  {serverProcessingStep === 2 && 'Allocation du numéro de compte, IBAN et BIC...'}
+                  {serverProcessingStep >= 3 && 'Inscription sur le grand livre sécurisé Movafi Bank...'}
+                </p>
+              </div>
+
+              <div className="w-52 h-1.5 bg-slate-800 rounded-full overflow-hidden">
+                <div
+                  className="h-full bg-gradient-to-r from-amber-500 via-amber-400 to-amber-300 transition-all duration-500"
+                  style={{
+                    width: serverProcessingStep === 1 ? '35%' : serverProcessingStep === 2 ? '70%' : '95%'
+                  }}
+                />
+              </div>
+            </div>
           )}
 
           {/* STEP 6: APPLICATION COMPLETED & INACTIVE STATUS CONFIRMATION (REQUIREMENT 8) */}

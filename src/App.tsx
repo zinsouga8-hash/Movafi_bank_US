@@ -79,11 +79,14 @@ export default function App() {
         const token = localStorage.getItem('movafi_token');
         if (token) {
           const authRes = await api.getMe();
-          if (authRes.success && authRes.user && authRes.account) {
+          if (authRes.success && authRes.user) {
             setCurrentUser(authRes.user);
-            setCurrentAccount(authRes.account);
+            if (authRes.account) setCurrentAccount(authRes.account);
             if (authRes.user.preferred_language) {
               setCurrentLang(authRes.user.preferred_language);
+            }
+            if (authRes.user.is_admin) {
+              setView('admin');
             }
           }
         }
@@ -128,7 +131,7 @@ export default function App() {
     if (user.preferred_language) {
       setCurrentLang(user.preferred_language);
     }
-    if (user.is_admin && (window.location.hash.includes('admin') || window.location.pathname.includes('admin'))) {
+    if (user.is_admin) {
       setView('admin');
     } else {
       setView('client');

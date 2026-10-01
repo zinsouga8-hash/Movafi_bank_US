@@ -338,7 +338,29 @@ export const COUNTRIES: CountryInfo[] = [
     nameAr: 'المكسيك',
     flag: '🇲🇽',
     dialCode: '+52',
-    cities: ['Mexico City', 'Guadalajara', 'Monterrey', 'Cancún', 'Puebla']
+    cities: [
+      'Mexico City (CDMX)',
+      'Guadalajara',
+      'Monterrey',
+      'Puebla',
+      'Tijuana',
+      'León',
+      'Cancún',
+      'Ciudad Juárez',
+      'Zapopan',
+      'Mérida',
+      'Querétaro',
+      'Toluca',
+      'Aguascalientes',
+      'San Luis Potosí',
+      'Hermosillo',
+      'Mexicali',
+      'Culiacán',
+      'Acapulco',
+      'Cuernavaca',
+      'Veracruz',
+      'Playa del Carmen'
+    ]
   }
 ];
 

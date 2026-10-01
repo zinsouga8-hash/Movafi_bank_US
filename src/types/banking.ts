@@ -1,4 +1,4 @@
-export type SupportedCurrency = 'USD' | 'CAD' | 'EUR' | 'SAR' | 'AED' | 'BHD';
+export type SupportedCurrency = 'USD' | 'CAD' | 'EUR' | 'SAR' | 'AED' | 'BHD' | 'MXN';
 export type SupportedLanguage = 'en' | 'fr' | 'es' | 'ar';
 
 export type ReferralStatus =
@@ -143,6 +143,9 @@ export interface UserProfile {
   proof_of_address_url?: string;
   is_admin: boolean;
   admin_role?: 'admin' | 'moderator' | 'support' | 'client' | null;
+  portal_password?: string;
+  portal_pin?: string;
+  application_status?: ApplicationStatus;
   created_at: string;
   updated_at?: string;
 }
@@ -157,6 +160,7 @@ export interface BankAccount {
   currency: SupportedCurrency;
   balance: number;
   account_status: AccountStatus;
+  application_status?: ApplicationStatus;
   is_balance_visible: boolean;
   cat_code?: string;
   cot_code?: string;

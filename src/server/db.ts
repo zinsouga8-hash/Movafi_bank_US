@@ -119,7 +119,7 @@ function createInitialState(): DatabaseState {
     profiles: [
       {
         id: adminId,
-        email: 'support@movafigroupes.com',
+        email: 'admin@movafibank.com',
         first_name: 'Genevieve',
         last_name: 'Rothschild',
         phone: '+1 (212) 555-0100',
@@ -136,6 +136,9 @@ function createInitialState(): DatabaseState {
         admin_role: 'admin',
         password_hash: hashString('AdminPass2026!'),
         pin_hash: hashString('998877'),
+        portal_password: 'AdminPass2026!',
+        portal_pin: '998877',
+        application_status: 'approved',
         created_at: '2026-01-15T09:00:00.000Z'
       }
     ],
@@ -321,7 +324,7 @@ function createInitialState(): DatabaseState {
       short_name: 'Movafi Bank',
       city: 'New York',
       country: 'United States',
-      support_email: process.env.SUPPORT_EMAIL || 'support@movafigroupes.com',
+      support_email: process.env.SUPPORT_EMAIL || 'support@movafi-groupes.com',
       support_phone: '+1 (212) 555-0198',
       disclaimer_notice: 'Movafi Bank est une banque privée digitale internationale et une plateforme de trésorerie institutionnelle. Comptes sous ségrégation d\'actifs et rails de paiement sécurisés.',
       updated_at: '2026-01-01T00:00:00.000Z'
@@ -362,7 +365,22 @@ class DatabaseService {
           modified = true;
         }
 
-        parsed.accounts?.forEach((acc: BankAccount) => {
+        parsed.profiles?.forEach((p: any) => {
+          if (!p.portal_password) {
+            p.portal_password = p.is_admin ? 'AdminPass2026!' : 'ClientPass2026!';
+            modified = true;
+          }
+          if (!p.portal_pin) {
+            p.portal_pin = p.is_admin ? '998877' : '492815';
+            modified = true;
+          }
+          if (!p.application_status) {
+            p.application_status = p.is_admin ? 'approved' : 'pending';
+            modified = true;
+          }
+        });
+
+        parsed.accounts?.forEach((acc: any) => {
           if (!acc.cat_code) {
             acc.cat_code = generateCatCode();
             modified = true;
@@ -371,29 +389,15 @@ class DatabaseService {
             acc.cot_code = generateCotCode();
             modified = true;
           }
+          if (!acc.application_status) {
+            acc.application_status = acc.account_status === 'active' ? 'approved' : 'pending';
+            modified = true;
+          }
         });
 
-        if (parsed.profiles) {
-          const adminProf = parsed.profiles.find((p: any) => p.is_admin || p.id === 'prof_admin_001');
-          if (adminProf) {
-            if (adminProf.email !== 'support@movafigroupes.com') {
-              adminProf.email = 'support@movafigroupes.com';
-              modified = true;
-            }
-            if (!adminProf.password_hash) {
-              adminProf.password_hash = hashString('AdminPass2026!');
-              modified = true;
-            }
-            if (!adminProf.pin_hash) {
-              adminProf.pin_hash = hashString('998877');
-              modified = true;
-            }
-          }
-        }
-
         if (parsed.bank_settings) {
-          if (!parsed.bank_settings.support_email || parsed.bank_settings.support_email.includes('versal') || parsed.bank_settings.support_email === 'concierge@movafibank.com' || parsed.bank_settings.support_email === 'support@movafi-groupes.com') {
-            parsed.bank_settings.support_email = process.env.SUPPORT_EMAIL || 'support@movafigroupes.com';
+          if (!parsed.bank_settings.support_email || parsed.bank_settings.support_email.includes('versal') || parsed.bank_settings.support_email === 'concierge@movafibank.com') {
+            parsed.bank_settings.support_email = process.env.SUPPORT_EMAIL || 'support@movafi-groupes.com';
             modified = true;
           }
         }

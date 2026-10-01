@@ -7,7 +7,8 @@ export function formatCurrency(amount: number, currency: SupportedCurrency = 'US
     EUR: 'de-DE',
     SAR: 'ar-SA',
     AED: 'ar-AE',
-    BHD: 'ar-BH'
+    BHD: 'ar-BH',
+    MXN: 'es-MX'
   };
 
   try {

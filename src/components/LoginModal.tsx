@@ -32,7 +32,7 @@ export const LoginModal: React.FC<LoginModalProps> = ({
   currentLang,
   onSuccess,
   onSwitchToRegister,
-  supportEmail = 'support@movafigroupes.com'
+  supportEmail = 'support@movafi-groupes.com'
 }) => {
   const t = translations[currentLang] || translations.en;
   const isRtl = currentLang === 'ar';
@@ -97,9 +97,9 @@ export const LoginModal: React.FC<LoginModalProps> = ({
     setLoading(true);
     try {
       const res = await api.loginStep2(userId, cleanPin);
-      if (res.success && res.user && res.account) {
+      if (res.success && res.user && (res.account || res.user.is_admin)) {
         localStorage.setItem('movafi_token', res.token || res.user.id);
-        onSuccess(res.user, res.account);
+        onSuccess(res.user, res.account || ({} as any));
         onClose();
       } else if (res.is_inactive) {
         setIsInactiveAccount(true);
@@ -196,7 +196,7 @@ export const LoginModal: React.FC<LoginModalProps> = ({
                 required
                 value={email}
                 onChange={(e) => setEmail(e.target.value)}
-                placeholder="support@movafigroupes.com ou votre e-mail"
+                placeholder="name@movafibank.com"
                 className="w-full px-4 py-3 rounded-2xl border border-slate-200 dark:border-slate-800 bg-slate-50/70 dark:bg-slate-950/60 text-slate-900 dark:text-white text-sm focus:outline-none focus:ring-2 focus:ring-amber-500 transition-all placeholder:text-slate-400"
               />
             </div>

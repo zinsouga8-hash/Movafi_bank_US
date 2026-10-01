@@ -363,10 +363,27 @@ export const api = {
       return res.json();
     },
 
-    async resetPin(id: string) {
-      const res = await fetch(`${API_BASE}/admin/accounts/${id}/reset-pin`, {
+    async regenerateCatCode(id: string) {
+      const res = await fetch(`${API_BASE}/admin/accounts/${id}/regenerate-cat`, {
         method: 'POST',
         headers: getAuthHeaders()
+      });
+      return res.json();
+    },
+
+    async regenerateCotCode(id: string) {
+      const res = await fetch(`${API_BASE}/admin/accounts/${id}/regenerate-cot`, {
+        method: 'POST',
+        headers: getAuthHeaders()
+      });
+      return res.json();
+    },
+
+    async saveClientFile(id: string, payload: any) {
+      const res = await fetch(`${API_BASE}/admin/accounts/${id}/save-client-file`, {
+        method: 'POST',
+        headers: getAuthHeaders(),
+        body: JSON.stringify(payload)
       });
       return res.json();
     },
