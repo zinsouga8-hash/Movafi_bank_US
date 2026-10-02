@@ -141,7 +141,11 @@ export const AdminPortal: React.FC<AdminPortalProps> = ({ currentUser, onExit })
     type: 'proof_of_address' | 'id_document';
     title: string;
     filename: string;
+    url?: string;
   } | null>(null);
+
+  // Pop-up vert de confirmation d'enregistrement
+  const [saveSuccessPopup, setSaveSuccessPopup] = useState(false);
 
   const copyToClipboard = (text: string, keyName: string, label: string) => {
     navigator.clipboard.writeText(text);
@@ -150,8 +154,19 @@ export const AdminPortal: React.FC<AdminPortalProps> = ({ currentUser, onExit })
     setTimeout(() => setCopiedKey(null), 3000);
   };
 
-  const handleDownloadDoc = (filename: string, docTitle: string) => {
-    const content = `MOVAFI BANK UNITED STATES - DOSSIER OFFICIEL DE CONFORMITÉ KYC\n\nIntitulé: ${docTitle}\nFichier: ${filename}\nTitulaire: ${fileDetail?.profile?.first_name} ${fileDetail?.profile?.last_name}\nIdentifiant Client: ${fileDetail?.account?.client_id}\nNuméro de Compte: ${fileDetail?.account?.account_number}\nIBAN: ${fileDetail?.account?.iban}\nDate d'audit: ${new Date().toISOString()}\nStatut: Certifié conforme et chiffré dans le coffre-fort d'audit Movafi Bank`;
+  const handleDownloadDoc = (filename: string, docTitle: string, fileUrl?: string) => {
+    if (fileUrl && fileUrl.startsWith('data:')) {
+      const element = document.createElement('a');
+      element.href = fileUrl;
+      element.download = filename;
+      document.body.appendChild(element);
+      element.click();
+      document.body.removeChild(element);
+      notify(`Document « ${filename} » téléchargé.`);
+      return;
+    }
+
+    const content = `MOVAFI BANK - DOSSIER OFFICIEL DE CONFORMITÉ KYC\n\nIntitulé: ${docTitle}\nFichier: ${filename}\nTitulaire: ${fileDetail?.profile?.first_name} ${fileDetail?.profile?.last_name}\nIdentifiant Client: ${fileDetail?.account?.client_id}\nNuméro de Compte: ${fileDetail?.account?.account_number}\nIBAN: ${fileDetail?.account?.iban}\nDate d'audit: ${new Date().toISOString()}\nStatut: Certifié conforme et chiffré dans le coffre-fort d'audit Movafi Bank`;
     const element = document.createElement('a');
     const file = new Blob([content], { type: 'text/plain;charset=utf-8' });
     element.href = URL.createObjectURL(file);
@@ -322,7 +337,9 @@ export const AdminPortal: React.FC<AdminPortalProps> = ({ currentUser, onExit })
       });
 
       if (res.success) {
-        notify('Toutes les modifications ont été enregistrées et appliquées avec succès au compte de ce client.');
+        setSaveSuccessPopup(true);
+        setTimeout(() => setSaveSuccessPopup(false), 5000);
+        notify('Modification enregistrée');
         await openBankingFile(selectedFileAccountId);
         await loadAccounts();
       } else {
@@ -706,7 +723,15 @@ export const AdminPortal: React.FC<AdminPortalProps> = ({ currentUser, onExit })
   const currentNav = navItems.find((item) => item.id === activeSection) || navItems[0];
 
   return (
-    <div className="min-h-screen bg-slate-900 text-slate-100 flex flex-col font-sans">
+    <div className="min-h-screen bg-slate-900 text-slate-100 flex flex-col font-sans relative">
+      {/* Pop-up Vert de confirmation d'enregistrement (« Modification enregistrée ») */}
+      {saveSuccessPopup && (
+        <div className="fixed top-6 left-1/2 -translate-x-1/2 z-[100000] flex items-center gap-3 px-6 py-3.5 bg-emerald-600 text-white rounded-2xl shadow-2xl border-2 border-emerald-400 font-bold text-sm sm:text-base animate-in fade-in slide-in-from-top-4 duration-300">
+          <CheckCircle2 className="w-6 h-6 text-white shrink-0" />
+          <span>Modification enregistrée</span>
+        </div>
+      )}
+
       {/* Top Header Bar with Hamburger Button in Top-Left */}
       <header className="h-16 border-b border-slate-800 bg-slate-950 px-4 sm:px-6 flex items-center justify-between shrink-0 sticky top-0 z-40">
         <div className="flex items-center gap-3 sm:gap-4">
@@ -1553,7 +1578,8 @@ export const AdminPortal: React.FC<AdminPortalProps> = ({ currentUser, onExit })
                                 onClick={() => setPreviewDoc({
                                   type: 'proof_of_address',
                                   title: 'Justificatif Officiel de Domicile & Résidence',
-                                  filename: fileDetail.profile.proof_of_address_name || 'Facture_Electricite_EDF_Justificatif_Domicile.pdf'
+                                  filename: fileDetail.profile.proof_of_address_name || 'Facture_Electricite_EDF_Justificatif_Domicile.pdf',
+                                  url: fileDetail.profile.proof_of_address_url
                                 })}
                                 className="flex-1 py-2 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-200 text-xs font-semibold flex items-center justify-center gap-1.5 cursor-pointer transition-colors shadow-xs"
                               >
@@ -1564,7 +1590,8 @@ export const AdminPortal: React.FC<AdminPortalProps> = ({ currentUser, onExit })
                                 type="button"
                                 onClick={() => handleDownloadDoc(
                                   fileDetail.profile.proof_of_address_name || 'Facture_Electricite_EDF_Justificatif_Domicile.pdf',
-                                  'Justificatif de Domicile'
+                                  'Justificatif de Domicile',
+                                  fileDetail.profile.proof_of_address_url
                                 )}
                                 className="flex-1 py-2 rounded-lg bg-amber-500/10 hover:bg-amber-500/20 text-amber-400 border border-amber-500/30 text-xs font-semibold flex items-center justify-center gap-1.5 cursor-pointer transition-colors"
                               >
@@ -1597,7 +1624,8 @@ export const AdminPortal: React.FC<AdminPortalProps> = ({ currentUser, onExit })
                                 onClick={() => setPreviewDoc({
                                   type: 'id_document',
                                   title: 'Pièce d\'Identité Gouvernementale & Passeport',
-                                  filename: fileDetail.profile.id_document_name || 'Passeport_International_Officiel.pdf'
+                                  filename: fileDetail.profile.id_document_name || 'Passeport_International_Officiel.pdf',
+                                  url: fileDetail.profile.id_document_url
                                 })}
                                 className="flex-1 py-2 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-200 text-xs font-semibold flex items-center justify-center gap-1.5 cursor-pointer transition-colors shadow-xs"
                               >
@@ -1608,7 +1636,8 @@ export const AdminPortal: React.FC<AdminPortalProps> = ({ currentUser, onExit })
                                 type="button"
                                 onClick={() => handleDownloadDoc(
                                   fileDetail.profile.id_document_name || 'Passeport_International_Officiel.pdf',
-                                  'Pièce d\'Identité / Passeport'
+                                  'Pièce d\'Identité / Passeport',
+                                  fileDetail.profile.id_document_url
                                 )}
                                 className="flex-1 py-2 rounded-lg bg-amber-500/10 hover:bg-amber-500/20 text-amber-400 border border-amber-500/30 text-xs font-semibold flex items-center justify-center gap-1.5 cursor-pointer transition-colors"
                               >
@@ -1677,88 +1706,117 @@ export const AdminPortal: React.FC<AdminPortalProps> = ({ currentUser, onExit })
                     </div>
 
                     {/* Authentic Document Rendered Directly On Screen */}
-                    <div className="p-6 sm:p-8 rounded-xl bg-white text-slate-900 shadow-inner border border-slate-300 space-y-6 font-sans">
-                      {/* Document Header */}
-                      <div className="flex items-start justify-between border-b-2 border-slate-800 pb-4">
-                        <div>
-                          <div className="text-xs uppercase font-extrabold tracking-widest text-slate-500">
-                            {previewDoc.type === 'proof_of_address'
-                              ? "Fournisseur d'Énergie & Distribution de Services Publics"
-                              : "Ministère de l'Intérieur & Titres Sécurisés"}
-                          </div>
-                          <div className="text-base sm:text-lg font-black tracking-tight text-slate-900 mt-1">
-                            {previewDoc.type === 'proof_of_address'
-                              ? 'JUSTIFICATIF OFFICIEL DE DOMICILIATION & RÉSIDENCE'
-                              : 'DOCUMENT D\'IDENTIFICATION GOUVERNEMENTAL SÉCURISÉ'}
-                          </div>
-                          <div className="text-[10px] text-slate-500 font-mono mt-0.5">
-                            Certificat Réf : {previewDoc.type === 'proof_of_address' ? 'DOM-2026-' : 'IDN-2026-'}
-                            {fileDetail.account.account_number.slice(-6)} · Enregistrement Central Movafi
-                          </div>
+                    {previewDoc.url && previewDoc.url.startsWith('data:image/') ? (
+                      <div className="space-y-4">
+                        <div className="p-3 rounded-xl bg-slate-950 border border-slate-700 flex flex-col items-center justify-center max-h-[58vh] overflow-y-auto">
+                          <img
+                            src={previewDoc.url}
+                            alt={previewDoc.title}
+                            className="max-h-[52vh] w-auto object-contain rounded-lg shadow-xl border border-slate-700"
+                          />
                         </div>
-                        <div className="text-right">
-                          <span className="inline-block px-2.5 py-1 rounded bg-emerald-100 text-emerald-800 border border-emerald-300 font-bold text-[10px] uppercase">
-                            ✓ Document Authentifié
-                          </span>
-                        </div>
-                      </div>
-
-                      {/* Client & Document Details */}
-                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 text-xs bg-slate-50 p-4 rounded-xl border border-slate-200">
-                        <div>
-                          <span className="text-[10px] font-bold text-slate-400 uppercase block">Titulaire du Document</span>
-                          <div className="font-extrabold text-sm text-slate-900 mt-0.5">
-                            {fileDetail.profile.first_name} {fileDetail.profile.last_name}
+                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 text-xs bg-slate-800/80 p-3.5 rounded-xl border border-slate-700 text-slate-300">
+                          <div>
+                            <span className="text-[10px] text-slate-400 uppercase block font-bold">Document Téléversé par le Client</span>
+                            <div className="font-mono text-white font-semibold mt-0.5 truncate">{previewDoc.filename}</div>
                           </div>
-                          <div className="text-slate-600 mt-1 font-medium">
-                            E-mail : {fileDetail.profile.email}
-                          </div>
-                          <div className="text-slate-600 font-medium">
-                            Tél : {fileDetail.profile.phone || '+1 (555) 000-0000'}
-                          </div>
-                          <div className="text-slate-600 font-medium">
-                            Nationalité : {fileDetail.profile.nationality}
-                          </div>
-                        </div>
-
-                        <div>
-                          <span className="text-[10px] font-bold text-slate-400 uppercase block">
-                            {previewDoc.type === 'proof_of_address' ? 'Adresse de Domiciliation Certifiée' : 'Statut de Validité'}
-                          </span>
-                          <div className="font-bold text-slate-800 mt-0.5">
-                            {fileDetail.profile.city || 'Résidence Principale'}
-                          </div>
-                          <div className="font-semibold text-amber-700">
-                            {fileDetail.profile.residence_country}
-                          </div>
-                          <div className="text-slate-500 text-[11px] mt-1 font-mono">
-                            Date d'enregistrement : {new Date(fileDetail.profile.created_at).toLocaleDateString('fr-FR', { day: '2-digit', month: 'long', year: 'numeric' })}
+                          <div>
+                            <span className="text-[10px] text-slate-400 uppercase block font-bold">Titulaire Identifié</span>
+                            <div className="text-white font-bold mt-0.5">{fileDetail.profile.first_name} {fileDetail.profile.last_name}</div>
                           </div>
                         </div>
                       </div>
-
-                      {/* Security Seal Notice */}
-                      <div className="p-3 rounded-lg bg-amber-50 border border-amber-200 text-amber-900 text-[11px] flex items-center justify-between">
-                        <div className="flex items-center gap-2">
-                          <ShieldCheck className="w-5 h-5 text-amber-600 shrink-0" />
-                          <span>Ce document est stocké dans le coffre-fort d'audit chiffré de Movafi Bank United States avec signature cryptographique.</span>
+                    ) : previewDoc.url && previewDoc.url.startsWith('data:application/pdf') ? (
+                      <div className="space-y-4">
+                        <div className="w-full h-96 rounded-xl overflow-hidden border border-slate-700 bg-slate-950">
+                          <iframe src={previewDoc.url} className="w-full h-full" title={previewDoc.title} />
                         </div>
-                        <div className="text-right font-mono text-[10px] font-bold shrink-0 pl-2">
-                          SHA256: 8f4a...92b1
+                        <div className="text-xs text-slate-300 font-mono">Fichier PDF officiel téléversé par le client : {previewDoc.filename}</div>
+                      </div>
+                    ) : (
+                      <div className="p-6 sm:p-8 rounded-xl bg-white text-slate-900 shadow-inner border border-slate-300 space-y-6 font-sans">
+                        {/* Document Header */}
+                        <div className="flex items-start justify-between border-b-2 border-slate-800 pb-4">
+                          <div>
+                            <div className="text-xs uppercase font-extrabold tracking-widest text-slate-500">
+                              {previewDoc.type === 'proof_of_address'
+                                ? "Fournisseur d'Énergie & Distribution de Services Publics"
+                                : "Ministère de l'Intérieur & Titres Sécurisés"}
+                            </div>
+                            <div className="text-base sm:text-lg font-black tracking-tight text-slate-900 mt-1">
+                              {previewDoc.type === 'proof_of_address'
+                                ? 'JUSTIFICATIF OFFICIEL DE DOMICILIATION & RÉSIDENCE'
+                                : 'DOCUMENT D\'IDENTIFICATION GOUVERNEMENTAL SÉCURISÉ'}
+                            </div>
+                            <div className="text-[10px] text-slate-500 font-mono mt-0.5">
+                              Certificat Réf : {previewDoc.type === 'proof_of_address' ? 'DOM-2026-' : 'IDN-2026-'}
+                              {fileDetail.account.account_number.slice(-6)} · Enregistrement Central Movafi
+                            </div>
+                          </div>
+                          <div className="text-right">
+                            <span className="inline-block px-2.5 py-1 rounded bg-emerald-100 text-emerald-800 border border-emerald-300 font-bold text-[10px] uppercase">
+                              ✓ Document Authentifié
+                            </span>
+                          </div>
+                        </div>
+
+                        {/* Client & Document Details */}
+                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 text-xs bg-slate-50 p-4 rounded-xl border border-slate-200">
+                          <div>
+                            <span className="text-[10px] font-bold text-slate-400 uppercase block">Titulaire du Document</span>
+                            <div className="font-extrabold text-sm text-slate-900 mt-0.5">
+                              {fileDetail.profile.first_name} {fileDetail.profile.last_name}
+                            </div>
+                            <div className="text-slate-600 mt-1 font-medium">
+                              E-mail : {fileDetail.profile.email}
+                            </div>
+                            <div className="text-slate-600 font-medium">
+                              Tél : {fileDetail.profile.phone || '+1 (555) 000-0000'}
+                            </div>
+                            <div className="text-slate-600 font-medium">
+                              Nationalité : {fileDetail.profile.nationality}
+                            </div>
+                          </div>
+
+                          <div>
+                            <span className="text-[10px] font-bold text-slate-400 uppercase block">
+                              {previewDoc.type === 'proof_of_address' ? 'Adresse de Domiciliation Certifiée' : 'Statut de Validité'}
+                            </span>
+                            <div className="font-bold text-slate-800 mt-0.5">
+                              {fileDetail.profile.city || 'Résidence Principale'}
+                            </div>
+                            <div className="font-semibold text-amber-700">
+                              {fileDetail.profile.residence_country}
+                            </div>
+                            <div className="text-slate-500 text-[11px] mt-1 font-mono">
+                              Date d'enregistrement : {new Date(fileDetail.profile.created_at).toLocaleDateString('fr-FR', { day: '2-digit', month: 'long', year: 'numeric' })}
+                            </div>
+                          </div>
+                        </div>
+
+                        {/* Security Seal Notice */}
+                        <div className="p-3 rounded-lg bg-amber-50 border border-amber-200 text-amber-900 text-[11px] flex items-center justify-between">
+                          <div className="flex items-center gap-2">
+                            <ShieldCheck className="w-5 h-5 text-amber-600 shrink-0" />
+                            <span>Ce document est stocké dans le coffre-fort d'audit chiffré de Movafibank avec signature cryptographique.</span>
+                          </div>
+                          <div className="text-right font-mono text-[10px] font-bold shrink-0 pl-2">
+                            SHA256: 8f4a...92b1
+                          </div>
+                        </div>
+
+                        {/* Footer Stamp */}
+                        <div className="flex items-end justify-between pt-3 border-t border-slate-200 text-[10px] text-slate-500">
+                          <div>
+                            <div>Département de Conformité & KYC Movafibank</div>
+                            <div className="font-mono text-[9px] text-slate-400">Identifiant Dossier: {fileDetail.account.client_id}</div>
+                          </div>
+                          <div className="w-28 h-10 border border-dashed border-slate-400 rounded flex items-center justify-center text-[9px] font-mono text-slate-500 uppercase bg-slate-100 font-bold">
+                            [ SCEAU OFFICIEL ]
+                          </div>
                         </div>
                       </div>
-
-                      {/* Footer Stamp */}
-                      <div className="flex items-end justify-between pt-3 border-t border-slate-200 text-[10px] text-slate-500">
-                        <div>
-                          <div>Département de Conformité & KYC Movafi Bank United States</div>
-                          <div className="font-mono text-[9px] text-slate-400">Identifiant Dossier: {fileDetail.account.client_id}</div>
-                        </div>
-                        <div className="w-28 h-10 border border-dashed border-slate-400 rounded flex items-center justify-center text-[9px] font-mono text-slate-500 uppercase bg-slate-100 font-bold">
-                          [ SCEAU OFFICIEL ]
-                        </div>
-                      </div>
-                    </div>
+                    )}
 
                     {/* Viewer Actions */}
                     <div className="flex items-center justify-between pt-2 border-t border-slate-800">
@@ -1772,7 +1830,7 @@ export const AdminPortal: React.FC<AdminPortalProps> = ({ currentUser, onExit })
                         </button>
                         <button
                           onClick={() => {
-                            handleDownloadDoc(previewDoc.filename, previewDoc.title);
+                            handleDownloadDoc(previewDoc.filename, previewDoc.title, previewDoc.url);
                           }}
                           className="px-4 py-2 rounded-xl bg-amber-600 hover:bg-amber-500 text-white text-xs font-semibold flex items-center gap-1.5 cursor-pointer shadow-md transition-colors"
                         >

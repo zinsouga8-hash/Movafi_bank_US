@@ -7,6 +7,7 @@ interface MovafiLogoProps {
   layout?: 'horizontal' | 'icon' | 'stacked';
   monochrome?: boolean;
   textColor?: 'auto' | 'white' | 'dark';
+  subText?: string;
   onClick?: () => void;
 }
 
@@ -17,6 +18,7 @@ export const MovafiLogo: React.FC<MovafiLogoProps> = ({
   layout = 'horizontal',
   monochrome = false,
   textColor = 'auto',
+  subText,
   onClick
 }) => {
   const rawId = useId();
@@ -27,10 +29,10 @@ export const MovafiLogo: React.FC<MovafiLogoProps> = ({
   const vaultGradId = `movafiVaultGrad_${uid}`;
 
   const sizeMap = {
-    sm: { icon: 34, text: 'text-sm font-bold', sub: 'text-[8.5px] tracking-[0.25em]' },
-    md: { icon: 42, text: 'text-base font-extrabold', sub: 'text-[9.5px] tracking-[0.28em]' },
-    lg: { icon: 54, text: 'text-xl font-black', sub: 'text-[11px] tracking-[0.3em]' },
-    xl: { icon: 70, text: 'text-2xl font-black', sub: 'text-xs tracking-[0.32em]' }
+    sm: { icon: 34, text: 'text-sm font-bold', sub: 'text-[8.5px] tracking-[0.2em]' },
+    md: { icon: 42, text: 'text-base font-extrabold', sub: 'text-[9.5px] tracking-[0.22em]' },
+    lg: { icon: 54, text: 'text-xl font-black', sub: 'text-[11px] tracking-[0.24em]' },
+    xl: { icon: 70, text: 'text-2xl font-black', sub: 'text-xs tracking-[0.26em]' }
   };
 
   const { icon, text, sub } = sizeMap[size];
@@ -49,6 +51,18 @@ export const MovafiLogo: React.FC<MovafiLogoProps> = ({
     subColorClass = 'text-amber-600';
   }
 
+  // Localized default subtitle: "Digital Banking" without "United States"
+  const currentLang = typeof document !== 'undefined' ? document.documentElement.lang : 'en';
+  const defaultSub = subText || (
+    currentLang === 'fr'
+      ? 'Digital Banking'
+      : currentLang === 'es'
+      ? 'Digital Banking'
+      : currentLang === 'ar'
+      ? 'الخدمات المصرفية الرقمية'
+      : 'Digital Banking'
+  );
+
   return (
     <div
       onClick={onClick}
@@ -58,7 +72,7 @@ export const MovafiLogo: React.FC<MovafiLogoProps> = ({
       onKeyDown={(e) => {
         if ((e.key === 'Enter' || e.key === ' ') && onClick) onClick();
       }}
-      aria-label="MOVAFI BANK UNITED STATES"
+      aria-label="Movafibank"
     >
       {/* High-Fidelity Sovereign Banking Vault Emblem */}
       <div className="relative shrink-0 flex items-center justify-center">
@@ -102,7 +116,7 @@ export const MovafiLogo: React.FC<MovafiLogoProps> = ({
             width="116"
             height="116"
             rx="28"
-            fill={monochrome ? '#0F172A' : '#0F172A'}
+            fill="#0F172A"
           />
           <rect
             x="6"
@@ -216,13 +230,13 @@ export const MovafiLogo: React.FC<MovafiLogoProps> = ({
             <span
               className={`tracking-tight leading-none ${text} ${titleColorClass} font-serif font-black`}
             >
-              MOVAFI BANK
+              Movafibank
             </span>
           </div>
           <span
             className={`font-bold uppercase mt-1 ${sub} ${subColorClass}`}
           >
-            UNITED STATES
+            {defaultSub}
           </span>
         </div>
       )}

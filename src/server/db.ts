@@ -127,7 +127,7 @@ function createInitialState(): DatabaseState {
         residence_country: 'United States',
         city: 'New York',
         preferred_currency: 'USD',
-        preferred_language: 'fr',
+        preferred_language: 'en',
         account_type: 'Business',
         occupation: 'Managing Director & Chief Risk Officer',
         monthly_income: 95000,
@@ -286,7 +286,7 @@ function createInitialState(): DatabaseState {
         name: 'Account Application Received',
         language: 'en',
         subject: 'Your Movafi Bank Account is Ready',
-        body_text: 'Dear {{first_name}},\n\nThank you for choosing Movafi Bank United States. Your digital bank account is officially created. Your assigned Client ID is {{client_id}}.',
+        body_text: 'Dear {{first_name}},\n\nThank you for choosing Movafibank. Your digital bank account is officially created. Your assigned Client ID is {{client_id}}.',
         updated_at: '2026-01-01T00:00:00.000Z'
       },
       {

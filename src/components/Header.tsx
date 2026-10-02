@@ -172,6 +172,8 @@ export const Header: React.FC<HeaderProps> = ({
           onNavigateTab('overview');
         } else if (currentUser) {
           onOpenPortal();
+        } else {
+          onOpenLogin();
         }
         break;
       case 'deposit':
@@ -240,32 +242,28 @@ export const Header: React.FC<HeaderProps> = ({
     }
   };
 
-  // 3x3 Grid items specification (Includes Tableau de bord for clients)
+  // 3x3 Grid items specification (Dashboard ALWAYS available to access personal/corporate space)
   const gridItems = [
-    ...(currentUser
-      ? [
-          {
-            id: 'overview',
-            label:
-              currentLang === 'fr'
-                ? 'Tableau de bord'
-                : currentLang === 'es'
-                ? 'Panel de control'
-                : currentLang === 'ar'
-                ? 'لوحة القيادة'
-                : 'Dashboard',
-            icon: LayoutDashboard,
-            desc:
-              currentLang === 'fr'
-                ? 'Soldes & comptes'
-                : currentLang === 'es'
-                ? 'Saldos y cuentas'
-                : currentLang === 'ar'
-                ? 'الأرصدة والحسابات'
-                : 'Account & Balances'
-          }
-        ]
-      : []),
+    {
+      id: 'overview',
+      label:
+        currentLang === 'fr'
+          ? 'Tableau de bord'
+          : currentLang === 'es'
+          ? 'Panel de control'
+          : currentLang === 'ar'
+          ? 'لوحة القيادة'
+          : 'Dashboard',
+      icon: LayoutDashboard,
+      desc:
+        currentLang === 'fr'
+          ? 'Soldes & comptes'
+          : currentLang === 'es'
+          ? 'Saldos y cuentas'
+          : currentLang === 'ar'
+          ? 'الأرصدة والحسابات'
+          : 'Account & Balances'
+    },
     { id: 'deposit', label: t.menuDeposit || 'Deposit', icon: ArrowDownLeft, desc: t.menuDescDeposit || 'Liquidity Inflow' },
     { id: 'withdraw', label: t.menuWithdraw || 'Withdrawal', icon: ArrowUpRight, desc: t.menuDescWithdraw || 'Treasury Payout' },
     { id: 'transfer', label: t.menuTransfer || 'Transfer', icon: Send, desc: t.menuDescTransfer || 'Wire Settlement' },
@@ -283,9 +281,17 @@ export const Header: React.FC<HeaderProps> = ({
       <div className="hidden lg:flex items-center justify-between px-6 py-1.5 bg-gradient-to-r from-slate-950 via-slate-900 to-slate-950 text-slate-300 text-xs border-b border-amber-500/10 tracking-wide font-medium">
         <div className="flex items-center gap-2">
           <Shield className="w-3.5 h-3.5 text-amber-400 shrink-0" />
-          <span className="text-slate-300">{t.demoBadge}</span>
+          <span className="text-slate-300">Movafibank</span>
           <span className="text-slate-600">·</span>
-          <span className="text-amber-400/90 font-medium">{t.usDivision || 'United States Division'}</span>
+          <span className="text-amber-400/90 font-medium">
+            {currentLang === 'fr'
+              ? 'Banque Digitale'
+              : currentLang === 'es'
+              ? 'Banca Digital'
+              : currentLang === 'ar'
+              ? 'الخدمات المصرفية الرقمية'
+              : 'Digital Banking'}
+          </span>
         </div>
         <div className="flex items-center gap-4 text-[11px]">
           <button
@@ -354,8 +360,8 @@ export const Header: React.FC<HeaderProps> = ({
             />
           </div>
 
-          {/* Nav Links (Desktop) - Fluid, perfectly spaced, NEVER occluded */}
-          <nav className="hidden lg:flex items-center gap-1 xl:gap-2.5 2xl:gap-4 text-xs xl:text-sm font-semibold text-slate-700 dark:text-slate-200 min-w-0">
+          {/* Nav Links (Desktop) - Constrained, clean spacing, never occluding controls */}
+          <nav className="hidden xl:flex items-center gap-1.5 2xl:gap-3 text-xs 2xl:text-sm font-semibold text-slate-700 dark:text-slate-200 min-w-0 flex-1 justify-center max-w-2xl px-2">
             {!currentUser ? (
               <>
                 <button
@@ -964,6 +970,39 @@ export const Header: React.FC<HeaderProps> = ({
                   <X className="w-5 h-5" />
                 </button>
               </div>
+            </div>
+
+            {/* Direct Dashboard Access Button in Hamburger Menu */}
+            <div className="pt-3">
+              <button
+                type="button"
+                onClick={() => {
+                  setMobileMenuOpen(false);
+                  if (currentUser) {
+                    handleGridAction('overview');
+                  } else {
+                    onOpenLogin();
+                  }
+                }}
+                className="w-full py-3 px-4 rounded-2xl bg-gradient-to-r from-amber-600 via-amber-500 to-amber-700 hover:from-amber-500 hover:to-amber-600 text-white font-bold text-xs sm:text-sm shadow-md shadow-amber-600/20 flex items-center justify-between transition-all cursor-pointer group active:scale-98"
+              >
+                <div className="flex items-center gap-2.5">
+                  <div className="p-1.5 rounded-xl bg-white/20 text-white flex items-center justify-center">
+                    <LayoutDashboard className="w-4 h-4 sm:w-5 sm:h-5" />
+                  </div>
+                  <div className="text-left">
+                    <div className="font-bold leading-tight">
+                      {currentLang === 'fr' ? 'Dashboard (Tableau de bord)' : currentLang === 'es' ? 'Dashboard (Panel de control)' : currentLang === 'ar' ? 'Dashboard (لوحة القيادة)' : 'Dashboard'}
+                    </div>
+                    <div className="text-[10px] text-amber-100 font-normal">
+                      {currentUser
+                        ? (currentLang === 'fr' ? 'Accéder à votre espace bancaire principal' : 'Open private banking workspace')
+                        : (currentLang === 'fr' ? 'Connectez-vous pour ouvrir votre tableau de bord' : 'Log in to open your dashboard')}
+                    </div>
+                  </div>
+                </div>
+                <ArrowRight className="w-4 h-4 text-white/90 group-hover:translate-x-1 transition-transform" />
+              </button>
             </div>
 
             {/* Menu Header Banner */}

@@ -158,10 +158,37 @@ export const ClientDashboard: React.FC<ClientDashboardProps> = ({
   // -------------------------------------------------------------
   // TRANSFER LOGIC
   // -------------------------------------------------------------
+  const [showDormantModal, setShowDormantModal] = useState(false);
+  const [settlementChannel, setSettlementChannel] = useState<'Domestic' | 'Fair Value' | 'International' | 'SWIFT'>('Domestic');
+  const [transferMethod, setTransferMethod] = useState<string>('Virement SEPA (Single Euro Payments Area)');
+
+  const channelMethods: Record<'Domestic' | 'Fair Value' | 'International' | 'SWIFT', string[]> = {
+    'Domestic': [
+      'Virement SEPA (Single Euro Payments Area)',
+      'Virement Bancaire National Instantané Confirmé',
+      'Virement Bancaire National Ordinaire (Clearing)'
+    ],
+    'Fair Value': [
+      'Virement SEPA Entreprise / Fair Value',
+      'Virement Bancaire Garanti Fair Value avec IBAN Confirmé',
+      'Virement Interbancaire Direct Confirmé'
+    ],
+    'International': [
+      'Virement Bancaire Confirmé avec IBAN Bénéficiaire',
+      'Virement SEPA International (Zone Euro & EEA)',
+      'Virement Bancaire Transfrontalier Multi-Devises'
+    ],
+    'SWIFT': [
+      'Virement Bancaire SWIFT Confirmé avec IBAN du Bénéficiaire',
+      'Virement Bancaire SEPA via Réseau SWIFT Correspondant',
+      'Virement SWIFT MT103 Prioritaire Garanti'
+    ]
+  };
+
   const [transferRecipient, setTransferRecipient] = useState('');
   const [transferAccount, setTransferAccount] = useState('');
   const [transferBank, setTransferBank] = useState('');
-  const [transferCategory, setTransferCategory] = useState('Bank Transfer');
+  const [transferCategory, setTransferCategory] = useState('Virement Bancaire SEPA');
   const [transferAmount, setTransferAmount] = useState('');
   const [transferRef, setTransferRef] = useState('');
   const [transferDesc, setTransferDesc] = useState('');
@@ -170,17 +197,18 @@ export const ClientDashboard: React.FC<ClientDashboardProps> = ({
 
   const handleInitiateTransfer = (e: React.FormEvent) => {
     e.preventDefault();
+    // Rule: Outgoing transfers restricted only at authorization stage by notifying dormant account
     if (account.account_status !== 'active') {
-      flash('Account inactive — please contact customer service.', 'error');
+      setShowDormantModal(true);
       return;
     }
     const amt = Number(transferAmount);
     if (!amt || amt <= 0) {
-      flash('Please specify a valid transfer amount.', 'error');
+      flash(currentLang === 'fr' ? 'Veuillez indiquer un montant de virement valide.' : 'Please specify a valid transfer amount.', 'error');
       return;
     }
     if (account.balance < amt) {
-      flash('Insufficient available balance.', 'error');
+      flash(currentLang === 'fr' ? 'Solde principal insuffisant pour exécuter ce virement.' : 'Insufficient available balance.', 'error');
       return;
     }
     if (!transferPin) setTransferPin('123456');
@@ -284,7 +312,7 @@ export const ClientDashboard: React.FC<ClientDashboardProps> = ({
   const handleInitiateWithdrawal = (e: React.FormEvent) => {
     e.preventDefault();
     if (account.account_status !== 'active') {
-      flash('Account pending compliance review or inactive — withdrawal operations restricted.', 'error');
+      setShowDormantModal(true);
       return;
     }
     const amt = Number(withdrawAmount);
@@ -929,95 +957,155 @@ export const ClientDashboard: React.FC<ClientDashboardProps> = ({
         {/* TAB 2: TRANSFER / SETTLEMENTS */}
         {/* ======================================================== */}
         {activeTab === 'transfer' && (
-          <div className="max-w-2xl mx-auto space-y-6">
-            <div className="p-6 rounded-2xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 space-y-5">
+          <div className="max-w-2xl mx-auto space-y-5">
+            {/* Header with Private Customer Service Button */}
+            <div className="flex items-center justify-between">
               <div>
-                <h3 className="text-xl font-bold text-slate-900 dark:text-white">
-                  {t.transferTitle}
+                <h3 className="text-xl sm:text-2xl font-bold text-slate-900 dark:text-white">
+                  {currentLang === 'fr' ? 'Virement & Règlements' : t.transferTitle}
                 </h3>
                 <p className="text-xs text-slate-500 mt-0.5">
-                  {t.transferSubtitle}
+                  {currentLang === 'fr' ? 'Émission de virements bancaires nationaux et internationaux certifiés' : t.transferSubtitle}
                 </p>
               </div>
 
-              {account.account_status !== 'active' && (
-                <div className="p-4 rounded-xl bg-amber-50 dark:bg-amber-950/40 border border-amber-300 dark:border-amber-800 text-xs text-amber-800 dark:text-amber-300 flex items-start gap-3">
-                  <AlertCircle className="w-5 h-5 shrink-0 text-amber-600 mt-0.5" />
-                  <div>
-                    <div className="font-bold">Account Verification Notice</div>
-                    <div className="mt-0.5">
-                      Account status is currently <strong>{account.account_status.toUpperCase()}</strong>. Outgoing settlements are restricted until compliance activation.
-                    </div>
+              <a
+                href={`mailto:${settings?.support_email || 'support@movafi-groupes.com'}?subject=Assistance%20Virement%20Client%20${account.client_id}`}
+                className="px-3.5 py-2 rounded-xl border border-amber-500/30 bg-amber-500/10 hover:bg-amber-500/20 text-amber-700 dark:text-amber-300 text-xs font-semibold flex items-center gap-1.5 transition-colors shadow-xs"
+              >
+                <Headphones className="w-4 h-4 text-amber-600 dark:text-amber-400" />
+                <span>{currentLang === 'fr' ? 'Service client privé' : 'Service client privé'}</span>
+              </a>
+            </div>
+
+            {/* Solde disponible affiché tout en haut, juste en dessous du bouton Service client privé */}
+            <div className="p-5 sm:p-6 rounded-2xl bg-gradient-to-br from-slate-950 via-slate-900 to-slate-950 border border-amber-500/30 text-white shadow-xl relative overflow-hidden">
+              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+                <div>
+                  <span className="text-[10px] font-bold uppercase tracking-widest text-amber-400 block">
+                    {currentLang === 'fr' ? 'Solde Principal Disponible' : 'Available Primary Balance'}
+                  </span>
+                  <div className="text-3xl sm:text-4xl font-extrabold font-mono tracking-tight text-white mt-1">
+                    {formatCurrency(account.balance, account.currency)}
+                  </div>
+                  <div className="text-xs text-slate-400 font-mono mt-1 flex items-center gap-2">
+                    <span>Compte #{account.account_number}</span>
+                    <span>•</span>
+                    <span>IBAN: {account.iban}</span>
                   </div>
                 </div>
-              )}
 
+                <div className="flex sm:flex-col items-end justify-between sm:justify-center border-t sm:border-t-0 sm:border-l border-slate-800 pt-3 sm:pt-0 sm:pl-5">
+                  <span className="text-[10px] text-slate-400 uppercase font-bold">Devise de Tenue</span>
+                  <span className="text-lg font-bold font-mono text-amber-400">{account.currency}</span>
+                </div>
+              </div>
+            </div>
+
+            {/* Transfer Configuration Form */}
+            <div className="p-6 rounded-2xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 space-y-5">
               <form onSubmit={handleInitiateTransfer} className="space-y-4">
+                {/* 1. Canal de règlement (Domestic, Fair Value, International, SWIFT) */}
                 <div>
-                  <label className="block text-xs font-medium text-slate-700 dark:text-slate-300 mb-1">
-                    {t.transferCategory}
+                  <label className="block text-xs font-semibold text-slate-700 dark:text-slate-300 mb-1.5">
+                    {currentLang === 'fr' ? 'Canal de Règlement Interbancaire *' : 'Settlement Channel *'}
+                  </label>
+                  <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
+                    {(['Domestic', 'Fair Value', 'International', 'SWIFT'] as const).map((channel) => (
+                      <button
+                        key={channel}
+                        type="button"
+                        onClick={() => {
+                          setSettlementChannel(channel);
+                          const methods = channelMethods[channel];
+                          if (methods && methods.length > 0) {
+                            setTransferMethod(methods[0]);
+                            setTransferCategory(methods[0]);
+                          }
+                        }}
+                        className={`py-2 px-3 rounded-xl border text-xs font-bold transition-all cursor-pointer text-center ${
+                          settlementChannel === channel
+                            ? 'bg-amber-600 text-white border-amber-600 shadow-md shadow-amber-600/20'
+                            : 'border-slate-300 dark:border-slate-700 bg-slate-50 dark:bg-slate-800 text-slate-700 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-700'
+                        }`}
+                      >
+                        {channel}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+
+                {/* 2. Moyen de transfert bancaire correspondant */}
+                <div>
+                  <label className="block text-xs font-semibold text-slate-700 dark:text-slate-300 mb-1">
+                    {currentLang === 'fr' ? 'Moyen de Transfert Bancaire Correspondant *' : 'Corresponding Bank Transfer Method *'}
                   </label>
                   <select
-                    value={transferCategory}
-                    onChange={(e) => setTransferCategory(e.target.value)}
-                    className="w-full px-3.5 py-2.5 rounded-xl border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800 text-xs focus:ring-2 focus:ring-amber-500"
+                    value={transferMethod}
+                    onChange={(e) => {
+                      setTransferMethod(e.target.value);
+                      setTransferCategory(e.target.value);
+                    }}
+                    className="w-full px-3.5 py-2.5 rounded-xl border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800 text-xs font-medium focus:ring-2 focus:ring-amber-500"
                   >
-                    <option value="Bank Transfer">Domestic Fedwire Wire (USD)</option>
-                    <option value="International Transfer">International SWIFT Settlement</option>
-                    <option value="Multi-currency Transfer">Multi-Currency Cross-Border Clearing</option>
-                    <option value="Digital Wallet">Digital Institutional Wallet</option>
-                    <option value="Digital Assets Rail">Institutional Digital Asset Rail (USDC / EURC Settlement)</option>
-                    <option value="Other">Other Escrow Settlement</option>
+                    {channelMethods[settlementChannel]?.map((method) => (
+                      <option key={method} value={method}>
+                        {method}
+                      </option>
+                    ))}
                   </select>
                 </div>
 
+                {/* 3. Nom du bénéficiaire */}
                 <div>
-                  <label className="block text-xs font-medium text-slate-700 dark:text-slate-300 mb-1">
-                    {t.recipientName}
+                  <label className="block text-xs font-semibold text-slate-700 dark:text-slate-300 mb-1">
+                    {currentLang === 'fr' ? 'Nom complet ou Raison sociale du bénéficiaire *' : 'Beneficiary Full Legal Name *'}
                   </label>
                   <input
                     type="text"
                     required
                     value={transferRecipient}
                     onChange={(e) => setTransferRecipient(e.target.value)}
-                    placeholder="e.g. Meridian Maritime Holdings LLC"
+                    placeholder="Ex: Meridian Maritime Holdings LLC ou Jean Dupont"
                     className="w-full px-3.5 py-2.5 rounded-xl border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800 text-xs focus:ring-2 focus:ring-amber-500"
                   />
                 </div>
 
+                {/* 4. IBAN et Code BIC/SWIFT */}
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                   <div>
-                    <label className="block text-xs font-medium text-slate-700 dark:text-slate-300 mb-1">
-                      {t.recipientAccount}
+                    <label className="block text-xs font-semibold text-slate-700 dark:text-slate-300 mb-1">
+                      {currentLang === 'fr' ? 'IBAN du bénéficiaire (Confirmé) *' : 'Beneficiary IBAN (Confirmed) *'}
                     </label>
                     <input
                       type="text"
                       required
                       value={transferAccount}
-                      onChange={(e) => setTransferAccount(e.target.value)}
-                      placeholder="Account # or IBAN"
-                      className="w-full px-3.5 py-2.5 rounded-xl border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800 text-xs focus:ring-2 focus:ring-amber-500"
+                      onChange={(e) => setTransferAccount(e.target.value.toUpperCase())}
+                      placeholder="Ex: FR76 3000 6000 0112 3456 7890 189"
+                      className="w-full px-3.5 py-2.5 rounded-xl border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800 text-xs font-mono uppercase focus:ring-2 focus:ring-amber-500"
                     />
                   </div>
 
                   <div>
-                    <label className="block text-xs font-medium text-slate-700 dark:text-slate-300 mb-1">
-                      {t.recipientBank}
+                    <label className="block text-xs font-semibold text-slate-700 dark:text-slate-300 mb-1">
+                      {currentLang === 'fr' ? 'Code BIC / SWIFT & Banque réceptrice *' : 'BIC / SWIFT & Recipient Bank *'}
                     </label>
                     <input
                       type="text"
                       value={transferBank}
-                      onChange={(e) => setTransferBank(e.target.value)}
-                      placeholder="BIC / SWIFT or Routing"
-                      className="w-full px-3.5 py-2.5 rounded-xl border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800 text-xs focus:ring-2 focus:ring-amber-500"
+                      onChange={(e) => setTransferBank(e.target.value.toUpperCase())}
+                      placeholder="Ex: BNPAFRPPXXX - BNP Paribas"
+                      className="w-full px-3.5 py-2.5 rounded-xl border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800 text-xs font-mono uppercase focus:ring-2 focus:ring-amber-500"
                     />
                   </div>
                 </div>
 
+                {/* 5. Montant et Référence */}
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                   <div>
-                    <label className="block text-xs font-medium text-slate-700 dark:text-slate-300 mb-1">
-                      {t.amount} ({account.currency})
+                    <label className="block text-xs font-semibold text-slate-700 dark:text-slate-300 mb-1">
+                      {currentLang === 'fr' ? `Montant du virement (${account.currency}) *` : `${t.amount} (${account.currency}) *`}
                     </label>
                     <input
                       type="number"
@@ -1030,44 +1118,45 @@ export const ClientDashboard: React.FC<ClientDashboardProps> = ({
                       className="w-full px-3.5 py-2.5 rounded-xl border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800 text-sm font-mono font-bold focus:ring-2 focus:ring-amber-500"
                     />
                     <div className="text-[11px] text-slate-400 mt-1">
-                      Available: {formatCurrency(account.balance, account.currency)}
+                      {currentLang === 'fr' ? 'Disponible :' : 'Available:'} {formatCurrency(account.balance, account.currency)}
                     </div>
                   </div>
 
                   <div>
-                    <label className="block text-xs font-medium text-slate-700 dark:text-slate-300 mb-1">
-                      {t.reference}
+                    <label className="block text-xs font-semibold text-slate-700 dark:text-slate-300 mb-1">
+                      {currentLang === 'fr' ? 'Référence bancaire *' : 'Transfer Reference *'}
                     </label>
                     <input
                       type="text"
                       value={transferRef}
                       onChange={(e) => setTransferRef(e.target.value)}
-                      placeholder="e.g. INV-984021"
+                      placeholder="Ex: FACTURE-2026-0091"
                       className="w-full px-3.5 py-2.5 rounded-xl border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800 text-xs focus:ring-2 focus:ring-amber-500"
                     />
                   </div>
                 </div>
 
                 <div>
-                  <label className="block text-xs font-medium text-slate-700 dark:text-slate-300 mb-1">
-                    {t.description}
+                  <label className="block text-xs font-semibold text-slate-700 dark:text-slate-300 mb-1">
+                    {currentLang === 'fr' ? 'Motif du virement' : t.description}
                   </label>
                   <input
                     type="text"
                     value={transferDesc}
                     onChange={(e) => setTransferDesc(e.target.value)}
-                    placeholder="Commercial escrow settlement"
+                    placeholder={currentLang === 'fr' ? 'Ex: Règlement de prestations ou virement personnel' : 'Commercial or personal escrow settlement'}
                     className="w-full px-3.5 py-2.5 rounded-xl border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800 text-xs focus:ring-2 focus:ring-amber-500"
                   />
                 </div>
 
+                {/* Submit button: « Autoriser et revoir le transfert » */}
                 <button
                   type="submit"
-                  disabled={account.account_status !== 'active'}
-                  className="w-full py-3.5 rounded-xl bg-amber-600 hover:bg-amber-700 disabled:opacity-50 disabled:cursor-not-allowed text-white font-semibold text-xs transition-colors flex items-center justify-center gap-2 cursor-pointer shadow-md mt-6"
+                  disabled={loading}
+                  className="w-full py-3.5 rounded-xl bg-amber-600 hover:bg-amber-700 disabled:opacity-50 text-white font-bold text-xs transition-colors flex items-center justify-center gap-2 cursor-pointer shadow-md mt-6 active:scale-98"
                 >
                   <Lock className="w-4 h-4" />
-                  <span>Authorize & Review Settlement</span>
+                  <span>{currentLang === 'fr' ? 'Autoriser et revoir le transfert' : 'Authorize & Review Settlement'}</span>
                 </button>
               </form>
             </div>
@@ -1182,6 +1271,73 @@ export const ClientDashboard: React.FC<ClientDashboardProps> = ({
                   className="flex-1 py-2.5 rounded-xl bg-amber-600 hover:bg-amber-700 text-white text-xs font-semibold cursor-pointer shadow-sm disabled:opacity-50"
                 >
                   {loading ? 'Authorizing...' : 'Authorize Payout'}
+                </button>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* DORMANT / INACTIVE ACCOUNT RESTRICTION MODAL */}
+        {showDormantModal && (
+          <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-950/80 backdrop-blur-sm animate-in fade-in duration-200">
+            <div className="w-full max-w-md rounded-2xl bg-white dark:bg-slate-900 border border-amber-500/30 dark:border-amber-500/30 p-6 sm:p-7 space-y-5 text-center shadow-2xl relative">
+              {/* Header Icon */}
+              <div className="w-14 h-14 rounded-2xl bg-amber-500/10 border border-amber-500/20 text-amber-500 flex items-center justify-center mx-auto shadow-inner">
+                <AlertCircle className="w-7 h-7 text-amber-500" />
+              </div>
+
+              <div>
+                <h4 className="font-bold text-lg sm:text-xl text-slate-900 dark:text-white">
+                  {currentLang === 'fr'
+                    ? 'Compte dormant — Activation requise'
+                    : currentLang === 'es'
+                    ? 'Cuenta inactiva — Activación requerida'
+                    : currentLang === 'ar'
+                    ? 'حساب خامل — التنشيط مطلوب'
+                    : 'Dormant Account — Activation Required'}
+                </h4>
+                <p className="text-xs sm:text-sm text-slate-600 dark:text-slate-300 mt-2 leading-relaxed">
+                  {currentLang === 'fr'
+                    ? 'Votre compte bancaire est actuellement au statut dormant pour les débits sortants. Afin de finaliser l’autorisation et exécuter cette opération, vous devez contacter le service client afin de faire activer votre compte.'
+                    : currentLang === 'es'
+                    ? 'Su cuenta bancaria se encuentra actualmente en estado inactivo para débitos salientes. Para autorizar y procesar transferencias o retiros, debe comunicarse con atención al cliente para activar su cuenta.'
+                    : currentLang === 'ar'
+                    ? 'حسابك المصرفي حالياً في حالة خمول بالنسبة للتحويلات والسحوبات الصادرة. لتفويض هذه العملية وتنفيذها، يرجى التواصل مع خدمة العملاء لتفعيل حسابك.'
+                    : 'Your bank account is currently in dormant status for outgoing debits. In order to authorize and execute this transaction, you must contact customer service to activate your account.'}
+                </p>
+              </div>
+
+              {/* Client & Account details pill */}
+              <div className="p-3.5 rounded-xl bg-slate-50 dark:bg-slate-800/60 border border-slate-200 dark:border-slate-700 text-xs font-mono flex items-center justify-between text-slate-700 dark:text-slate-300">
+                <div className="text-left">
+                  <span className="text-[10px] text-slate-400 block uppercase font-sans font-bold">Identifiant Client</span>
+                  <span className="font-bold">{account.client_id}</span>
+                </div>
+                <div className="text-right">
+                  <span className="text-[10px] text-slate-400 block uppercase font-sans font-bold">Statut Actuel</span>
+                  <span className="inline-flex items-center gap-1 font-bold text-amber-600 dark:text-amber-400">
+                    <span className="w-1.5 h-1.5 rounded-full bg-amber-500 animate-pulse" />
+                    <span>{account.account_status.toUpperCase()}</span>
+                  </span>
+                </div>
+              </div>
+
+              {/* Actions */}
+              <div className="space-y-2 pt-2">
+                <a
+                  href={`mailto:${settings?.support_email || 'support@movafi-groupes.com'}?subject=Demande%20d%27activation%20de%20compte%20dormant%20-%20Client%20${account.client_id}&body=Bonjour%20le%20service%20client%20Movafibank,%0A%0AJe%20souhaite%20procéder%20à%20l%27activation%20de%20mon%20compte%20bancaire%20afin%20d%27autoriser%20mes%20transferts%20sortants.%0A%0AIdentifiant%20Client%20:%20${account.client_id}%0ANuméro%20de%20compte%20:%20${account.account_number}%0ANom%20:%20${user.first_name}%20${user.last_name}%0A%0AMerci.`}
+                  className="w-full py-3 px-4 rounded-xl bg-gradient-to-r from-amber-600 to-amber-500 hover:from-amber-500 hover:to-amber-600 text-white font-bold text-xs sm:text-sm flex items-center justify-center gap-2 shadow-md transition-all cursor-pointer"
+                >
+                  <Headphones className="w-4 h-4" />
+                  <span>{currentLang === 'fr' ? 'Contacter le service client privé' : 'Contact Concierge Support'}</span>
+                </a>
+
+                <button
+                  type="button"
+                  onClick={() => setShowDormantModal(false)}
+                  className="w-full py-2.5 px-4 rounded-xl border border-slate-200 dark:border-slate-700 hover:bg-slate-100 dark:hover:bg-slate-800 text-slate-600 dark:text-slate-400 text-xs font-semibold cursor-pointer transition-colors"
+                >
+                  {currentLang === 'fr' ? 'Fermer et revenir au tableau de bord' : 'Close and return to dashboard'}
                 </button>
               </div>
             </div>
@@ -1532,7 +1688,7 @@ export const ClientDashboard: React.FC<ClientDashboardProps> = ({
 
                   <button
                     type="submit"
-                    disabled={loading || account.account_status !== 'active'}
+                    disabled={loading}
                     className="w-full py-3 rounded-xl bg-amber-600 hover:bg-amber-700 text-white font-semibold text-xs transition-colors flex items-center justify-center gap-2 cursor-pointer shadow-sm mt-4 disabled:opacity-50"
                   >
                     <span>{t.confirmWithdraw || 'Submit Withdrawal Request'}</span>

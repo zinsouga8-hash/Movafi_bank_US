@@ -1,26 +1,50 @@
 import { SupportedCurrency } from '../types/banking';
 
-export function formatCurrency(amount: number, currency: SupportedCurrency = 'USD'): string {
-  const currencyLocales: Record<SupportedCurrency, string> = {
-    USD: 'en-US',
-    CAD: 'en-CA',
-    EUR: 'de-DE',
-    SAR: 'ar-SA',
-    AED: 'ar-AE',
-    BHD: 'ar-BH',
-    MXN: 'es-MX'
-  };
+export function formatCurrency(
+  amount: number,
+  currency: SupportedCurrency = 'USD',
+  lang?: string
+): string {
+  const currentDocLang = typeof document !== 'undefined' ? document.documentElement.lang : 'en';
+  const activeLang = lang || currentDocLang;
+  const isAr = activeLang === 'ar';
 
-  try {
-    return new Intl.NumberFormat(currencyLocales[currency] || 'en-US', {
-      style: 'currency',
-      currency: currency,
-      minimumFractionDigits: 2,
-      maximumFractionDigits: 2
-    }).format(amount);
-  } catch (e) {
-    return `${currency} ${amount.toFixed(2)}`;
+  if (isAr) {
+    const arabicLocales: Record<string, string> = {
+      SAR: 'ar-SA',
+      AED: 'ar-AE',
+      BHD: 'ar-BH',
+      TND: 'ar-TN',
+      USD: 'ar-US',
+      EUR: 'ar-FR',
+      CAD: 'ar-CA',
+      JPY: 'ar-JP',
+      MXN: 'ar-MX'
+    };
+    try {
+      return new Intl.NumberFormat(arabicLocales[currency] || 'ar-SA', {
+        style: 'currency',
+        currency: currency,
+        minimumFractionDigits: currency === 'JPY' ? 0 : 2,
+        maximumFractionDigits: currency === 'JPY' ? 0 : 2
+      }).format(amount);
+    } catch {
+      return `${amount.toFixed(2)} ${currency}`;
+    }
   }
+
+  // Non-Arabic: Never display Arabic letters. Display standard symbol or international currency code
+  const numFormatted = new Intl.NumberFormat('en-US', {
+    minimumFractionDigits: currency === 'JPY' ? 0 : 2,
+    maximumFractionDigits: currency === 'JPY' ? 0 : 2
+  }).format(amount);
+
+  if (currency === 'USD') return `$${numFormatted}`;
+  if (currency === 'EUR') return `€${numFormatted}`;
+  if (currency === 'CAD') return `CA$${numFormatted}`;
+
+  // For AED, TND, JPY, SAR, BHD, MXN, etc., use international code: "1,250.00 AED", "5,000.00 TND"
+  return `${numFormatted} ${currency}`;
 }
 
 export function formatDateTime(isoString: string): string {

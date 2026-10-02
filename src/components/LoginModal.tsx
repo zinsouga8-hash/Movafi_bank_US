@@ -145,7 +145,7 @@ export const LoginModal: React.FC<LoginModalProps> = ({
           <MovafiLogo size="md" showText={false} className="mb-3" />
           <div className="text-[11px] font-bold text-amber-600 dark:text-amber-400 tracking-wider uppercase flex items-center gap-1.5">
             <Shield className="w-3.5 h-3.5" />
-            <span>MOVAFI BANK UNITED STATES</span>
+            <span>Movafibank</span>
           </div>
           <h2 className="text-2xl font-extrabold text-slate-900 dark:text-white tracking-tight mt-1">
             {step === 1 ? t.loginTitle : t.securityPinTitle}
@@ -234,7 +234,7 @@ export const LoginModal: React.FC<LoginModalProps> = ({
               <ArrowRight className={`w-4 h-4 ${isRtl ? 'rotate-180' : ''}`} />
             </button>
 
-            <div className="text-center pt-2 space-y-3">
+            <div className="text-center pt-2">
               <button
                 type="button"
                 onClick={() => {
@@ -245,31 +245,6 @@ export const LoginModal: React.FC<LoginModalProps> = ({
               >
                 {t.noAccountYet || 'Pas encore client ? Ouvrir un compte bancaire en ligne →'}
               </button>
-
-              {/* Admin Credentials Helper Box */}
-              <div className="p-3 rounded-2xl bg-amber-500/10 border border-amber-500/25 text-left text-xs space-y-1.5">
-                <div className="flex items-center justify-between">
-                  <span className="font-bold text-amber-600 dark:text-amber-400 flex items-center gap-1 text-[11px]">
-                    <Shield className="w-3.5 h-3.5" />
-                    <span>Identifiants Administrateur Démo</span>
-                  </span>
-                  <button
-                    type="button"
-                    onClick={() => {
-                      setEmail('support@movafi-groupes.com');
-                      setPassword('AdminPass2026!');
-                    }}
-                    className="px-2 py-0.5 rounded-lg bg-amber-500 hover:bg-amber-600 text-slate-950 font-bold text-[10px] cursor-pointer transition-colors"
-                  >
-                    Remplir Admin
-                  </button>
-                </div>
-                <div className="text-[11px] text-slate-600 dark:text-slate-300 font-mono space-y-0.5">
-                  <div>E-mail : <strong className="text-slate-900 dark:text-white">support@movafi-groupes.com</strong></div>
-                  <div>Mot de passe : <strong className="text-slate-900 dark:text-white">AdminPass2026!</strong></div>
-                  <div>Code PIN : <strong className="text-amber-600 dark:text-amber-400">998877</strong></div>
-                </div>
-              </div>
             </div>
           </form>
         )}
@@ -277,19 +252,6 @@ export const LoginModal: React.FC<LoginModalProps> = ({
         {/* STEP 2: 6-Digit PIN (strictly manual entry, NO autofill) */}
         {step === 2 && (
           <form onSubmit={handleStep2Submit} className="space-y-4">
-            {/* Quick Admin PIN hint if admin email is used */}
-            {email.toLowerCase().includes('support@movafi-groupes.com') && (
-              <div className="p-2.5 rounded-xl bg-amber-500/10 border border-amber-500/30 flex items-center justify-between text-xs text-amber-700 dark:text-amber-300">
-                <span>Code PIN Admin : <strong>998877</strong></span>
-                <button
-                  type="button"
-                  onClick={() => setPin('998877')}
-                  className="px-2 py-0.5 rounded-md bg-amber-500 text-slate-950 font-bold text-[10px] cursor-pointer"
-                >
-                  Insérer PIN
-                </button>
-              </div>
-            )}
             <div>
               <label className="block text-xs font-semibold text-slate-700 dark:text-slate-300 mb-2 text-center">
                 {currentLang === 'fr'

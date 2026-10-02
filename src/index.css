@@ -23,33 +23,67 @@
   }
 }
 
-/* Mixed Theme (Clair + Sombre Hybride) */
+/* Authentic 50/50 Dual-Tone Mixed Theme (50% Clair / 50% Sombre) */
 html.theme-mixed {
-  background-color: #0c1529;
-  color: #f8fafc;
+  background-color: #f1f5f9;
+  color: #0f172a;
 }
 
 html.theme-mixed body {
-  background-color: #0c1529;
+  background-color: #f8fafc;
+  color: #0f172a;
 }
 
+/* Sombre (50%) : En-tête, Barre Supérieure et Pied de Page */
 html.theme-mixed header {
-  background-color: rgba(12, 21, 41, 0.96) !important;
+  background-color: #0b1120 !important;
+  color: #ffffff !important;
   border-bottom: 1px solid rgba(245, 158, 11, 0.3) !important;
 }
 
-html.theme-mixed .bg-slate-50 {
-  background-color: #0c1529 !important;
+html.theme-mixed header a,
+html.theme-mixed header button,
+html.theme-mixed header span {
+  color: #f8fafc;
 }
 
-html.theme-mixed .bg-slate-950,
-html.theme-mixed .bg-slate-900 {
-  background-color: #111d38 !important;
+html.theme-mixed header .bg-slate-100\/80,
+html.theme-mixed header .bg-slate-100 {
+  background-color: rgba(30, 41, 59, 0.8) !important;
+  border-color: rgba(71, 85, 105, 0.6) !important;
+  color: #ffffff !important;
+}
+
+html.theme-mixed footer {
+  background-color: #0b1120 !important;
+  color: #f8fafc !important;
+}
+
+/* Clair (50%) : Corps de page, Cartes blanches, Tables, et Formulaires */
+html.theme-mixed main {
+  background-color: #f8fafc !important;
+  color: #0f172a !important;
+}
+
+html.theme-mixed .bg-slate-50 {
+  background-color: #f8fafc !important;
+  color: #0f172a !important;
+}
+
+html.theme-mixed .bg-slate-900,
+html.theme-mixed .bg-slate-950 {
+  background-color: #ffffff !important;
+  color: #0f172a !important;
+  border-color: #e2e8f0 !important;
+}
+
+html.theme-mixed .text-white:not(header *):not(footer *):not(.bg-amber-600 *):not(.bg-gradient-to-r *):not(.keep-white) {
+  color: #0f172a !important;
 }
 
 html.theme-mixed .border-slate-800,
 html.theme-mixed .border-slate-700 {
-  border-color: rgba(245, 158, 11, 0.22) !important;
+  border-color: #e2e8f0 !important;
 }
 
 /* Custom subtle scrollbars */

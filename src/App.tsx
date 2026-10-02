@@ -52,7 +52,7 @@ export default function App() {
     if (theme === 'dark') {
       root.classList.add('dark');
     } else if (theme === 'mixed') {
-      root.classList.add('dark', 'theme-mixed');
+      root.classList.add('theme-mixed');
     }
     localStorage.setItem('movafi_theme', theme);
   }, [theme]);

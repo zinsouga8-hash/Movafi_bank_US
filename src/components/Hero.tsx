@@ -25,7 +25,7 @@ export const Hero: React.FC<HeroProps> = ({
       <div className="absolute inset-0 z-0">
         <img
           src={heroBuildingImg}
-          alt="Movafi Bank United States Headquarters Tower"
+          alt="Movafibank Headquarters Tower"
           className="w-full h-full object-cover object-center opacity-25 dark:opacity-20 scale-102 transform transition-transform duration-1000"
         />
         <div className="absolute inset-0 bg-gradient-to-r from-slate-50 via-slate-50/95 to-slate-50/80 dark:from-slate-950 dark:via-slate-950/95 dark:to-slate-950/80" />
@@ -37,7 +37,7 @@ export const Hero: React.FC<HeroProps> = ({
           {/* Institutional Jurisdiction Tag */}
           <div className="inline-flex items-center gap-2 px-3.5 py-1.5 rounded-full bg-amber-500/10 dark:bg-amber-400/10 border border-amber-500/20 text-amber-800 dark:text-amber-300 text-xs font-semibold tracking-wider uppercase">
             <Building2 className="w-3.5 h-3.5 text-amber-600 dark:text-amber-400" />
-            <span>MOVAFI BANK UNITED STATES</span>
+            <span>MOVAFIBANK</span>
             <span className="text-amber-500/40">·</span>
             <span className="text-slate-700 dark:text-slate-300">{city} Desk</span>
           </div>

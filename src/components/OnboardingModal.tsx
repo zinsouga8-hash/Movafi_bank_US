@@ -55,12 +55,11 @@ export const OnboardingModal: React.FC<OnboardingModalProps> = ({
   const [confirmPassword, setConfirmPassword] = useState('');
   const [showPassword, setShowPassword] = useState(false);
 
-  // Referral Code state
+  // Referral Code state (Rule: Only prefilled if clicked on a referral link via URL query param)
   const [referralCode, setReferralCode] = useState(() => {
     const urlRef = new URLSearchParams(window.location.search).get('ref');
     if (urlRef) return urlRef.toUpperCase();
-    const stored = localStorage.getItem('movafi_referral_ref');
-    return stored || '';
+    return '';
   });
   const [referrerHint, setReferrerHint] = useState<string | null>(null);
 
@@ -69,7 +68,7 @@ export const OnboardingModal: React.FC<OnboardingModalProps> = ({
       api.referrals.checkCode(referralCode.trim())
         .then((res) => {
           if (res.success && res.valid) {
-            setReferrerHint(res.referrer_name || 'Membre Movafi Bank');
+            setReferrerHint(res.referrer_name || 'Membre Movafibank');
           } else {
             setReferrerHint(null);
           }
@@ -109,16 +108,35 @@ export const OnboardingModal: React.FC<OnboardingModalProps> = ({
   const [accountType, setAccountType] = useState<'Personal' | 'Business'>('Personal');
   const [professionCategory, setProfessionCategory] = useState<string>('Salarié');
   const [occupation, setOccupation] = useState('Salarié');
-  const [incomeBracket, setIncomeBracket] = useState<string>('10 000 - 25 000');
-  const [monthlyIncome, setMonthlyIncome] = useState<number>(15000);
+
+  // Income selection: Either bracket OR exact amount, never both simultaneously. Default empty!
+  const [incomeBracket, setIncomeBracket] = useState<string>('');
+  const [exactIncome, setExactIncome] = useState<string>('');
   const [activityDuration] = useState('5 years');
 
   // Server Processing Simulation for Step 5
   const [serverProcessingStep, setServerProcessingStep] = useState<number>(0);
 
-  // Step 4: Digital Identity Documents
+  // Step 4: Digital Identity Documents (Real base64 DataURL uploaded by client)
   const [idFileName, setIdFileName] = useState<string | null>(null);
+  const [idDocumentDataUrl, setIdDocumentDataUrl] = useState<string | null>(null);
   const [proofFileName, setProofFileName] = useState<string | null>(null);
+  const [proofAddressDataUrl, setProofAddressDataUrl] = useState<string | null>(null);
+
+  const handleDocumentUpload = (type: 'id' | 'proof', file: File) => {
+    const reader = new FileReader();
+    reader.onload = () => {
+      const dataUrl = reader.result as string;
+      if (type === 'id') {
+        setIdFileName(file.name);
+        setIdDocumentDataUrl(dataUrl);
+      } else {
+        setProofFileName(file.name);
+        setProofAddressDataUrl(dataUrl);
+      }
+    };
+    reader.readAsDataURL(file);
+  };
 
   // Step 5: PIN
   const [pin, setPin] = useState('');
@@ -454,8 +472,13 @@ export const OnboardingModal: React.FC<OnboardingModalProps> = ({
       setError(currentLang === 'fr' ? 'La profession / activité est obligatoire.' : 'Professional occupation is required.');
       return;
     }
-    if (!monthlyIncome || monthlyIncome <= 0) {
-      setError(currentLang === 'fr' ? 'Les revenus mensuels estimés sont obligatoires.' : 'Monthly income is required.');
+    const hasIncome = (incomeBracket && incomeBracket.trim() !== '') || (exactIncome && Number(exactIncome) > 0);
+    if (!hasIncome) {
+      setError(
+        currentLang === 'fr'
+          ? 'Veuillez sélectionner une tranche de salaire ou saisir un montant fixe.'
+          : 'Please select an income bracket or enter a fixed amount.'
+      );
       return;
     }
 
@@ -497,6 +520,20 @@ export const OnboardingModal: React.FC<OnboardingModalProps> = ({
     const fullPhone = `${selectedPhoneCountry.dialCode} ${phoneNumberOnly.trim()}`;
     const countryName = getLocalizedCountryName(selectedResidenceCountry, 'en');
 
+    const calculatedMonthlyIncome = exactIncome
+      ? Number(exactIncome)
+      : incomeBracket === '0 - 2 000'
+      ? 1500
+      : incomeBracket === '2 000 - 5 000'
+      ? 3500
+      : incomeBracket === '5 000 - 10 000'
+      ? 7500
+      : incomeBracket === '10 000 - 25 000'
+      ? 15000
+      : incomeBracket === '25 000 ou plus'
+      ? 30000
+      : 0;
+
     try {
       const resPromise = api.submitApplication({
         email,
@@ -510,8 +547,12 @@ export const OnboardingModal: React.FC<OnboardingModalProps> = ({
         preferred_currency: currency,
         account_type: accountType,
         occupation: occupation.trim(),
-        monthly_income: monthlyIncome,
-        income_bracket: incomeBracket,
+        monthly_income: calculatedMonthlyIncome,
+        income_bracket: incomeBracket || undefined,
+        id_document_name: idFileName || undefined,
+        id_document_url: idDocumentDataUrl || undefined,
+        proof_of_address_name: proofFileName || undefined,
+        proof_of_address_url: proofAddressDataUrl || undefined,
         activity_duration: activityDuration,
         pin,
         referral_code: referralCode ? referralCode.trim() : undefined
@@ -527,6 +568,8 @@ export const OnboardingModal: React.FC<OnboardingModalProps> = ({
         setGeneratedAccount(res.account);
         setGeneratedUser(res.user);
         setStep(6);
+        localStorage.removeItem('movafi_referral_ref');
+        localStorage.removeItem('movafi_referral_expiry');
       } else {
         setError(res.message || 'Account registration failed.');
       }
@@ -569,12 +612,12 @@ export const OnboardingModal: React.FC<OnboardingModalProps> = ({
               </h2>
               <p className="text-[11px] text-slate-400 font-medium">
                 {currentLang === 'fr'
-                  ? 'Movafi Bank United States · Banque Privée & Trésorerie'
+                  ? 'Movafibank · Banque Privée & Trésorerie'
                   : currentLang === 'es'
-                  ? 'Movafi Bank United States · Banca Privada y Tesorería'
+                  ? 'Movafibank · Banca Privada y Tesorería'
                   : currentLang === 'ar'
-                  ? 'بنك موفافي للولايات المتحدة · الخدمات المصرفية والخزينة'
-                  : 'Movafi Bank United States · Institutional Wealth & Treasury'}
+                  ? 'موفافيبانك · الخدمات المصرفية والخزينة'
+                  : 'Movafibank · Institutional Wealth & Treasury'}
               </p>
             </div>
           </div>
@@ -1045,7 +1088,7 @@ export const OnboardingModal: React.FC<OnboardingModalProps> = ({
                 </div>
               </div>
 
-              {/* Currency Selector (Rule 15: USD, EUR, CAD, SAR, AED, BHD, MXN) */}
+              {/* Currency Selector (Rule 15: USD, EUR, CAD, TND, JPY, SAR, AED, BHD, MXN) */}
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                 <div>
                   <label className="block text-xs font-semibold text-slate-700 dark:text-slate-300 mb-1">
@@ -1056,13 +1099,15 @@ export const OnboardingModal: React.FC<OnboardingModalProps> = ({
                     onChange={(e) => setCurrency(e.target.value as SupportedCurrency)}
                     className="w-full px-3 py-2 rounded-xl border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800 text-xs font-medium focus:ring-2 focus:ring-amber-500"
                   >
-                    <option value="USD">USD — Dollar Américain ($ / USD)</option>
+                    <option value="USD">USD — Dollar ($ / USD)</option>
                     <option value="EUR">EUR — Euro (€ / EUR)</option>
                     <option value="CAD">CAD — Dollar Canadien (C$ / CAD)</option>
+                    <option value="TND">TND — Dinar Tunisien (TND)</option>
+                    <option value="JPY">JPY — Yen Japonais (¥ / JPY)</option>
+                    <option value="AED">AED — Dirham des Émirats (AED)</option>
+                    <option value="SAR">SAR — Riyal Saoudien (SAR)</option>
+                    <option value="BHD">BHD — Dinar de Bahreïn (BHD)</option>
                     <option value="MXN">MXN — Peso Mexicain ($ / MXN)</option>
-                    <option value="BHD">BHD — Dinar de Bahreïn (د.ب / BHD)</option>
-                    <option value="SAR">SAR — Riyal Saoudien (ر.س / SAR)</option>
-                    <option value="AED">AED — Dirham des Émirats (د.إ / AED)</option>
                   </select>
                 </div>
 
@@ -1132,7 +1177,7 @@ export const OnboardingModal: React.FC<OnboardingModalProps> = ({
                   </div>
                 </div>
 
-                {/* Monthly Income (Brackets Dropdown + Exact Input) */}
+                {/* Monthly Income: EITHER bracket OR exact amount, never both simultaneously */}
                 <div>
                   <div className="flex items-center justify-between mb-1">
                     <label className="block text-xs font-semibold text-slate-700 dark:text-slate-300">
@@ -1140,52 +1185,46 @@ export const OnboardingModal: React.FC<OnboardingModalProps> = ({
                         ? `Revenus mensuels (${currency}) *`
                         : `Monthly Income (${currency}) *`}
                     </label>
-                    {incomeBracket && (
+                    {incomeBracket ? (
                       <span className="text-[10px] px-2 py-0.5 rounded bg-amber-500/10 text-amber-600 dark:text-amber-400 font-semibold font-mono">
                         {incomeBracket}
                       </span>
-                    )}
+                    ) : exactIncome ? (
+                      <span className="text-[10px] px-2 py-0.5 rounded bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 font-semibold font-mono">
+                        {exactIncome} {currency}
+                      </span>
+                    ) : null}
                   </div>
-                  <div className="space-y-1.5">
-                    <select
-                      value={incomeBracket}
-                      onChange={(e) => {
-                        const val = e.target.value;
-                        setIncomeBracket(val);
-                        if (val === '0 - 2 000') setMonthlyIncome(1500);
-                        else if (val === '2 000 - 5 000') setMonthlyIncome(3500);
-                        else if (val === '5 000 - 10 000') setMonthlyIncome(7500);
-                        else if (val === '10 000 - 25 000') setMonthlyIncome(15000);
-                        else if (val === '25 000 ou plus') setMonthlyIncome(30000);
-                      }}
-                      className="w-full px-3 py-2 rounded-xl border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800 text-xs font-medium focus:ring-2 focus:ring-amber-500 shadow-sm"
-                    >
-                      <option value="0 - 2 000">Entre 0 et 2 000 {currency}</option>
-                      <option value="2 000 - 5 000">Entre 2 000 et 5 000 {currency}</option>
-                      <option value="5 000 - 10 000">Entre 5 000 et 10 000 {currency}</option>
-                      <option value="10 000 - 25 000">Entre 10 000 et 25 000 {currency}</option>
-                      <option value="25 000 ou plus">25 000 {currency} ou plus</option>
-                      <option value="custom">
-                        {currentLang === 'fr' ? 'Saisie d\'un montant exact...' : 'Exact amount...'}
-                      </option>
-                    </select>
+                  <div className="space-y-2">
+                    <div>
+                      <select
+                        value={incomeBracket}
+                        onChange={(e) => {
+                          const val = e.target.value;
+                          setIncomeBracket(val);
+                          setExactIncome(''); // LE CHAMP MONTANT FIXE DOIT RESTER VIDE !
+                        }}
+                        className="w-full px-3 py-2 rounded-xl border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800 text-xs font-medium focus:ring-2 focus:ring-amber-500 shadow-sm"
+                      >
+                        <option value="">{currentLang === 'fr' ? '-- Choisir une tranche (ou montant fixe ci-dessous) --' : '-- Choose a bracket (or fixed amount below) --'}</option>
+                        <option value="0 - 2 000">Entre 0 et 2 000 {currency}</option>
+                        <option value="2 000 - 5 000">Entre 2 000 et 5 000 {currency}</option>
+                        <option value="5 000 - 10 000">Entre 5 000 et 10 000 {currency}</option>
+                        <option value="10 000 - 25 000">Entre 10 000 et 25 000 {currency}</option>
+                        <option value="25 000 ou plus">25 000 {currency} ou plus</option>
+                      </select>
+                    </div>
 
                     <div className="relative">
                       <input
                         type="number"
-                        required
                         min={1}
-                        value={monthlyIncome || ''}
+                        value={exactIncome}
                         onChange={(e) => {
-                          const val = Number(e.target.value);
-                          setMonthlyIncome(val);
-                          if (val <= 2000) setIncomeBracket('0 - 2 000');
-                          else if (val <= 5000) setIncomeBracket('2 000 - 5 000');
-                          else if (val <= 10000) setIncomeBracket('5 000 - 10 000');
-                          else if (val <= 25000) setIncomeBracket('10 000 - 25 000');
-                          else setIncomeBracket('25 000 ou plus');
+                          setExactIncome(e.target.value);
+                          setIncomeBracket(''); // DÉSACTIVE LA TRANCHE SI SAISIE D'UN MONTANT FIXE !
                         }}
-                        placeholder={currentLang === 'fr' ? 'Montant exact (ex: 4500)...' : 'Exact amount...'}
+                        placeholder={currentLang === 'fr' ? 'Ou saisir un montant fixe (ex: 4500)...' : 'Or enter exact fixed amount...'}
                         className="w-full px-3 py-2 rounded-xl border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800 text-xs font-mono focus:ring-2 focus:ring-amber-500 pr-14"
                       />
                       <span className="absolute right-3 top-2 text-xs font-mono font-bold text-amber-600 dark:text-amber-400">
@@ -1239,8 +1278,12 @@ export const OnboardingModal: React.FC<OnboardingModalProps> = ({
                     <span>{currentLang === 'fr' ? 'Parcourir' : 'Browse'}</span>
                     <input
                       type="file"
+                      accept="image/*,.pdf,.doc,.docx"
                       className="hidden"
-                      onChange={(e) => setIdFileName(e.target.files?.[0]?.name || 'id_document.pdf')}
+                      onChange={(e) => {
+                        const file = e.target.files?.[0];
+                        if (file) handleDocumentUpload('id', file);
+                      }}
                     />
                   </label>
                 </div>
@@ -1263,8 +1306,12 @@ export const OnboardingModal: React.FC<OnboardingModalProps> = ({
                     <span>{currentLang === 'fr' ? 'Parcourir' : 'Browse'}</span>
                     <input
                       type="file"
+                      accept="image/*,.pdf,.doc,.docx"
                       className="hidden"
-                      onChange={(e) => setProofFileName(e.target.files?.[0]?.name || 'proof_address.pdf')}
+                      onChange={(e) => {
+                        const file = e.target.files?.[0];
+                        if (file) handleDocumentUpload('proof', file);
+                      }}
                     />
                   </label>
                 </div>

@@ -1,4 +1,4 @@
-export type SupportedCurrency = 'USD' | 'CAD' | 'EUR' | 'SAR' | 'AED' | 'BHD' | 'MXN';
+export type SupportedCurrency = 'USD' | 'CAD' | 'EUR' | 'SAR' | 'AED' | 'BHD' | 'MXN' | 'TND' | 'JPY';
 export type SupportedLanguage = 'en' | 'fr' | 'es' | 'ar';
 
 export type ReferralStatus =
@@ -139,8 +139,10 @@ export interface UserProfile {
   activity_duration: string;
   id_document_name?: string;
   id_document_url?: string;
+  id_document_data?: string;
   proof_of_address_name?: string;
   proof_of_address_url?: string;
+  proof_of_address_data?: string;
   is_admin: boolean;
   admin_role?: 'admin' | 'moderator' | 'support' | 'client' | null;
   portal_password?: string;
