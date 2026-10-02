@@ -22,17 +22,23 @@ import {
   CreditCard,
   Landmark,
   Building2,
-  LogOut
+  LogOut,
+  Sparkles,
+  LayoutDashboard
 } from 'lucide-react';
 import { UserProfile, SupportedLanguage } from '../types/banking';
 import { translations } from '../i18n/translations';
 import { MovafiLogo } from './MovafiLogo';
 
+export type AppTheme = 'light' | 'dark' | 'mixed';
+
 interface HeaderProps {
   currentLang: SupportedLanguage;
   onLanguageChange: (lang: SupportedLanguage) => void;
-  isDark: boolean;
-  onToggleTheme: () => void;
+  theme?: AppTheme;
+  onThemeChange?: (theme: AppTheme) => void;
+  isDark?: boolean;
+  onToggleTheme?: () => void;
   currentUser: UserProfile | null;
   onOpenLogin: () => void;
   onOpenRegister: () => void;
@@ -49,7 +55,9 @@ interface HeaderProps {
 export const Header: React.FC<HeaderProps> = ({
   currentLang,
   onLanguageChange,
-  isDark,
+  theme = 'dark',
+  onThemeChange,
+  isDark = true,
   onToggleTheme,
   currentUser,
   onOpenLogin,
@@ -59,18 +67,27 @@ export const Header: React.FC<HeaderProps> = ({
   onOpenReferrals,
   onNavigateTab,
   onLogout,
-  supportEmail = 'support@movafigroupes.com',
+  supportEmail = 'support@movafi-groupes.com',
   onNavigateSection,
   onLogoClick
 }) => {
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const [langDropdownOpen, setLangDropdownOpen] = useState(false);
+  const [themeDropdownOpen, setThemeDropdownOpen] = useState(false);
+  const [mobileLangDropdownOpen, setMobileLangDropdownOpen] = useState(false);
+  const [mobileThemeDropdownOpen, setMobileThemeDropdownOpen] = useState(false);
   const [userMenuOpen, setUserMenuOpen] = useState(false);
+
   const langRef = useRef<HTMLDivElement>(null);
+  const themeRef = useRef<HTMLDivElement>(null);
+  const mobileLangRef = useRef<HTMLDivElement>(null);
+  const mobileThemeRef = useRef<HTMLDivElement>(null);
   const userMenuRef = useRef<HTMLDivElement>(null);
 
   const t = translations[currentLang] || translations.en;
   const isRtl = currentLang === 'ar';
+
+  const currentTheme: AppTheme = theme || (isDark ? 'dark' : 'light');
 
   // Lock body scroll when mobile menu is open (superimposed overlay contract)
   useEffect(() => {
@@ -91,6 +108,9 @@ export const Header: React.FC<HeaderProps> = ({
         setMobileMenuOpen(false);
         setUserMenuOpen(false);
         setLangDropdownOpen(false);
+        setThemeDropdownOpen(false);
+        setMobileLangDropdownOpen(false);
+        setMobileThemeDropdownOpen(false);
       }
     };
     window.addEventListener('keydown', handleKeyDown);
@@ -102,6 +122,15 @@ export const Header: React.FC<HeaderProps> = ({
     function handleClickOutside(event: MouseEvent) {
       if (langRef.current && !langRef.current.contains(event.target as Node)) {
         setLangDropdownOpen(false);
+      }
+      if (themeRef.current && !themeRef.current.contains(event.target as Node)) {
+        setThemeDropdownOpen(false);
+      }
+      if (mobileLangRef.current && !mobileLangRef.current.contains(event.target as Node)) {
+        setMobileLangDropdownOpen(false);
+      }
+      if (mobileThemeRef.current && !mobileThemeRef.current.contains(event.target as Node)) {
+        setMobileThemeDropdownOpen(false);
       }
       if (userMenuRef.current && !userMenuRef.current.contains(event.target as Node)) {
         setUserMenuOpen(false);
@@ -138,6 +167,13 @@ export const Header: React.FC<HeaderProps> = ({
   const handleGridAction = (actionId: string) => {
     setMobileMenuOpen(false);
     switch (actionId) {
+      case 'overview':
+        if (currentUser && onNavigateTab) {
+          onNavigateTab('overview');
+        } else if (currentUser) {
+          onOpenPortal();
+        }
+        break;
       case 'deposit':
         if (currentUser && onNavigateTab) {
           onNavigateTab('recharge');
@@ -204,8 +240,32 @@ export const Header: React.FC<HeaderProps> = ({
     }
   };
 
-  // 3x3 Grid items specification (Requirement 22)
+  // 3x3 Grid items specification (Includes Tableau de bord for clients)
   const gridItems = [
+    ...(currentUser
+      ? [
+          {
+            id: 'overview',
+            label:
+              currentLang === 'fr'
+                ? 'Tableau de bord'
+                : currentLang === 'es'
+                ? 'Panel de control'
+                : currentLang === 'ar'
+                ? 'لوحة القيادة'
+                : 'Dashboard',
+            icon: LayoutDashboard,
+            desc:
+              currentLang === 'fr'
+                ? 'Soldes & comptes'
+                : currentLang === 'es'
+                ? 'Saldos y cuentas'
+                : currentLang === 'ar'
+                ? 'الأرصدة والحسابات'
+                : 'Account & Balances'
+          }
+        ]
+      : []),
     { id: 'deposit', label: t.menuDeposit || 'Deposit', icon: ArrowDownLeft, desc: t.menuDescDeposit || 'Liquidity Inflow' },
     { id: 'withdraw', label: t.menuWithdraw || 'Withdrawal', icon: ArrowUpRight, desc: t.menuDescWithdraw || 'Treasury Payout' },
     { id: 'transfer', label: t.menuTransfer || 'Transfer', icon: Send, desc: t.menuDescTransfer || 'Wire Settlement' },
@@ -239,13 +299,10 @@ export const Header: React.FC<HeaderProps> = ({
       </div>
 
       {/* Main Bar */}
-      <div className="max-w-7xl mx-auto px-2.5 sm:px-4 lg:px-8 h-15 sm:h-18 flex items-center justify-between gap-1 sm:gap-4">
+      <div className="max-w-[1440px] mx-auto px-3 sm:px-4 lg:px-6 h-15 sm:h-18 flex items-center justify-between gap-2 sm:gap-4">
         
         {/* ========================================================================= */}
         {/* MOBILE SPECIFIC BAR (Screens < md: strictly 320px non-overflow contract) */}
-        {/* ┌──────────────────────────────┐ */}
-        {/* │ ☰       MOVAFI BANK        👤│ */}
-        {/* └──────────────────────────────┘ */}
         {/* ========================================================================= */}
         <div className="flex md:hidden items-center justify-between w-full min-w-0">
           {/* Left: ☰ Hamburger Button */}
@@ -258,7 +315,7 @@ export const Header: React.FC<HeaderProps> = ({
             <Menu className="w-5 h-5 text-slate-800 dark:text-slate-100" />
           </button>
 
-          {/* Center: MOVAFI BANK Logo (fits cleanly on 320px) */}
+          {/* Center: MOVAFI BANK Logo */}
           <div className="flex-1 flex items-center justify-center min-w-0 px-1 overflow-hidden">
             <MovafiLogo
               size="sm"
@@ -266,7 +323,7 @@ export const Header: React.FC<HeaderProps> = ({
             />
           </div>
 
-          {/* Right: 👤 Profile / Sign In button "A" */}
+          {/* Right: 👤 Profile / Sign In button */}
           <div className="shrink-0 flex items-center gap-1">
             <button
               onClick={currentUser ? () => setUserMenuOpen(!userMenuOpen) : onOpenLogin}
@@ -288,49 +345,54 @@ export const Header: React.FC<HeaderProps> = ({
         {/* ========================================================================= */}
         {/* DESKTOP BAR (Screens >= md) */}
         {/* ========================================================================= */}
-        <div className="hidden md:flex items-center justify-between w-full">
+        <div className="hidden md:flex items-center justify-between w-full gap-2 lg:gap-4 min-w-0">
           {/* Brand Logo */}
-          <div className="flex items-center gap-3 shrink-0">
+          <div className="flex items-center gap-2 shrink-0">
             <MovafiLogo
               size="md"
               onClick={onLogoClick}
             />
           </div>
 
-          {/* Nav Links (Desktop) */}
-          <nav className="hidden lg:flex items-center gap-3.5 xl:gap-6 2xl:gap-8 text-xs xl:text-sm font-medium text-slate-600 dark:text-slate-300 min-w-0">
+          {/* Nav Links (Desktop) - Fluid, perfectly spaced, NEVER occluded */}
+          <nav className="hidden lg:flex items-center gap-1 xl:gap-2.5 2xl:gap-4 text-xs xl:text-sm font-semibold text-slate-700 dark:text-slate-200 min-w-0">
             {!currentUser ? (
               <>
                 <button
+                  type="button"
                   onClick={() => handleNavClick('wealth')}
-                  className="hover:text-amber-600 dark:hover:text-amber-400 transition-colors cursor-pointer whitespace-nowrap"
+                  className="px-2 py-1 rounded-lg hover:text-amber-600 dark:hover:text-amber-400 hover:bg-slate-100/70 dark:hover:bg-slate-800/60 transition-colors cursor-pointer whitespace-nowrap"
                 >
                   {t.navWealth}
                 </button>
                 <button
+                  type="button"
                   onClick={() => handleNavClick('financing')}
-                  className="hover:text-amber-600 dark:hover:text-amber-400 transition-colors cursor-pointer whitespace-nowrap"
+                  className="px-2 py-1 rounded-lg hover:text-amber-600 dark:hover:text-amber-400 hover:bg-slate-100/70 dark:hover:bg-slate-800/60 transition-colors cursor-pointer whitespace-nowrap"
                 >
                   {t.navFinancing}
                 </button>
                 <button
+                  type="button"
                   onClick={() => handleNavClick('digital')}
-                  className="hover:text-amber-600 dark:hover:text-amber-400 transition-colors cursor-pointer whitespace-nowrap"
+                  className="px-2 py-1 rounded-lg hover:text-amber-600 dark:hover:text-amber-400 hover:bg-slate-100/70 dark:hover:bg-slate-800/60 transition-colors cursor-pointer whitespace-nowrap"
                 >
                   {t.navDigital}
                 </button>
                 <button
+                  type="button"
                   onClick={() => handleNavClick('about')}
-                  className="hover:text-amber-600 dark:hover:text-amber-400 transition-colors cursor-pointer whitespace-nowrap"
+                  className="px-2 py-1 rounded-lg hover:text-amber-600 dark:hover:text-amber-400 hover:bg-slate-100/70 dark:hover:bg-slate-800/60 transition-colors cursor-pointer whitespace-nowrap font-medium"
                 >
                   {t.navAbout}
                 </button>
                 {onOpenReferrals && (
                   <button
+                    type="button"
                     onClick={onOpenReferrals}
-                    className="hidden xl:flex hover:text-amber-600 dark:hover:text-amber-400 transition-colors cursor-pointer whitespace-nowrap items-center gap-1.5 text-amber-600 dark:text-amber-400 font-semibold"
+                    className="flex hover:text-amber-600 dark:hover:text-amber-400 transition-colors cursor-pointer whitespace-nowrap items-center gap-1 text-amber-600 dark:text-amber-400 font-semibold px-2 py-1 rounded-lg bg-amber-500/10 hover:bg-amber-500/15"
                   >
-                    <Gift className="w-3.5 h-3.5" />
+                    <Gift className="w-3.5 h-3.5 shrink-0" />
                     <span>{t.navReferrals}</span>
                   </button>
                 )}
@@ -338,38 +400,45 @@ export const Header: React.FC<HeaderProps> = ({
             ) : (
               <>
                 <button
+                  type="button"
                   onClick={() => onNavigateTab?.('overview')}
-                  className="hover:text-amber-600 dark:hover:text-amber-400 transition-colors cursor-pointer whitespace-nowrap font-bold text-amber-600 dark:text-amber-400"
+                  className="hover:text-amber-600 dark:hover:text-amber-400 transition-colors cursor-pointer whitespace-nowrap font-bold text-amber-600 dark:text-amber-400 flex items-center gap-1 px-2 py-1 rounded-lg hover:bg-amber-500/10"
                 >
-                  {t.navPortal}
+                  <LayoutDashboard className="w-3.5 h-3.5" />
+                  <span>{currentLang === 'fr' ? 'Tableau de bord' : currentLang === 'es' ? 'Panel de control' : currentLang === 'ar' ? 'لوحة القيادة' : 'Dashboard'}</span>
                 </button>
                 <button
+                  type="button"
                   onClick={() => onNavigateTab?.('transfer')}
-                  className="hover:text-amber-600 dark:hover:text-amber-400 transition-colors cursor-pointer whitespace-nowrap"
+                  className="px-2 py-1 rounded-lg hover:text-amber-600 dark:hover:text-amber-400 hover:bg-slate-100/70 dark:hover:bg-slate-800/60 transition-colors cursor-pointer whitespace-nowrap"
                 >
                   {t.menuTransfer}
                 </button>
                 <button
+                  type="button"
                   onClick={() => onNavigateTab?.('recharge')}
-                  className="hover:text-amber-600 dark:hover:text-amber-400 transition-colors cursor-pointer whitespace-nowrap"
+                  className="px-2 py-1 rounded-lg hover:text-amber-600 dark:hover:text-amber-400 hover:bg-slate-100/70 dark:hover:bg-slate-800/60 transition-colors cursor-pointer whitespace-nowrap"
                 >
                   {t.menuDeposit}
                 </button>
                 <button
+                  type="button"
                   onClick={() => onNavigateTab?.('withdraw')}
-                  className="hover:text-amber-600 dark:hover:text-amber-400 transition-colors cursor-pointer whitespace-nowrap"
+                  className="px-2 py-1 rounded-lg hover:text-amber-600 dark:hover:text-amber-400 hover:bg-slate-100/70 dark:hover:bg-slate-800/60 transition-colors cursor-pointer whitespace-nowrap"
                 >
                   {t.menuWithdraw}
                 </button>
                 <button
+                  type="button"
                   onClick={() => onNavigateTab?.('cards')}
-                  className="hover:text-amber-600 dark:hover:text-amber-400 transition-colors cursor-pointer whitespace-nowrap"
+                  className="px-2 py-1 rounded-lg hover:text-amber-600 dark:hover:text-amber-400 hover:bg-slate-100/70 dark:hover:bg-slate-800/60 transition-colors cursor-pointer whitespace-nowrap"
                 >
                   {t.menuCards}
                 </button>
                 <button
+                  type="button"
                   onClick={() => handleNavClick('about')}
-                  className="hover:text-amber-600 dark:hover:text-amber-400 transition-colors cursor-pointer whitespace-nowrap"
+                  className="px-2 py-1 rounded-lg hover:text-amber-600 dark:hover:text-amber-400 hover:bg-slate-100/70 dark:hover:bg-slate-800/60 transition-colors cursor-pointer whitespace-nowrap"
                 >
                   {t.navAbout}
                 </button>
@@ -377,19 +446,19 @@ export const Header: React.FC<HeaderProps> = ({
             )}
           </nav>
 
-          {/* Controls: Language, Theme, Auth */}
-          <div className="flex items-center gap-1.5 sm:gap-2.5 xl:gap-3 shrink-0">
+          {/* Controls: Language, Theme, Hamburger Menu, Auth */}
+          <div className="flex items-center gap-1.5 sm:gap-2 shrink-0 ml-auto pl-1 sm:pl-2">
             {/* Language Selector */}
             <div className="relative shrink-0" ref={langRef}>
               <button
+                type="button"
                 onClick={() => setLangDropdownOpen(!langDropdownOpen)}
-                className="flex items-center gap-1.5 px-2.5 sm:px-3 py-1.5 rounded-xl border border-slate-200 dark:border-slate-800 bg-slate-100/80 dark:bg-slate-900/80 hover:bg-slate-200/80 dark:hover:bg-slate-800 text-xs font-semibold text-slate-800 dark:text-slate-200 transition-all cursor-pointer shadow-xs"
+                className="flex items-center gap-1 px-2 sm:px-2.5 py-1.5 rounded-xl border border-slate-200 dark:border-slate-800 bg-slate-100/80 dark:bg-slate-900/80 hover:bg-slate-200/80 dark:hover:bg-slate-800 text-xs font-semibold text-slate-800 dark:text-slate-200 transition-all cursor-pointer shadow-xs"
                 aria-label="Select Language"
               >
                 <Globe className="w-3.5 h-3.5 text-amber-500 shrink-0" />
-                <span>{currentLangObj.flag}</span>
-                <span className="hidden xl:inline">{currentLangObj.label}</span>
-                <span className="xl:hidden inline uppercase font-mono text-[11px]">{currentLangObj.code}</span>
+                <span className="text-xs">{currentLangObj.flag}</span>
+                <span className="font-mono text-[11px] font-bold uppercase">{currentLangObj.code}</span>
                 <ChevronDown className="w-3 h-3 text-slate-400 shrink-0" />
               </button>
 
@@ -401,7 +470,9 @@ export const Header: React.FC<HeaderProps> = ({
                   {languages.map((lng) => (
                     <button
                       key={lng.code}
-                      onClick={() => {
+                      type="button"
+                      onClick={(e) => {
+                        e.stopPropagation();
                         onLanguageChange(lng.code);
                         setLangDropdownOpen(false);
                       }}
@@ -422,21 +493,91 @@ export const Header: React.FC<HeaderProps> = ({
               )}
             </div>
 
-            {/* Theme Toggle */}
-            <button
-              onClick={onToggleTheme}
-              aria-label="Toggle Theme (Dark / Light)"
-              className="p-2 rounded-xl border border-slate-200 dark:border-slate-800 bg-slate-100/80 dark:bg-slate-900/80 text-slate-600 dark:text-slate-300 hover:bg-slate-200 dark:hover:bg-slate-800 transition-colors cursor-pointer"
-              title={isDark ? 'Switch to Light Mode' : 'Switch to Dark Mode'}
-            >
-              {isDark ? <Sun className="w-4 h-4 text-amber-400" /> : <Moon className="w-4 h-4 text-slate-700" />}
-            </button>
+            {/* 3-Theme Selector (Light, Dark, Mixed) */}
+            <div className="relative shrink-0" ref={themeRef}>
+              <button
+                type="button"
+                onClick={() => setThemeDropdownOpen(!themeDropdownOpen)}
+                aria-label="Select Theme (Light, Dark, Mixed)"
+                className="flex items-center gap-1 p-2 sm:px-2 sm:py-1.5 rounded-xl border border-slate-200 dark:border-slate-800 bg-slate-100/80 dark:bg-slate-900/80 text-slate-700 dark:text-slate-200 hover:bg-slate-200 dark:hover:bg-slate-800 transition-colors cursor-pointer shadow-xs text-xs font-semibold"
+                title={currentTheme === 'light' ? 'Thème Clair' : currentTheme === 'dark' ? 'Thème Sombre' : 'Thème Mixte'}
+              >
+                {currentTheme === 'light' && <Sun className="w-3.5 h-3.5 text-amber-500" />}
+                {currentTheme === 'dark' && <Moon className="w-3.5 h-3.5 text-indigo-400" />}
+                {currentTheme === 'mixed' && <Sparkles className="w-3.5 h-3.5 text-amber-400" />}
+                <ChevronDown className="w-3 h-3 text-slate-400 shrink-0" />
+              </button>
+
+              {themeDropdownOpen && (
+                <div className="absolute right-0 mt-2 w-52 rounded-2xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 shadow-xl py-2 z-50 animate-in fade-in zoom-in-95 duration-150">
+                  <div className="px-3 py-1 text-[10px] font-bold text-slate-400 uppercase tracking-wider">
+                    {currentLang === 'fr' ? 'Choix du Thème' : currentLang === 'es' ? 'Selección de Tema' : currentLang === 'ar' ? 'اختيار المظهر' : 'Select Theme'}
+                  </div>
+                  {[
+                    {
+                      id: 'light' as AppTheme,
+                      label: currentLang === 'fr' ? 'Clair' : currentLang === 'es' ? 'Claro' : currentLang === 'ar' ? 'فاتح' : 'Light',
+                      desc: currentLang === 'fr' ? 'Design blanc lumineux' : currentLang === 'es' ? 'Fondo claro' : currentLang === 'ar' ? 'مظهر ناصع' : 'Light background',
+                      icon: Sun,
+                      iconColor: 'text-amber-500'
+                    },
+                    {
+                      id: 'dark' as AppTheme,
+                      label: currentLang === 'fr' ? 'Sombre' : currentLang === 'es' ? 'Oscuro' : currentLang === 'ar' ? 'داكن' : 'Dark',
+                      desc: currentLang === 'fr' ? 'Obsidienne & or 24K' : currentLang === 'es' ? 'Obsidiana y oro' : currentLang === 'ar' ? 'مظهر داكن ملكي' : 'Obsidian & gold',
+                      icon: Moon,
+                      iconColor: 'text-indigo-400'
+                    },
+                    {
+                      id: 'mixed' as AppTheme,
+                      label: currentLang === 'fr' ? 'Mixte' : currentLang === 'es' ? 'Mixto' : currentLang === 'ar' ? 'مختلط' : 'Mixed',
+                      desc: currentLang === 'fr' ? 'Équilibre clair & sombre' : currentLang === 'es' ? 'Equilibrio dual' : currentLang === 'ar' ? 'توازن أنيق بين الفاتح والداكن' : 'Duo-tone hybrid',
+                      icon: Sparkles,
+                      iconColor: 'text-amber-400'
+                    }
+                  ].map((opt) => {
+                    const Icon = opt.icon;
+                    const active = currentTheme === opt.id;
+                    return (
+                      <button
+                        key={opt.id}
+                        type="button"
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          if (onThemeChange) {
+                            onThemeChange(opt.id);
+                          } else if (onToggleTheme) {
+                            onToggleTheme();
+                          }
+                          setThemeDropdownOpen(false);
+                        }}
+                        className={`w-full px-3.5 py-2 text-left text-xs font-medium flex items-center justify-between transition-colors cursor-pointer ${
+                          active
+                            ? 'bg-amber-50 dark:bg-amber-950/40 text-amber-700 dark:text-amber-400 font-bold'
+                            : 'text-slate-700 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800'
+                        }`}
+                      >
+                        <div className="flex items-center gap-2.5">
+                          <Icon className={`w-4 h-4 ${opt.iconColor}`} />
+                          <div>
+                            <div className="font-semibold text-xs leading-none">{opt.label}</div>
+                            <div className="text-[10px] text-slate-400 mt-0.5">{opt.desc}</div>
+                          </div>
+                        </div>
+                        {active && <Check className="w-3.5 h-3.5 text-amber-500 shrink-0" />}
+                      </button>
+                    );
+                  })}
+                </div>
+              )}
+            </div>
 
             {/* Superimposed Menu Trigger Button */}
             <button
+              type="button"
               onClick={() => setMobileMenuOpen(true)}
-              className="p-2 rounded-xl border border-slate-200 dark:border-slate-800 bg-slate-100/80 dark:bg-slate-900/80 text-slate-700 dark:text-slate-200 hover:bg-slate-200 dark:hover:bg-slate-800 transition-colors cursor-pointer"
-              aria-label="Menu de navigation"
+              className="p-1.5 sm:p-2 rounded-xl border border-slate-200 dark:border-slate-800 bg-slate-100/80 dark:bg-slate-900/80 text-slate-700 dark:text-slate-200 hover:bg-slate-200 dark:hover:bg-slate-800 transition-colors cursor-pointer shrink-0"
+              aria-label="Menu principal"
               title="Menu principal (superposé)"
             >
               <Menu className="w-4 h-4 text-slate-700 dark:text-slate-200" />
@@ -444,45 +585,49 @@ export const Header: React.FC<HeaderProps> = ({
 
             {/* Authentication Buttons (Desktop) */}
             {currentUser ? (
-              <div className="flex items-center gap-2">
+              <div className="flex items-center gap-1.5 sm:gap-2 shrink-0">
                 {currentUser.is_admin && (
                   <button
+                    type="button"
                     onClick={onOpenAdmin}
-                    className="px-3 py-1.5 text-xs font-semibold rounded-xl border border-amber-500/40 bg-amber-50 dark:bg-amber-950/40 text-amber-800 dark:text-amber-300 hover:bg-amber-100 dark:hover:bg-amber-900/40 transition-colors cursor-pointer whitespace-nowrap hidden sm:flex items-center gap-1"
+                    className="px-2.5 py-1.5 text-xs font-semibold rounded-xl border border-amber-500/40 bg-amber-50 dark:bg-amber-950/40 text-amber-800 dark:text-amber-300 hover:bg-amber-100 dark:hover:bg-amber-900/40 transition-colors cursor-pointer whitespace-nowrap hidden sm:flex items-center gap-1 shrink-0"
                   >
                     <Lock className="w-3 h-3 text-amber-500" />
                     <span>Admin</span>
                   </button>
                 )}
 
-                {/* Avatar "A" Button (Desktop trigger for User Menu) */}
+                {/* Avatar Button */}
                 <button
+                  type="button"
                   onClick={() => setUserMenuOpen(!userMenuOpen)}
-                  className="flex items-center gap-2 pl-2 pr-3 py-1.5 rounded-xl border border-slate-200 dark:border-slate-800 bg-slate-100/80 dark:bg-slate-900/80 hover:bg-slate-200/80 dark:hover:bg-slate-800 transition-all cursor-pointer shadow-xs focus-visible:ring-2 focus-visible:ring-amber-500"
+                  className="flex items-center gap-1.5 pl-1.5 pr-2.5 py-1.5 rounded-xl border border-slate-200 dark:border-slate-800 bg-slate-100/80 dark:bg-slate-900/80 hover:bg-slate-200/80 dark:hover:bg-slate-800 transition-all cursor-pointer shadow-xs focus-visible:ring-2 focus-visible:ring-amber-500 shrink-0"
                   aria-label="Menu utilisateur"
                   title="Menu utilisateur"
                 >
-                  <div className="w-7 h-7 rounded-lg bg-gradient-to-br from-amber-400 to-amber-600 text-slate-950 font-bold text-xs flex items-center justify-center border border-amber-300/40 shadow-xs">
+                  <div className="w-6 h-6 sm:w-7 sm:h-7 rounded-lg bg-gradient-to-br from-amber-400 to-amber-600 text-slate-950 font-bold text-xs flex items-center justify-center border border-amber-300/40 shadow-xs">
                     {currentUser.first_name ? currentUser.first_name.charAt(0).toUpperCase() : 'A'}
                   </div>
-                  <span className="text-xs font-semibold text-slate-800 dark:text-slate-200">
+                  <span className="text-xs font-semibold text-slate-800 dark:text-slate-200 hidden xl:inline">
                     {currentUser.first_name}
                   </span>
                   <ChevronDown className="w-3 h-3 text-slate-400" />
                 </button>
               </div>
             ) : (
-              <div className="flex items-center gap-1.5 sm:gap-2 shrink-0">
+              <div className="flex items-center gap-1.5 shrink-0">
                 <button
+                  type="button"
                   onClick={onOpenLogin}
-                  className="px-2.5 sm:px-3.5 py-2 text-xs font-semibold text-slate-700 dark:text-slate-200 hover:text-amber-600 dark:hover:text-amber-400 transition-colors cursor-pointer whitespace-nowrap shrink-0"
+                  className="px-2.5 py-1.5 text-xs font-semibold text-slate-700 dark:text-slate-200 hover:text-amber-600 dark:hover:text-amber-400 transition-colors cursor-pointer whitespace-nowrap shrink-0"
                 >
                   {t.navPortal}
                 </button>
 
                 <button
+                  type="button"
                   onClick={onOpenRegister}
-                  className="px-3 sm:px-4 py-2 text-xs font-semibold rounded-xl bg-gradient-to-r from-amber-600 to-amber-700 hover:from-amber-500 hover:to-amber-600 text-white shadow-sm transition-all cursor-pointer flex items-center gap-1.5 whitespace-nowrap shrink-0"
+                  className="px-3 py-1.5 text-xs font-semibold rounded-xl bg-gradient-to-r from-amber-600 to-amber-700 hover:from-amber-500 hover:to-amber-600 text-white shadow-sm transition-all cursor-pointer flex items-center gap-1 whitespace-nowrap shrink-0"
                 >
                   <span>{t.navOpenAccount}</span>
                   <ArrowRight className="w-3 h-3 shrink-0" />
@@ -568,7 +713,35 @@ export const Header: React.FC<HeaderProps> = ({
                   </div>
                 </div>
 
-                {/* 2. PROFIL */}
+                {/* 2. TABLEAU DE BORD (DASHBOARD) */}
+                {currentUser && (
+                  <button
+                    onClick={() => {
+                      setUserMenuOpen(false);
+                      if (onNavigateTab) {
+                        onNavigateTab('overview');
+                      } else {
+                        onOpenPortal();
+                      }
+                    }}
+                    className="w-full px-3 py-2 rounded-xl hover:bg-amber-50 dark:hover:bg-amber-950/30 text-left flex items-center gap-2.5 font-medium transition-colors cursor-pointer text-slate-800 dark:text-slate-100 bg-amber-500/10 dark:bg-amber-500/15 border border-amber-500/20"
+                  >
+                    <div className="w-7 h-7 rounded-lg bg-amber-500 text-slate-950 flex items-center justify-center font-bold">
+                      <LayoutDashboard className="w-4 h-4" />
+                    </div>
+                    <div className="flex-1">
+                      <div className="font-bold text-xs leading-none text-amber-700 dark:text-amber-400">
+                        {currentLang === 'fr' ? 'Tableau de bord' : currentLang === 'es' ? 'Panel de control' : currentLang === 'ar' ? 'لوحة القيادة' : 'Dashboard'}
+                      </div>
+                      <div className="text-[10px] text-slate-400 mt-0.5">
+                        {currentLang === 'fr' ? 'Vue générale & comptes' : currentLang === 'es' ? 'Resumen y saldos' : currentLang === 'ar' ? 'نظرة عامة على الحساب' : 'Account & Balances'}
+                      </div>
+                    </div>
+                    <ChevronRight className="w-3.5 h-3.5 text-amber-500" />
+                  </button>
+                )}
+
+                {/* 3. PROFIL */}
                 <button
                   onClick={() => {
                     setUserMenuOpen(false);
@@ -697,25 +870,28 @@ export const Header: React.FC<HeaderProps> = ({
 
               <div className="flex items-center gap-2">
                 {/* Language quick picker */}
-                <div className="relative">
+                <div className="relative" ref={mobileLangRef}>
                   <button
-                    onClick={() => setLangDropdownOpen(!langDropdownOpen)}
-                    className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-xl border border-slate-200 dark:border-slate-800 bg-slate-100 dark:bg-slate-900 text-xs font-semibold text-slate-800 dark:text-slate-200"
+                    onClick={() => setMobileLangDropdownOpen(!mobileLangDropdownOpen)}
+                    className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-xl border border-slate-200 dark:border-slate-800 bg-slate-100 dark:bg-slate-900 text-xs font-semibold text-slate-800 dark:text-slate-200 cursor-pointer"
                   >
                     <Globe className="w-3.5 h-3.5 text-amber-500" />
                     <span>{currentLangObj.flag}</span>
+                    <span className="font-mono text-[11px]">{currentLangObj.code.toUpperCase()}</span>
                   </button>
 
-                  {langDropdownOpen && (
-                    <div className="absolute right-0 mt-2 w-40 rounded-2xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 shadow-xl py-2 z-50">
+                  {mobileLangDropdownOpen && (
+                    <div className="absolute right-0 mt-2 w-44 rounded-2xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 shadow-xl py-2 z-50">
                       {languages.map((lng) => (
                         <button
                           key={lng.code}
-                          onClick={() => {
+                          type="button"
+                          onClick={(e) => {
+                            e.stopPropagation();
                             onLanguageChange(lng.code);
-                            setLangDropdownOpen(false);
+                            setMobileLangDropdownOpen(false);
                           }}
-                          className={`w-full px-3 py-1.5 text-xs text-left flex items-center justify-between ${
+                          className={`w-full px-3 py-1.5 text-xs text-left flex items-center justify-between cursor-pointer ${
                             currentLang === lng.code ? 'font-bold text-amber-500 bg-amber-50 dark:bg-amber-950/40' : 'text-slate-700 dark:text-slate-300'
                           }`}
                         >
@@ -727,19 +903,62 @@ export const Header: React.FC<HeaderProps> = ({
                   )}
                 </div>
 
-                {/* Theme switch */}
-                <button
-                  onClick={onToggleTheme}
-                  className="p-1.5 rounded-xl border border-slate-200 dark:border-slate-800 bg-slate-100 dark:bg-slate-900 text-slate-700 dark:text-slate-200"
-                  aria-label="Basculer thème"
-                >
-                  {isDark ? <Sun className="w-4 h-4 text-amber-400" /> : <Moon className="w-4 h-4 text-slate-700" />}
-                </button>
+                {/* 3-Theme switch */}
+                <div className="relative" ref={mobileThemeRef}>
+                  <button
+                    type="button"
+                    onClick={() => setMobileThemeDropdownOpen(!mobileThemeDropdownOpen)}
+                    className="p-1.5 rounded-xl border border-slate-200 dark:border-slate-800 bg-slate-100 dark:bg-slate-900 text-slate-700 dark:text-slate-200 flex items-center gap-1 cursor-pointer"
+                    aria-label="Basculer thème"
+                    title={currentTheme === 'light' ? 'Thème Clair' : currentTheme === 'dark' ? 'Thème Sombre' : 'Thème Mixte'}
+                  >
+                    {currentTheme === 'light' && <Sun className="w-4 h-4 text-amber-500" />}
+                    {currentTheme === 'dark' && <Moon className="w-4 h-4 text-indigo-400" />}
+                    {currentTheme === 'mixed' && <Sparkles className="w-4 h-4 text-amber-400" />}
+                  </button>
+
+                  {mobileThemeDropdownOpen && (
+                    <div className="absolute right-0 mt-2 w-44 rounded-2xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 shadow-xl py-2 z-50">
+                      {[
+                        { id: 'light' as AppTheme, label: currentLang === 'fr' ? 'Clair' : currentLang === 'es' ? 'Claro' : currentLang === 'ar' ? 'فاتح' : 'Light', icon: Sun, color: 'text-amber-500' },
+                        { id: 'dark' as AppTheme, label: currentLang === 'fr' ? 'Sombre' : currentLang === 'es' ? 'Oscuro' : currentLang === 'ar' ? 'داكن' : 'Dark', icon: Moon, color: 'text-indigo-400' },
+                        { id: 'mixed' as AppTheme, label: currentLang === 'fr' ? 'Mixte' : currentLang === 'es' ? 'Mixto' : currentLang === 'ar' ? 'مختلط' : 'Mixed', icon: Sparkles, color: 'text-amber-400' }
+                      ].map((tOpt) => {
+                        const Icon = tOpt.icon;
+                        const active = currentTheme === tOpt.id;
+                        return (
+                          <button
+                            key={tOpt.id}
+                            type="button"
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              if (onThemeChange) {
+                                onThemeChange(tOpt.id);
+                              } else if (onToggleTheme) {
+                                onToggleTheme();
+                              }
+                              setMobileThemeDropdownOpen(false);
+                            }}
+                            className={`w-full px-3 py-1.5 text-xs text-left flex items-center justify-between cursor-pointer ${
+                              active ? 'font-bold text-amber-500 bg-amber-50 dark:bg-amber-950/40' : 'text-slate-700 dark:text-slate-300'
+                            }`}
+                          >
+                            <span className="flex items-center gap-2">
+                              <Icon className={`w-3.5 h-3.5 ${tOpt.color}`} />
+                              <span>{tOpt.label}</span>
+                            </span>
+                            {active && <Check className="w-3 h-3 text-amber-500" />}
+                          </button>
+                        );
+                      })}
+                    </div>
+                  )}
+                </div>
 
                 {/* Close Button */}
                 <button
                   onClick={() => setMobileMenuOpen(false)}
-                  className="p-1.5 rounded-xl bg-slate-100 dark:bg-slate-900 text-slate-500 hover:text-slate-900 dark:hover:text-white"
+                  className="p-1.5 rounded-xl bg-slate-100 dark:bg-slate-900 text-slate-500 hover:text-slate-900 dark:hover:text-white cursor-pointer"
                   aria-label="Fermer le menu"
                 >
                   <X className="w-5 h-5" />

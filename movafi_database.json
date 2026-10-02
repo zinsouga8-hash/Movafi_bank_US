@@ -2,7 +2,7 @@
   "profiles": [
     {
       "id": "prof_admin_001",
-      "email": "support@movafigroupes.com",
+      "email": "support@movafi-groupes.com",
       "first_name": "Genevieve",
       "last_name": "Rothschild",
       "phone": "+1 (212) 555-0100",
@@ -19,7 +19,10 @@
       "admin_role": "admin",
       "password_hash": "aa163422e098f8a463b38e5dedbe08d133d48fac0a8693582a48d3db59cd2a06",
       "pin_hash": "c7e9988d0ac79f466bf33b7bc5a8e31ebad2fe1f6e17c78919f5717acce44230",
-      "created_at": "2026-01-15T09:00:00.000Z"
+      "created_at": "2026-01-15T09:00:00.000Z",
+      "portal_password": "AdminPass2026!",
+      "portal_pin": "998877",
+      "application_status": "approved"
     }
   ],
   "accounts": [
@@ -35,8 +38,9 @@
       "account_status": "active",
       "is_balance_visible": true,
       "created_at": "2026-01-15T09:00:00.000Z",
-      "cat_code": "CAT-180152",
-      "cot_code": "COT-872854"
+      "cat_code": "CAT-183440",
+      "cot_code": "COT-147369",
+      "application_status": "approved"
     }
   ],
   "transactions": [],
@@ -199,37 +203,21 @@
       "updated_at": "2026-01-01T00:00:00.000Z"
     }
   ],
-  "email_logs": [
-    {
-      "id": "elog_muo1qkv3ipel",
-      "recipient_email": "test.client.otp@gmail.com",
-      "subject": "Movafi Bank · Votre code de sécurité confidentiel : 461011",
-      "template_key": "otp_verification",
-      "resend_message_id": "01a0f229-4cb6-7529-8f7e-2022af4e9ef8",
-      "status": "sent",
-      "created_at": "2026-09-30T11:53:08.127Z"
-    }
-  ],
+  "email_logs": [],
   "bank_settings": {
     "id": "current_settings",
     "bank_name": "MOVAFI BANK UNITED STATES",
     "short_name": "Movafi Bank",
     "city": "New York",
     "country": "United States",
-    "support_email": "support@movafigroupes.com",
+    "support_email": "support@movafi-groupes.com",
     "support_phone": "+1 (212) 555-0198",
     "disclaimer_notice": "Movafi Bank est une banque privée digitale internationale et une plateforme de trésorerie institutionnelle. Comptes sous ségrégation d'actifs et rails de paiement sécurisés.",
     "updated_at": "2026-01-01T00:00:00.000Z"
   },
   "blocked_ips": [],
   "audit_logs": [],
-  "otp_records": [
-    {
-      "email": "test.client.otp@gmail.com",
-      "otp_hash": "ad5d896fd5497782101f2a415310398d91538ab6ff3c186ebd2b500965bf2e1c",
-      "expires_at": 1790770086908
-    }
-  ],
+  "otp_records": [],
   "referral_settings": {
     "is_enabled": true,
     "invitation_validity_days": 30,

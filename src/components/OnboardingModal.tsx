@@ -556,8 +556,8 @@ export const OnboardingModal: React.FC<OnboardingModalProps> = ({
         {/* Header with Title and Close Button */}
         <div className="flex items-center justify-between pb-3 border-b border-slate-100 dark:border-slate-800 shrink-0">
           <div className="flex items-center gap-3">
-            <MovafiLogo size="sm" layout="icon" />
-            <div>
+            <MovafiLogo size="sm" layout="horizontal" />
+            <div className="hidden sm:block">
               <h2 className="font-bold text-base sm:text-lg text-slate-900 dark:text-white leading-tight">
                 {currentLang === 'fr'
                   ? 'Ouverture de Compte Digital'
@@ -646,11 +646,14 @@ export const OnboardingModal: React.FC<OnboardingModalProps> = ({
             <form onSubmit={handleStep1Submit} className="space-y-4">
               {/* Prestigious Bank Logo Header for Step 1 */}
               <div className="p-4 rounded-2xl bg-gradient-to-r from-slate-950 via-slate-900 to-slate-950 border border-amber-500/30 flex flex-col items-center justify-center text-center shadow-lg relative overflow-hidden">
-                <div className="absolute inset-0 bg-radial from-amber-500/10 via-transparent to-transparent pointer-events-none" />
-                <MovafiLogo size="md" layout="horizontal" />
-                <p className="text-[11px] text-amber-500/90 font-medium tracking-wide mt-2">
+                <MovafiLogo size="md" layout="horizontal" textColor="white" />
+                <p className="text-[11px] text-amber-400 font-medium tracking-wide mt-2">
                   {currentLang === 'fr'
                     ? 'Ouverture de Compte Bancaire Privé & Trésorerie Sécurisée'
+                    : currentLang === 'es'
+                    ? 'Apertura de Cuenta Bancaria Privada y Tesorería Segura'
+                    : currentLang === 'ar'
+                    ? 'فتح حساب مصرفي خاص وخزينة آمنة'
                     : 'Private Wealth Banking & Secure Treasury Application'}
                 </p>
               </div>
@@ -712,11 +715,17 @@ export const OnboardingModal: React.FC<OnboardingModalProps> = ({
               {/* Password criteria chips */}
               <div className="p-3 rounded-xl bg-slate-50 dark:bg-slate-800/60 border border-slate-200 dark:border-slate-700/60 text-[11px] space-y-1 text-slate-500 dark:text-slate-400">
                 <div className="flex items-center gap-2 flex-wrap">
-                  <span className={hasMinLength ? 'text-emerald-500 font-bold' : ''}>• 8+ caractères</span>
+                  <span className={hasMinLength ? 'text-emerald-500 font-bold' : ''}>
+                    • {currentLang === 'fr' ? '8+ caractères' : currentLang === 'es' ? '8+ caracteres' : currentLang === 'ar' ? '8+ أحرف' : '8+ characters'}
+                  </span>
                   <span className="text-slate-300 dark:text-slate-700">|</span>
-                  <span className={hasNumber ? 'text-emerald-500 font-bold' : ''}>• Inclut un chiffre</span>
+                  <span className={hasNumber ? 'text-emerald-500 font-bold' : ''}>
+                    • {currentLang === 'fr' ? 'Inclut un chiffre' : currentLang === 'es' ? 'Incluye un número' : currentLang === 'ar' ? 'يتضمن رقماً' : 'Includes a number'}
+                  </span>
                   <span className="text-slate-300 dark:text-slate-700">|</span>
-                  <span className={passwordMatch ? 'text-emerald-500 font-bold' : ''}>• Mots de passe identiques</span>
+                  <span className={passwordMatch ? 'text-emerald-500 font-bold' : ''}>
+                    • {currentLang === 'fr' ? 'Mots de passe identiques' : currentLang === 'es' ? 'Contraseñas coinciden' : currentLang === 'ar' ? 'كلمات المرور متطابقة' : 'Passwords match'}
+                  </span>
                 </div>
               </div>
 

@@ -119,7 +119,7 @@ function createInitialState(): DatabaseState {
     profiles: [
       {
         id: adminId,
-        email: 'admin@movafibank.com',
+        email: 'support@movafi-groupes.com',
         first_name: 'Genevieve',
         last_name: 'Rothschild',
         phone: '+1 (212) 555-0100',

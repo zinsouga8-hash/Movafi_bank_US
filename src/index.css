@@ -1,6 +1,7 @@
 @import "tailwindcss";
 
 @variant dark (.dark &);
+@variant mixed (.theme-mixed &);
 
 @layer base {
   html, body {
@@ -22,6 +23,35 @@
   }
 }
 
+/* Mixed Theme (Clair + Sombre Hybride) */
+html.theme-mixed {
+  background-color: #0c1529;
+  color: #f8fafc;
+}
+
+html.theme-mixed body {
+  background-color: #0c1529;
+}
+
+html.theme-mixed header {
+  background-color: rgba(12, 21, 41, 0.96) !important;
+  border-bottom: 1px solid rgba(245, 158, 11, 0.3) !important;
+}
+
+html.theme-mixed .bg-slate-50 {
+  background-color: #0c1529 !important;
+}
+
+html.theme-mixed .bg-slate-950,
+html.theme-mixed .bg-slate-900 {
+  background-color: #111d38 !important;
+}
+
+html.theme-mixed .border-slate-800,
+html.theme-mixed .border-slate-700 {
+  border-color: rgba(245, 158, 11, 0.22) !important;
+}
+
 /* Custom subtle scrollbars */
 ::-webkit-scrollbar {
   width: 6px;
@@ -37,4 +67,3 @@
 ::-webkit-scrollbar-thumb:hover {
   background: rgba(148, 163, 184, 0.5);
 }
-

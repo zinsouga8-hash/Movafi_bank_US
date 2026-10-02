@@ -12,13 +12,17 @@ import { UserProfile, BankAccount, SupportedLanguage, BankSettings } from './typ
 import { api } from './services/api';
 import { MovafiLogo } from './components/MovafiLogo';
 
+export type AppTheme = 'light' | 'dark' | 'mixed';
+
 export default function App() {
-  // Theme state
-  const [isDark, setIsDark] = useState<boolean>(() => {
-    const saved = localStorage.getItem('movafi_theme');
-    if (saved) return saved === 'dark';
-    return true; // Default to luxury dark mode
+  // Theme state: light, dark, or mixed
+  const [theme, setTheme] = useState<AppTheme>(() => {
+    const saved = localStorage.getItem('movafi_theme') as AppTheme | null;
+    if (saved === 'light' || saved === 'dark' || saved === 'mixed') return saved;
+    return 'dark'; // Default to luxury dark mode
   });
+
+  const isDark = theme !== 'light';
 
   // Language state
   const [currentLang, setCurrentLang] = useState<SupportedLanguage>(() => {
@@ -43,14 +47,15 @@ export default function App() {
 
   // Sync theme with DOM
   useEffect(() => {
-    if (isDark) {
-      document.documentElement.classList.add('dark');
-      localStorage.setItem('movafi_theme', 'dark');
-    } else {
-      document.documentElement.classList.remove('dark');
-      localStorage.setItem('movafi_theme', 'light');
+    const root = document.documentElement;
+    root.classList.remove('dark', 'theme-mixed');
+    if (theme === 'dark') {
+      root.classList.add('dark');
+    } else if (theme === 'mixed') {
+      root.classList.add('dark', 'theme-mixed');
     }
-  }, [isDark]);
+    localStorage.setItem('movafi_theme', theme);
+  }, [theme]);
 
   // Sync language and RTL with DOM
   useEffect(() => {
@@ -63,6 +68,7 @@ export default function App() {
     setCurrentLang(lang);
     localStorage.setItem('movafi_lang', lang);
     if (currentUser) {
+      setCurrentUser((prev) => (prev ? { ...prev, preferred_language: lang } : null));
       api.updateProfile({ preferred_language: lang }).catch(() => {});
     }
   };
@@ -76,14 +82,20 @@ export default function App() {
           setBankSettings(settingsRes.settings);
         }
 
+        const savedLang = localStorage.getItem('movafi_lang') as SupportedLanguage | null;
+        if (savedLang) {
+          setCurrentLang(savedLang);
+        }
+
         const token = localStorage.getItem('movafi_token');
         if (token) {
           const authRes = await api.getMe();
           if (authRes.success && authRes.user) {
             setCurrentUser(authRes.user);
             if (authRes.account) setCurrentAccount(authRes.account);
-            if (authRes.user.preferred_language) {
+            if (!savedLang && authRes.user.preferred_language) {
               setCurrentLang(authRes.user.preferred_language);
+              localStorage.setItem('movafi_lang', authRes.user.preferred_language);
             }
             if (authRes.user.is_admin) {
               setView('admin');
@@ -128,8 +140,10 @@ export default function App() {
   const handleLoginSuccess = (user: UserProfile, account: BankAccount) => {
     setCurrentUser(user);
     setCurrentAccount(account);
-    if (user.preferred_language) {
+    const savedLang = localStorage.getItem('movafi_lang') as SupportedLanguage | null;
+    if (!savedLang && user.preferred_language) {
       setCurrentLang(user.preferred_language);
+      localStorage.setItem('movafi_lang', user.preferred_language);
     }
     if (user.is_admin) {
       setView('admin');
@@ -189,8 +203,10 @@ export default function App() {
         <Header
           currentLang={currentLang}
           onLanguageChange={handleLanguageChange}
+          theme={theme}
+          onThemeChange={setTheme}
           isDark={isDark}
-          onToggleTheme={() => setIsDark(!isDark)}
+          onToggleTheme={() => setTheme(theme === 'light' ? 'dark' : theme === 'dark' ? 'mixed' : 'light')}
           currentUser={currentUser}
           onOpenLogin={() => setIsLoginOpen(true)}
           onOpenRegister={() => setIsRegisterOpen(true)}
@@ -229,8 +245,10 @@ export default function App() {
       <Header
         currentLang={currentLang}
         onLanguageChange={handleLanguageChange}
+        theme={theme}
+        onThemeChange={setTheme}
         isDark={isDark}
-        onToggleTheme={() => setIsDark(!isDark)}
+        onToggleTheme={() => setTheme(theme === 'light' ? 'dark' : theme === 'dark' ? 'mixed' : 'light')}
         currentUser={currentUser}
         onOpenLogin={() => setIsLoginOpen(true)}
         onOpenRegister={() => setIsRegisterOpen(true)}
