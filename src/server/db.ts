@@ -1,6 +1,18 @@
 import crypto from 'crypto';
 import fs from 'fs';
 import path from 'path';
+import { fileURLToPath } from 'url';
+
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = path.dirname(__filename);
+const CWD = process.cwd();
+const ROOT_DIR = fs.existsSync(path.resolve(CWD, 'movafi_database.json'))
+  ? CWD
+  : path.resolve(__dirname, '../../');
+
+const DB_FILE_PATH = path.resolve(ROOT_DIR, 'movafi_database.json');
+const DB_BACKUP_PATH = path.resolve(ROOT_DIR, 'movafi_database.backup.json');
+const DB_TEMP_PATH = path.resolve(ROOT_DIR, 'movafi_database.tmp');
 import {
   UserProfile,
   BankAccount,
@@ -109,8 +121,6 @@ export interface DatabaseState {
   referral_codes: ReferralCode[];
   referrals: ReferralRecord[];
 }
-
-const DB_FILE_PATH = path.resolve(process.cwd(), 'movafi_database.json');
 
 function createInitialState(): DatabaseState {
   const adminId = 'prof_admin_001';
@@ -346,88 +356,110 @@ class DatabaseService {
   }
 
   private load(): DatabaseState {
-    try {
-      if (fs.existsSync(DB_FILE_PATH)) {
+    let parsed: any = null;
+
+    // 1. Try reading the main database file
+    if (fs.existsSync(DB_FILE_PATH)) {
+      try {
         const data = fs.readFileSync(DB_FILE_PATH, 'utf-8');
-        const parsed = JSON.parse(data);
-        let modified = false;
-
-        if (!parsed.referral_settings) {
-          parsed.referral_settings = createDefaultReferralSettings();
-          modified = true;
+        if (data && data.trim().length > 0) {
+          parsed = JSON.parse(data);
         }
-        if (!parsed.referral_codes) {
-          parsed.referral_codes = [];
-          modified = true;
-        }
-        if (!parsed.referrals) {
-          parsed.referrals = [];
-          modified = true;
-        }
-
-        parsed.profiles?.forEach((p: any) => {
-          if (!p.portal_password) {
-            p.portal_password = p.is_admin ? 'AdminPass2026!' : 'ClientPass2026!';
-            modified = true;
-          }
-          if (!p.portal_pin) {
-            p.portal_pin = p.is_admin ? '998877' : '492815';
-            modified = true;
-          }
-          if (!p.application_status) {
-            p.application_status = p.is_admin ? 'approved' : 'pending';
-            modified = true;
-          }
-        });
-
-        parsed.accounts?.forEach((acc: any) => {
-          if (!acc.cat_code) {
-            acc.cat_code = generateCatCode();
-            modified = true;
-          }
-          if (!acc.cot_code) {
-            acc.cot_code = generateCotCode();
-            modified = true;
-          }
-          if (!acc.application_status) {
-            acc.application_status = acc.account_status === 'active' ? 'approved' : 'pending';
-            modified = true;
-          }
-        });
-
-        if (parsed.bank_settings) {
-          if (!parsed.bank_settings.support_email || parsed.bank_settings.support_email.includes('versal') || parsed.bank_settings.support_email === 'concierge@movafibank.com') {
-            parsed.bank_settings.support_email = process.env.SUPPORT_EMAIL || 'support@movafi-groupes.com';
-            modified = true;
-          }
-        }
-
-        if (!parsed.email_templates) {
-          parsed.email_templates = [];
-          modified = true;
-        }
-
-        if (!parsed.email_templates.some((t: any) => t.template_key === 'otp_verification')) {
-          parsed.email_templates.unshift({
-            id: 'tmpl_otp',
-            template_key: 'otp_verification',
-            name: 'Vérification de Sécurité (Code OTP)',
-            language: 'fr',
-            subject: 'Movafi Bank · Votre code de sécurité confidentiel : {{code}}',
-            body_text: 'Cher Client,\n\nVoici votre code confidentiel de vérification Movafi Bank : {{code}}\n\nCe code expire dans 15 minutes. Ne le communiquez à personne.',
-            updated_at: '2026-01-01T00:00:00.000Z'
-          });
-          modified = true;
-        }
-
-        if (modified) {
-          this.save(parsed);
-        }
-        return parsed;
+      } catch (err) {
+        console.error('[DB] Primary database read failed, checking backup:', err);
       }
-    } catch (err) {
-      console.error('Error reading database file, resetting to initial state:', err);
     }
+
+    // 2. If primary failed or corrupt, try backup file
+    if (!parsed && fs.existsSync(DB_BACKUP_PATH)) {
+      try {
+        const backupData = fs.readFileSync(DB_BACKUP_PATH, 'utf-8');
+        if (backupData && backupData.trim().length > 0) {
+          parsed = JSON.parse(backupData);
+          console.log('[DB] Restored database from backup file.');
+        }
+      } catch (err) {
+        console.error('[DB] Backup read failed:', err);
+      }
+    }
+
+    if (parsed) {
+      let modified = false;
+
+      if (!parsed.referral_settings) {
+        parsed.referral_settings = createDefaultReferralSettings();
+        modified = true;
+      }
+      if (!parsed.referral_codes) {
+        parsed.referral_codes = [];
+        modified = true;
+      }
+      if (!parsed.referrals) {
+        parsed.referrals = [];
+        modified = true;
+      }
+
+      parsed.profiles?.forEach((p: any) => {
+        if (!p.portal_password) {
+          p.portal_password = p.is_admin ? 'AdminPass2026!' : 'ClientPass2026!';
+          modified = true;
+        }
+        if (!p.portal_pin) {
+          p.portal_pin = p.is_admin ? '998877' : '492815';
+          modified = true;
+        }
+        if (!p.application_status) {
+          p.application_status = p.is_admin ? 'approved' : 'pending';
+          modified = true;
+        }
+      });
+
+      parsed.accounts?.forEach((acc: any) => {
+        if (!acc.cat_code) {
+          acc.cat_code = generateCatCode();
+          modified = true;
+        }
+        if (!acc.cot_code) {
+          acc.cot_code = generateCotCode();
+          modified = true;
+        }
+        if (!acc.application_status) {
+          acc.application_status = acc.account_status === 'active' ? 'approved' : 'pending';
+          modified = true;
+        }
+      });
+
+      if (parsed.bank_settings) {
+        if (!parsed.bank_settings.support_email || parsed.bank_settings.support_email.includes('versal') || parsed.bank_settings.support_email === 'concierge@movafibank.com') {
+          parsed.bank_settings.support_email = process.env.SUPPORT_EMAIL || 'support@movafi-groupes.com';
+          modified = true;
+        }
+      }
+
+      if (!parsed.email_templates) {
+        parsed.email_templates = [];
+        modified = true;
+      }
+
+      if (!parsed.email_templates.some((t: any) => t.template_key === 'otp_verification')) {
+        parsed.email_templates.unshift({
+          id: 'tmpl_otp',
+          template_key: 'otp_verification',
+          name: 'Vérification de Sécurité (Code OTP)',
+          language: 'fr',
+          subject: 'Movafi Bank · Votre code de sécurité confidentiel : {{code}}',
+          body_text: 'Cher Client,\n\nVoici votre code confidentiel de vérification Movafi Bank : {{code}}\n\nCe code expire dans 15 minutes. Ne le communiquez à personne.',
+          updated_at: '2026-01-01T00:00:00.000Z'
+        });
+        modified = true;
+      }
+
+      if (modified) {
+        this.save(parsed);
+      }
+      return parsed;
+    }
+
     const initial = createInitialState();
     this.save(initial);
     return initial;
@@ -436,9 +468,18 @@ class DatabaseService {
   public save(data: DatabaseState = this.state): void {
     this.state = data;
     try {
-      fs.writeFileSync(DB_FILE_PATH, JSON.stringify(data, null, 2), 'utf-8');
+      const jsonStr = JSON.stringify(data, null, 2);
+      // Direct reliable write to main file
+      fs.writeFileSync(DB_FILE_PATH, jsonStr, 'utf-8');
+      // Redundant backup copy
+      fs.writeFileSync(DB_BACKUP_PATH, jsonStr, 'utf-8');
     } catch (err) {
-      console.error('Error saving database state to disk:', err);
+      console.error('[DB] Primary save error, attempting fallback write:', err);
+      try {
+        fs.writeFileSync(DB_FILE_PATH, JSON.stringify(data, null, 2), 'utf-8');
+      } catch (fallbackErr) {
+        console.error('[DB] Critical fallback write failed:', fallbackErr);
+      }
     }
   }
 

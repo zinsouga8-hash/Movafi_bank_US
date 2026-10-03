@@ -19,7 +19,8 @@ import {
   AlertCircle,
   HelpCircle,
   Mail,
-  Server
+  Server,
+  ChevronDown
 } from 'lucide-react';
 import { api } from '../services/api';
 import { SupportedLanguage, SupportedCurrency, UserProfile, BankAccount } from '../types/banking';
@@ -48,6 +49,11 @@ export const OnboardingModal: React.FC<OnboardingModalProps> = ({
   const [step, setStep] = useState<1 | 2 | 3 | 4 | 5 | 6>(1);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [isHelpExpanded, setIsHelpExpanded] = useState(false);
+
+  useEffect(() => {
+    setIsHelpExpanded(false);
+  }, [step]);
 
   // Step 1: Security Credentials
   const [email, setEmail] = useState('');
@@ -200,37 +206,42 @@ export const OnboardingModal: React.FC<OnboardingModalProps> = ({
   const hasSpecial = /[!@#$%^&*(),.?":{}|<>]/.test(password);
   const passwordMatch = password.length > 0 && password === confirmPassword;
 
-  // Assistance strings by language
+  // Assistance strings by language (brief 1-2 line summary when collapsed + collapsible details)
   const stepAssistance = {
     step1: {
       en: {
         title: 'Step 1: Security Credentials',
+        shortSummary: 'Enter a valid email and a master password (8+ chars) with numbers and letters.',
         why: 'Why this is required: To create your encrypted cryptographic vault credentials. Your password protects your private ledger.',
         format: 'Format: Email must be valid. Password must contain at least 8 characters with numbers and letters.',
-        next: 'What happens next: After clicking Continue, an encrypted 6-digit one-time code will be dispatched to your email.'
+        next: 'What happens next: An encrypted 6-digit one-time code will be dispatched to your email.'
       },
       fr: {
         title: 'Étape 1 : Identifiants de Sécurité',
+        shortSummary: 'Saisissez une adresse email valide et un mot de passe sécurisé (8+ car.).',
         why: 'Pourquoi cette information est demandée : Pour générer vos identifiants cryptographiques sécurisés qui protègent votre coffre-fort bancaire.',
         format: 'Format requis : Adresse email valide. Mot de passe d’au moins 8 caractères contenant des chiffres et des lettres.',
-        next: 'Ce qui se passe après : Après avoir cliqué sur Continuer, un code de vérification sécurisé à 6 chiffres sera envoyé à votre adresse e-mail.'
+        next: 'Ce qui se passe après : Un code de vérification sécurisé à 6 chiffres sera envoyé à votre adresse e-mail.'
       },
       es: {
         title: 'Paso 1: Credenciales de Seguridad',
+        shortSummary: 'Ingrese un correo válido y una contraseña segura (8+ caracteres).',
         why: 'Por qué se solicita: Para crear sus credenciales criptográficas seguras que protegen su bóveda bancaria privada.',
         format: 'Formato: Correo electrónico válido. Contraseña de al menos 8 caracteres con números y letras.',
-        next: 'Qué sucede después: Al hacer clic en Continuar, se enviará un código de verificación de 6 dígitos a su correo.'
+        next: 'Qué sucede después: Se enviará un código de verificación de 6 dígitos a su correo.'
       },
       ar: {
         title: 'الخطوة 1: بيانات اعتماد الأمان',
+        shortSummary: 'أدخل بريداً إلكترونياً صالحاً وكلمة مرور قوية (8 أحرف فأكثر).',
         why: 'سبب طلب هذه البيانات: لإنشاء بيانات اعتماد مشفرة لحسابك المصرفي الخاص وحماية أصولك الرقمية.',
         format: 'المطلوب: بريد إلكتروني صالح. كلمة مرور مكونة من 8 أحرف على الأقل تحتوي على أرقام وحروف.',
-        next: 'ماذا يحدث بعد المتابعة: بعد النقر على متابعة، سيتم إرسال رمز تحقق سري مكون من 6 أرقام إلى بريدك الإلكتروني.'
+        next: 'ماذا يحدث بعد المتابعة: سيتم إرسال رمز تحقق سري مكون من 6 أرقام إلى بريدك الإلكتروني.'
       }
     },
     step2: {
       en: {
         title: 'Step 2: Email OTP Verification',
+        shortSummary: 'Enter the 6-digit verification code received by email (check spam if needed).',
         notice:
           "A verification code has been sent to your email address. Enter the 6-digit code to continue. If you don't see the email in your inbox, please check your Spam, Junk or Promotions folder.",
         why: 'Why this is required: Two-factor authentication (2FA) confirms that you own this email address and prevents unauthorized registration.',
@@ -239,6 +250,7 @@ export const OnboardingModal: React.FC<OnboardingModalProps> = ({
       },
       fr: {
         title: 'Étape 2 : Vérification du Code OTP par E-mail',
+        shortSummary: 'Saisissez le code de sécurité à 6 chiffres reçu par e-mail (vérifiez vos spams si besoin).',
         notice:
           "Un code de vérification a été envoyé à votre adresse e-mail. Saisissez le code à 6 chiffres pour continuer. Si vous ne voyez pas le message dans votre boîte de réception, vérifiez vos dossiers Spam, Courrier indésirable ou Promotions.",
         why: 'Pourquoi cette information est demandée : L’authentification à deux facteurs (2FA) certifie votre identité et sécurise l’ouverture du compte.',
@@ -247,6 +259,7 @@ export const OnboardingModal: React.FC<OnboardingModalProps> = ({
       },
       es: {
         title: 'Paso 2: Verificación de Código OTP por Correo',
+        shortSummary: 'Ingrese el código de 6 dígitos recibido por correo (revise spam si es necesario).',
         notice:
           "Se ha enviado un código de verificación a su dirección de correo electrónico. Ingrese el código de 6 dígitos para continuar. Si no ve el correo en su bandeja de entrada, revise su carpeta de Spam, Correo no deseado o Promociones.",
         why: 'Por qué se solicita: La verificación en dos pasos (2FA) garantiza la propiedad del correo electrónico y la seguridad de su cuenta.',
@@ -255,6 +268,7 @@ export const OnboardingModal: React.FC<OnboardingModalProps> = ({
       },
       ar: {
         title: 'الخطوة 2: التحقق من رمز OTP عبر البريد الإلكتروني',
+        shortSummary: 'أدخل رمز الأمان المكون من 6 أرقام المستلم بالبريد (تفقد الرسائل غير المرغوب فيها).',
         notice:
           "تم إرسال رمز التحقق إلى عنوان بريدك الإلكتروني. أدخل الرمز المكون من 6 أرقام للمتابعة. إذا لم تجد الرسالة في صندوق الوارد، يرجى التحقق من مجلد الرسائل غير المرغوب فيها (Spam) أو العروض الترويجية.",
         why: 'سبب طلب هذه البيانات: المصادقة الثنائية (2FA) تضمن ملكيتك للبريد الإلكتروني وأمان حسابك المالي.',
@@ -265,24 +279,28 @@ export const OnboardingModal: React.FC<OnboardingModalProps> = ({
     step3: {
       en: {
         title: 'Step 3: Personal & Banking Profile',
+        shortSummary: 'Fill in your legal identity, contact phone, residence and preferred currency.',
         why: 'Why this is required: International banking compliance (KYC/AML) mandates accurate identity, tax residence, and source of funds verification.',
         format: 'Format: Fill in your legal first and last name, select your phone country prefix, enter your phone number, select your country and city of residence, and choose your account currency.',
         next: 'What happens next: You will be asked to attach standard verification documents (identity document and proof of address).'
       },
       fr: {
         title: 'Étape 3 : Informations Personnelles & Profil Bancaire',
+        shortSummary: 'Renseignez vos coordonnées d’identité légale, pays de résidence et devise.',
         why: 'Pourquoi cette information est demandée : La réglementation bancaire internationale (KYC/AML) exige la vérification légale de l’identité, de la résidence fiscale et de l’origine des fonds.',
         format: 'Format requis : Renseignez votre nom et prénom légaux, sélectionnez l’indicatif international de votre téléphone, votre pays de résidence, votre ville et votre devise principale.',
         next: 'Ce qui se passe après : Vous pourrez joindre vos documents justificatifs officiels (pièce d’identité et justificatif de domicile).'
       },
       es: {
         title: 'Paso 3: Información Personal y Perfil Bancario',
+        shortSummary: 'Complete sus datos de identidad, teléfono, país de residencia y divisa.',
         why: 'Por qué se solicita: Las regulaciones bancarias internacionales (KYC/AML) exigen verificar la identidad, la residencia y el origen de los fondos.',
         format: 'Formato: Ingrese su nombre y apellido legales, prefijo telefónico internacional, teléfono, país y ciudad de residencia, y divisa principal.',
         next: 'Qué sucede después: Se le solicitará adjuntar sus documentos de verificación oficiales.'
       },
       ar: {
         title: 'الخطوة 3: المعلومات الشخصية والملف المصرفي',
+        shortSummary: 'أدخل بيانات هويتك القانونية، ورقم الهاتف، ودولة الإقامة والعملة المصرفية.',
         why: 'سبب طلب هذه البيانات: تتطلب معايير الامتثال المصرفي الدولي (KYC/AML) التحقق القانوني من الهوية والإقامة ومصدر الدخل.',
         format: 'المطلوب: إدخال الاسم واللقب القانونيين، واختيار رمز الدولة لرقم الهاتف، وبلد ومدينة الإقامة، والعملة المصرفية المفضلة.',
         next: 'ماذا يحدث بعد المتابعة: سيُطلب منك إرفاق وثائق الهوية وإثبات العنوان الرسمية.'
@@ -291,24 +309,28 @@ export const OnboardingModal: React.FC<OnboardingModalProps> = ({
     step4: {
       en: {
         title: 'Step 4: Digital KYC Compliance',
+        shortSummary: 'Attach your government ID and recent utility bill / proof of address (optional).',
         why: 'Why this is required: Proof of identity and address are required by banking regulators to activate international payment rails.',
         format: 'Format: PDF, PNG or JPEG files (Passport, National ID Card, Utility Bill or Bank Statement).',
         next: 'What happens next: You will configure your 6-digit transaction authorization PIN.'
       },
       fr: {
         title: 'Étape 4 : Justificatifs de Conformité KYC',
+        shortSummary: 'Téléversez vos justificatifs d’identité et de domicile récents (optionnel).',
         why: 'Pourquoi cette information est demandée : Les régulateurs bancaires exigent une pièce d’identité et un justificatif de domicile pour ouvrir les flux de virement internationaux.',
         format: 'Format requis : Fichiers PDF, PNG ou JPEG (Passeport, Carte Nationale d’Identité, Facture de domicile ou Relevé bancaire).',
         next: 'Ce qui se passe après : Vous définirez votre code PIN secret de transaction à 6 chiffres.'
       },
       es: {
         title: 'Paso 4: Cumplimiento de Identidad KYC',
+        shortSummary: 'Adjunte su documento de identidad y comprobante de domicilio (opcional).',
         why: 'Por qué se solicita: Los reguladores bancarios requieren prueba de identidad y domicilio para activar las transferencias internacionales.',
         format: 'Formato: Archivos PDF, PNG o JPEG (Pasaporte, DNI, factura de servicios o extracto bancario).',
         next: 'Qué sucede después: Configurará su código PIN secreto de 6 dígitos.'
       },
       ar: {
         title: 'الخطوة 4: وثائق التحقق من الهوية (KYC)',
+        shortSummary: 'أرفق وثيقة الهوية وإثبات العنوان الحديث (اختياري).',
         why: 'سبب طلب هذه البيانات: تتطلب الهيئات التنظيمية المصرفية وثيقة هوية وإثبات عنوان لتفعيل ميزات التحويل الدولي والبطاقات.',
         format: 'المطلوب: ملفات PDF أو PNG أو JPEG (جواز سفر، بطاقة هوية وطنية، أو فاتورة خدمات).',
         next: 'ماذا يحدث بعد المتابعة: ستقوم بتعيين رمز PIN السري المكون من 6 أرقام لتأكيد العمليات.'
@@ -317,24 +339,28 @@ export const OnboardingModal: React.FC<OnboardingModalProps> = ({
     step5: {
       en: {
         title: 'Step 5: 6-Digit Transaction PIN',
+        shortSummary: 'Create your 6-digit secret PIN to cryptographically authorize all wire transfers.',
         why: 'Why this is required: This personal PIN will cryptographically sign all outbound wire transfers, card commands, and sensitive banking orders.',
         format: 'Format: Exactly 6 numeric digits (e.g. 739104).',
         next: 'What happens next: Your account will be registered and your international IBAN, BIC/SWIFT, and Client ID will be generated immediately.'
       },
       fr: {
         title: 'Étape 5 : Code PIN de Transaction à 6 Chiffres',
+        shortSummary: 'Créez votre code PIN secret à 6 chiffres pour signer et valider vos opérations.',
         why: 'Pourquoi cette information est demandée : Ce code PIN personnel signera cryptographiquement l’ensemble de vos virements sortants, ordres de trésorerie et commandes de cartes.',
         format: 'Format requis : Exactement 6 chiffres numériques (ex. 739104).',
         next: 'Ce qui se passe après : Votre compte sera officiellement activé et vos identifiants IBAN international, BIC/SWIFT et Identifiant Client seront générés en direct.'
       },
       es: {
         title: 'Paso 5: PIN de Transacción de 6 Dígitos',
+        shortSummary: 'Cree su código PIN secreto de 6 dígitos para autorizar transferencias.',
         why: 'Por qué se solicita: Este código PIN autorizará criptográficamente todas sus transferencias salientes y gestiones de tarjetas.',
         format: 'Formato: Exactamente 6 dígitos numéricos (ej. 739104).',
         next: 'Qué sucede después: Su cuenta se activará y sus identificadores IBAN, BIC y Client ID se generarán de inmediato.'
       },
       ar: {
         title: 'الخطوة 5: رمز PIN للعمليات المصرفية (6 أرقام)',
+        shortSummary: 'عيّن رمز PIN السري المكون من 6 أرقام لتوقيع وتأكيد كافة العمليات المصرفية.',
         why: 'سبب طلب هذه البيانات: يُستخدم هذا الرمز السري لتوقيع واعتماد جميع الحوالات المالية وإصدار البطاقات بأمان تام.',
         format: 'المطلوب: 6 أرقام رقمية فقط (مثال: 739104).',
         next: 'ماذا يحدث بعد المتابعة: سيتم إنشاء وتفعيل حسابك وتوليد رقم الآيبان الدولي ورمز السويفت فوراً.'
@@ -661,16 +687,56 @@ export const OnboardingModal: React.FC<OnboardingModalProps> = ({
           </div>
         )}
 
-        {/* Dynamic Assistance Card (Rule 12) */}
+        {/* Dynamic Compact Assistance Card with Collapsible Details (Brief 1-2 lines by default) */}
         {step !== 6 && currentAssistance && (
-          <div className="p-3 rounded-2xl bg-amber-50/70 dark:bg-amber-950/20 border border-amber-200/70 dark:border-amber-900/40 text-[11px] text-amber-900 dark:text-amber-200 space-y-1 shrink-0">
-            <div className="flex items-center gap-1.5 font-bold text-amber-800 dark:text-amber-300">
-              <HelpCircle className="w-3.5 h-3.5 shrink-0" />
-              <span>{currentAssistance.title || (currentLang === 'fr' ? 'Assistance' : 'Guidance')}</span>
+          <div className="px-3 py-2 rounded-xl bg-amber-50/70 dark:bg-amber-950/25 border border-amber-200/70 dark:border-amber-900/35 text-[11px] text-amber-900 dark:text-amber-200 shrink-0 transition-all">
+            <div className="flex items-center justify-between gap-2">
+              <div className="flex items-center gap-1.5 font-bold text-amber-800 dark:text-amber-300 text-xs truncate">
+                <HelpCircle className="w-3.5 h-3.5 shrink-0 text-amber-600 dark:text-amber-400" />
+                <span className="truncate">{currentAssistance.title || (currentLang === 'fr' ? 'Aide' : 'Guidance')}</span>
+              </div>
+              <button
+                type="button"
+                onClick={() => setIsHelpExpanded(!isHelpExpanded)}
+                className="text-[10px] font-bold text-amber-700 dark:text-amber-300 hover:text-amber-900 dark:hover:text-amber-100 flex items-center gap-1 shrink-0 cursor-pointer bg-amber-100/90 dark:bg-amber-900/50 px-2 py-0.5 rounded-md transition-colors"
+              >
+                <span>
+                  {isHelpExpanded
+                    ? (currentLang === 'fr' ? 'Voir moins' : currentLang === 'es' ? 'Ver menos' : currentLang === 'ar' ? 'عرض أقل' : 'Show less')
+                    : (currentLang === 'fr' ? 'Voir plus / Tout lire' : currentLang === 'es' ? 'Ver más / Leer todo' : currentLang === 'ar' ? 'عرض المزيد / قراءة الكل' : 'Read more')}
+                </span>
+                <ChevronDown className={`w-3 h-3 transition-transform duration-200 ${isHelpExpanded ? 'rotate-180' : ''}`} />
+              </button>
             </div>
-            {currentAssistance.why && <p className="leading-relaxed opacity-90">{currentAssistance.why}</p>}
-            {currentAssistance.format && <p className="leading-relaxed font-medium">{currentAssistance.format}</p>}
-            {currentAssistance.next && <p className="leading-relaxed text-[10px] opacity-75">{currentAssistance.next}</p>}
+
+            {/* Always visible brief notice: strictly 1-2 concise lines, leaving space for the fields below */}
+            <p className={`text-[11px] text-amber-800/90 dark:text-amber-200/90 leading-snug mt-1 ${isHelpExpanded ? '' : 'line-clamp-2'}`}>
+              {(currentAssistance as any).shortSummary || currentAssistance.format || currentAssistance.why || ''}
+            </p>
+
+            {/* Collapsible expanded full guidance */}
+            {isHelpExpanded && (
+              <div className="pt-2 mt-1.5 border-t border-amber-200/70 dark:border-amber-900/50 space-y-1.5 text-[10.5px] animate-in fade-in duration-150">
+                {currentAssistance.why && (
+                  <p className="leading-relaxed opacity-95">
+                    <strong className="text-amber-950 dark:text-amber-100">{currentLang === 'fr' ? 'Pourquoi : ' : 'Why: '}</strong>
+                    {currentAssistance.why}
+                  </p>
+                )}
+                {currentAssistance.format && (
+                  <p className="leading-relaxed font-medium">
+                    <strong className="text-amber-950 dark:text-amber-100">{currentLang === 'fr' ? 'Format requis : ' : 'Format: '}</strong>
+                    {currentAssistance.format}
+                  </p>
+                )}
+                {currentAssistance.next && (
+                  <p className="leading-relaxed text-[10px] opacity-80">
+                    <strong className="text-amber-950 dark:text-amber-100">{currentLang === 'fr' ? 'Étape suivante : ' : 'Next: '}</strong>
+                    {currentAssistance.next}
+                  </p>
+                )}
+              </div>
+            )}
           </div>
         )}
 
@@ -687,18 +753,12 @@ export const OnboardingModal: React.FC<OnboardingModalProps> = ({
           {/* STEP 1: SECURITY CREDENTIALS */}
           {step === 1 && (
             <form onSubmit={handleStep1Submit} className="space-y-4">
-              {/* Prestigious Bank Logo Header for Step 1 */}
-              <div className="p-4 rounded-2xl bg-gradient-to-r from-slate-950 via-slate-900 to-slate-950 border border-amber-500/30 flex flex-col items-center justify-center text-center shadow-lg relative overflow-hidden">
-                <MovafiLogo size="md" layout="horizontal" textColor="white" />
-                <p className="text-[11px] text-amber-400 font-medium tracking-wide mt-2">
-                  {currentLang === 'fr'
-                    ? 'Ouverture de Compte Bancaire Privé & Trésorerie Sécurisée'
-                    : currentLang === 'es'
-                    ? 'Apertura de Cuenta Bancaria Privada y Tesorería Segura'
-                    : currentLang === 'ar'
-                    ? 'فتح حساب مصرفي خاص وخزينة آمنة'
-                    : 'Private Wealth Banking & Secure Treasury Application'}
-                </p>
+              {/* Compact Prestigious Header for Step 1 */}
+              <div className="py-2.5 px-4 rounded-2xl bg-gradient-to-r from-slate-950 via-slate-900 to-slate-950 border border-amber-500/30 flex items-center justify-between shadow-md">
+                <MovafiLogo size="sm" layout="horizontal" textColor="white" />
+                <span className="text-[10px] font-mono uppercase text-amber-400 font-bold tracking-wider">
+                  {currentLang === 'fr' ? 'Ouverture de Compte' : 'Account Opening'}
+                </span>
               </div>
 
               <div>
@@ -806,17 +866,17 @@ export const OnboardingModal: React.FC<OnboardingModalProps> = ({
           {/* STEP 2: REAL 6-DIGIT EMAIL OTP (Rule 9, 10, 11) */}
           {step === 2 && (
             <form onSubmit={handleStep2Submit} className="space-y-4">
-              <div className="p-4 rounded-2xl bg-amber-50 dark:bg-amber-950/30 border border-amber-200 dark:border-amber-800/50 text-xs text-amber-900 dark:text-amber-200 space-y-1.5">
-                <div className="flex items-center gap-2 font-bold text-amber-700 dark:text-amber-300">
-                  <Mail className="w-4 h-4" />
-                  <span>{currentLang === 'fr' ? 'Courrier de vérification expédié' : 'Verification Dispatch'}</span>
+              <div className="px-3.5 py-2 rounded-xl bg-amber-50 dark:bg-amber-950/30 border border-amber-200 dark:border-amber-800/50 text-xs text-amber-900 dark:text-amber-200 flex items-center justify-between gap-2">
+                <div className="flex items-center gap-2 truncate">
+                  <Mail className="w-4 h-4 text-amber-600 dark:text-amber-400 shrink-0" />
+                  <span className="truncate">
+                    {currentLang === 'fr' ? 'Code expédié à ' : 'Code sent to '}
+                    <strong className="font-mono text-amber-950 dark:text-white">{email}</strong>
+                  </span>
                 </div>
-                <p className="leading-relaxed">
-                  {stepAssistance.step2[currentLang]?.notice || stepAssistance.step2.en.notice}
-                </p>
-                <div className="text-[11px] text-amber-800 dark:text-amber-300/80 font-mono pt-1">
-                  {currentLang === 'fr' ? 'Destinataire :' : 'Recipient:'} <strong>{email}</strong>
-                </div>
+                <span className="text-[10px] font-mono text-amber-700 dark:text-amber-300 shrink-0 font-bold bg-amber-200/50 dark:bg-amber-900/50 px-2 py-0.5 rounded-md">
+                  15 min
+                </span>
               </div>
 
               <div>

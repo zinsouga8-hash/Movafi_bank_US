@@ -1,6 +1,6 @@
 import express, { Request, Response } from 'express';
 import { db, hashString, generateCatCode, generateCotCode } from './db';
-import { sendEmail } from './email';
+import { sendEmail, buildBankEmailHtml } from './email';
 import {
   UserProfile,
   BankAccount,
@@ -18,10 +18,16 @@ export const apiRouter = express.Router();
 
 // Middleware to mock or extract authenticated user ID
 function getAuthProfile(req: Request): UserProfile | null {
-  const token = req.headers.authorization?.replace('Bearer ', '');
+  const token = req.headers.authorization?.replace('Bearer ', '')?.trim();
   if (!token) return null;
   const state = db.getState();
-  const found = state.profiles.find((p) => p.id === token || 'prof_' + p.id === token);
+  const search = token.toLowerCase();
+  const found = state.profiles.find((p) =>
+    p.id === token ||
+    'prof_' + p.id === token ||
+    p.email.toLowerCase() === search ||
+    state.accounts.some((a) => a.profile_id === p.id && (a.client_id.toLowerCase() === search || a.account_number === token))
+  );
   return found || null;
 }
 
@@ -348,26 +354,31 @@ apiRouter.post('/auth/submit-application', async (req: Request, res: Response) =
   });
 });
 
-// Login Step 1: Email + Password verification
+// Login Step 1: Email / Client ID + Password verification
 apiRouter.post('/auth/login-step1', (req: Request, res: Response) => {
   const { email, password } = req.body;
   if (!email || !password) {
-    return res.status(400).json({ success: false, message: 'Email and password are required.' });
+    return res.status(400).json({ success: false, message: 'Identifiant et mot de passe requis.' });
   }
 
   const state = db.getState();
-  const searchEmail = email.toLowerCase().trim();
+  const searchInput = email.toLowerCase().trim();
   const profile = state.profiles.find((p) => {
     const pEmail = p.email.toLowerCase();
-    if (pEmail === searchEmail) return true;
-    if (p.is_admin && (searchEmail === 'support@movafi-groupes.com' || searchEmail === 'admin@movafibank.com')) {
+    if (pEmail === searchInput) return true;
+    if (p.id.toLowerCase() === searchInput) return true;
+    const userAccs = state.accounts.filter((a) => a.profile_id === p.id);
+    if (userAccs.some((a) => a.client_id.toLowerCase() === searchInput || a.account_number === searchInput || a.iban.toLowerCase() === searchInput)) {
+      return true;
+    }
+    if (p.is_admin && (searchInput === 'support@movafi-groupes.com' || searchInput === 'admin@movafibank.com')) {
       return true;
     }
     return false;
   });
 
   if (!profile || profile.password_hash !== hashString(password)) {
-    return res.status(401).json({ success: false, message: 'Invalid credentials. Please verify your email and password.' });
+    return res.status(401).json({ success: false, message: 'Identifiants invalides. Veuillez vérifier votre adresse e-mail ou identifiant et votre mot de passe.' });
   }
 
   res.json({
@@ -427,20 +438,35 @@ apiRouter.post('/auth/login-step2', (req: Request, res: Response) => {
 
   // If user is not an administrator, verify account status
   if (!profile.is_admin) {
-    if (primaryAccount.account_status === 'inactive' || primaryAccount.account_status === 'pending') {
-      return res.status(403).json({
-        success: false,
-        is_inactive: true,
-        message: 'Votre compte est actuellement inactif. Un administrateur examine votre dossier. Veuillez contacter le service client afin de demander son activation.',
-        support_email: state.bank_settings?.support_email || process.env.SUPPORT_EMAIL || 'support@movafi-groupes.com'
-      });
-    }
-
     if (primaryAccount.account_status === 'suspended') {
       return res.status(403).json({
         success: false,
         is_suspended: true,
         message: 'Votre compte est actuellement suspendu. Veuillez contacter le service client.',
+        support_email: state.bank_settings?.support_email || process.env.SUPPORT_EMAIL || 'support@movafi-groupes.com'
+      });
+    }
+
+    if (primaryAccount.account_status === 'rejected' || primaryAccount.application_status === 'rejected') {
+      return res.status(403).json({
+        success: false,
+        is_rejected: true,
+        message: 'Votre dossier d’ouverture a été rejeté. Veuillez contacter le service client.',
+        support_email: state.bank_settings?.support_email || process.env.SUPPORT_EMAIL || 'support@movafi-groupes.com'
+      });
+    }
+
+    // Allowed to log in if approved by administrator or active
+    const isApproved =
+      primaryAccount.application_status === 'approved' ||
+      profile.application_status === 'approved' ||
+      primaryAccount.account_status === 'active';
+
+    if (!isApproved) {
+      return res.status(403).json({
+        success: false,
+        is_inactive: true,
+        message: 'Votre demande d’ouverture de compte est en cours d’examen administratif. Dès que l’administrateur approuve votre dossier, vous pourrez vous connecter et accéder à votre tableau de bord.',
         support_email: state.bank_settings?.support_email || process.env.SUPPORT_EMAIL || 'support@movafi-groupes.com'
       });
     }
@@ -465,8 +491,30 @@ apiRouter.get('/auth/me', (req: Request, res: Response) => {
   }
 
   const state = db.getState();
-  const accounts = state.accounts.filter((a) => a.profile_id === profile.id);
-  const account = accounts[0] || null;
+  let accounts = state.accounts.filter((a) => a.profile_id === profile.id);
+  if (accounts.length === 0) {
+    const randomSuffix = Math.floor(100000 + Math.random() * 900000).toString();
+    const fallbackAcc: BankAccount = {
+      id: 'acc_' + profile.id,
+      profile_id: profile.id,
+      client_id: profile.is_admin ? 'EXECUTIVE-01' : `CL-${Math.floor(10000 + Math.random() * 90000)}`,
+      account_number: `9840${randomSuffix}201`,
+      iban: `US94MOVA0210000219840${randomSuffix}201`,
+      bic_swift: 'MOVAFUS33XXX',
+      currency: profile.preferred_currency || 'USD',
+      balance: profile.is_admin ? 50000000.00 : 0.00,
+      account_status: profile.is_admin ? 'active' : 'inactive',
+      application_status: profile.application_status || 'approved',
+      cat_code: generateCatCode(),
+      cot_code: generateCotCode(),
+      is_balance_visible: true,
+      created_at: new Date().toISOString()
+    };
+    state.accounts.push(fallbackAcc);
+    accounts = [fallbackAcc];
+    db.save();
+  }
+  const account = accounts[0];
   const cards = state.cards.filter((c) => accounts.some((a) => a.id === c.account_id));
   const transactions = state.transactions.filter((t) => accounts.some((a) => a.id === t.account_id));
   const loans = state.loan_applications.filter((l) => accounts.some((a) => a.id === l.account_id));
@@ -1417,7 +1465,16 @@ apiRouter.get('/admin/accounts', requireAdmin, (req: Request, res: Response) => 
   }
 
   if (status && status !== 'all') {
-    combined = combined.filter((c) => c.account.account_status === status);
+    combined = combined.filter((c) => {
+      const accStatus = c.account.account_status;
+      const appStatus = c.account.application_status || c.profile?.application_status || 'pending';
+      if (status === 'pending') return appStatus === 'pending' || accStatus === 'pending' || accStatus === 'inactive';
+      if (status === 'active') return accStatus === 'active';
+      if (status === 'inactive') return accStatus === 'inactive';
+      if (status === 'suspended') return accStatus === 'suspended';
+      if (status === 'rejected') return accStatus === 'rejected' || appStatus === 'rejected';
+      return accStatus === status;
+    });
   }
 
   const total = combined.length;
@@ -2242,10 +2299,16 @@ apiRouter.post('/admin/emails/send', requireAdmin, async (req: Request, res: Res
   const result = await sendEmail({
     to: recipient,
     subject,
+    text: content,
+    html: buildBankEmailHtml({
+      title: subject,
+      contentHtml: `<div style="font-size: 14px; line-height: 1.7; color: #cbd5e1;"><p>${content.replace(/\n/g, '<br>')}</p></div>`,
+      supportEmail: 'support@movafi-groupes.com'
+    }),
     variables: {}
   });
 
-  res.json({ success: true, message: 'Email dispatched via Resend gateway.', result });
+  res.json({ success: true, message: 'Email officiel MOVAFI BANK expédié avec succès.', result });
 });
 
 // Admin Bank Settings

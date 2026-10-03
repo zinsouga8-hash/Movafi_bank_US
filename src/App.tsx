@@ -34,16 +34,58 @@ export default function App() {
   // Settings
   const [bankSettings, setBankSettings] = useState<BankSettings | undefined>(undefined);
 
-  // Authentication & Session
-  const [currentUser, setCurrentUser] = useState<UserProfile | null>(null);
-  const [currentAccount, setCurrentAccount] = useState<BankAccount | null>(null);
+  // Authentication & Session with Instant Local Storage Hydration
+  const [currentUser, setCurrentUser] = useState<UserProfile | null>(() => {
+    try {
+      const saved = localStorage.getItem('movafi_user');
+      return saved ? JSON.parse(saved) : null;
+    } catch {
+      return null;
+    }
+  });
+  const [currentAccount, setCurrentAccount] = useState<BankAccount | null>(() => {
+    try {
+      const saved = localStorage.getItem('movafi_account');
+      return saved ? JSON.parse(saved) : null;
+    } catch {
+      return null;
+    }
+  });
   const [isInitializingAuth, setIsInitializingAuth] = useState(true);
 
-  // Modals & Navigation
+  // Modals & Navigation with persistent view & tab
   const [isRegisterOpen, setIsRegisterOpen] = useState(false);
   const [isLoginOpen, setIsLoginOpen] = useState(false);
-  const [view, setView] = useState<'public' | 'client' | 'admin'>('public');
-  const [clientTab, setClientTab] = useState<'overview' | 'transfer' | 'recharge' | 'withdraw' | 'cards' | 'financing' | 'profile' | 'referrals'>('overview');
+  const [view, setView] = useState<'public' | 'client' | 'admin'>(() => {
+    const saved = localStorage.getItem('movafi_view') as any;
+    if (saved === 'admin' || saved === 'client') return saved;
+    return 'public';
+  });
+  const [clientTab, setClientTab] = useState<'overview' | 'transfer' | 'recharge' | 'withdraw' | 'cards' | 'financing' | 'profile' | 'referrals'>(() => {
+    const savedTab = localStorage.getItem('movafi_client_tab') as any;
+    if (savedTab && ['overview', 'transfer', 'recharge', 'withdraw', 'cards', 'financing', 'profile', 'referrals'].includes(savedTab)) {
+      return savedTab;
+    }
+    return 'overview';
+  });
+
+  // Keep session caches synchronized in local storage
+  useEffect(() => {
+    if (currentUser) {
+      localStorage.setItem('movafi_user', JSON.stringify(currentUser));
+      localStorage.setItem('movafi_token', currentUser.id);
+    } else {
+      localStorage.removeItem('movafi_user');
+    }
+  }, [currentUser]);
+
+  useEffect(() => {
+    if (currentAccount) {
+      localStorage.setItem('movafi_account', JSON.stringify(currentAccount));
+    } else {
+      localStorage.removeItem('movafi_account');
+    }
+  }, [currentAccount]);
 
   // Sync theme with DOM
   useEffect(() => {
@@ -89,17 +131,40 @@ export default function App() {
 
         const token = localStorage.getItem('movafi_token');
         if (token) {
-          const authRes = await api.getMe();
-          if (authRes.success && authRes.user) {
-            setCurrentUser(authRes.user);
-            if (authRes.account) setCurrentAccount(authRes.account);
-            if (!savedLang && authRes.user.preferred_language) {
-              setCurrentLang(authRes.user.preferred_language);
-              localStorage.setItem('movafi_lang', authRes.user.preferred_language);
+          try {
+            const authRes = await api.getMe();
+            if (authRes.success && authRes.user) {
+              setCurrentUser(authRes.user);
+              if (authRes.account) setCurrentAccount(authRes.account);
+              if (!savedLang && authRes.user.preferred_language) {
+                setCurrentLang(authRes.user.preferred_language);
+                localStorage.setItem('movafi_lang', authRes.user.preferred_language);
+              }
+              if (authRes.user.is_admin) {
+                const savedView = localStorage.getItem('movafi_view');
+                setView(savedView === 'client' ? 'client' : 'admin');
+              } else {
+                // Regular client remains seamlessly logged in on refresh
+                setView('client');
+                localStorage.setItem('movafi_view', 'client');
+                const savedTab = localStorage.getItem('movafi_client_tab') as any;
+                if (savedTab) {
+                  setClientTab(savedTab);
+                }
+              }
+            } else if (authRes.success === false && authRes.message?.includes('expired')) {
+              // Token strictly expired from server
+              localStorage.removeItem('movafi_token');
+              localStorage.removeItem('movafi_user');
+              localStorage.removeItem('movafi_account');
+              localStorage.removeItem('movafi_view');
+              setCurrentUser(null);
+              setCurrentAccount(null);
+              setView('public');
             }
-            if (authRes.user.is_admin) {
-              setView('admin');
-            }
+          } catch (apiErr) {
+            console.warn('Silent session validation fallback (keeping existing session):', apiErr);
+            // On connection glitch or reload, preserve current valid session
           }
         }
       } catch (err) {
@@ -114,6 +179,7 @@ export default function App() {
     // Check for admin route in URL hash or path
     if (window.location.pathname.includes('/administration') || window.location.hash.includes('admin')) {
       setView('admin');
+      localStorage.setItem('movafi_view', 'admin');
     }
 
     // Referral URL Detection (/register?ref=MOV-8K4P2X or ?ref=MOV-8K4P2X)
@@ -132,6 +198,8 @@ export default function App() {
     if (currentUser && currentAccount) {
       setView('client');
       setClientTab('referrals');
+      localStorage.setItem('movafi_view', 'client');
+      localStorage.setItem('movafi_client_tab', 'referrals');
     } else {
       setIsRegisterOpen(true);
     }
@@ -140,6 +208,7 @@ export default function App() {
   const handleLoginSuccess = (user: UserProfile, account: BankAccount) => {
     setCurrentUser(user);
     setCurrentAccount(account);
+    localStorage.setItem('movafi_token', user.id);
     const savedLang = localStorage.getItem('movafi_lang') as SupportedLanguage | null;
     if (!savedLang && user.preferred_language) {
       setCurrentLang(user.preferred_language);
@@ -147,13 +216,19 @@ export default function App() {
     }
     if (user.is_admin) {
       setView('admin');
+      localStorage.setItem('movafi_view', 'admin');
     } else {
       setView('client');
+      localStorage.setItem('movafi_view', 'client');
+      const savedTab = localStorage.getItem('movafi_client_tab') as any;
+      if (savedTab) setClientTab(savedTab);
     }
   };
 
   const handleLogout = () => {
     localStorage.removeItem('movafi_token');
+    localStorage.removeItem('movafi_view');
+    localStorage.removeItem('movafi_client_tab');
     setCurrentUser(null);
     setCurrentAccount(null);
     setView('public');
@@ -213,17 +288,34 @@ export default function App() {
           onOpenPortal={() => {
             setView('client');
             setClientTab('overview');
+            localStorage.setItem('movafi_view', 'client');
+            localStorage.setItem('movafi_client_tab', 'overview');
           }}
-          onOpenAdmin={() => setView('admin')}
+          onOpenAdmin={() => {
+            setView('admin');
+            localStorage.setItem('movafi_view', 'admin');
+          }}
           onOpenReferrals={handleOpenReferrals}
           onNavigateTab={(tab) => {
             setView('client');
             setClientTab(tab);
+            localStorage.setItem('movafi_view', 'client');
+            localStorage.setItem('movafi_client_tab', tab);
           }}
           onLogout={handleLogout}
           supportEmail={bankSettings?.support_email}
           onNavigateSection={scrollToSection}
-          onLogoClick={() => setView('public')}
+          onLogoClick={() => {
+            if (currentUser) {
+              setView('client');
+              setClientTab('overview');
+              localStorage.setItem('movafi_view', 'client');
+              localStorage.setItem('movafi_client_tab', 'overview');
+            } else {
+              setView('public');
+              localStorage.setItem('movafi_view', 'public');
+            }
+          }}
         />
         <div className="flex-1">
           <ClientDashboard
@@ -255,12 +347,19 @@ export default function App() {
         onOpenPortal={() => {
           setView('client');
           setClientTab('overview');
+          localStorage.setItem('movafi_view', 'client');
+          localStorage.setItem('movafi_client_tab', 'overview');
         }}
-        onOpenAdmin={() => setView('admin')}
+        onOpenAdmin={() => {
+          setView('admin');
+          localStorage.setItem('movafi_view', 'admin');
+        }}
         onOpenReferrals={handleOpenReferrals}
         onNavigateTab={(tab) => {
           setView('client');
           setClientTab(tab);
+          localStorage.setItem('movafi_view', 'client');
+          localStorage.setItem('movafi_client_tab', tab);
         }}
         onLogout={handleLogout}
         supportEmail={bankSettings?.support_email}
@@ -268,8 +367,10 @@ export default function App() {
         onLogoClick={() => {
           if (currentUser) {
             setView('client');
+            localStorage.setItem('movafi_view', 'client');
           } else {
             setView('public');
+            localStorage.setItem('movafi_view', 'public');
             window.scrollTo({ top: 0, behavior: 'smooth' });
           }
         }}
@@ -316,11 +417,14 @@ export default function App() {
         currentLang={currentLang}
         supportEmail={bankSettings?.support_email}
         onSuccess={(newUser, newAccount) => {
-          // If approved/active, can enter; otherwise stays inactive awaiting admin validation
-          if (newAccount.account_status === 'active') {
-            setCurrentUser(newUser);
-            setCurrentAccount(newAccount);
+          localStorage.setItem('movafi_token', newUser.id);
+          localStorage.setItem('movafi_user', JSON.stringify(newUser));
+          localStorage.setItem('movafi_account', JSON.stringify(newAccount));
+          setCurrentUser(newUser);
+          setCurrentAccount(newAccount);
+          if (newAccount.account_status === 'active' || newAccount.application_status === 'approved') {
             setView('client');
+            localStorage.setItem('movafi_view', 'client');
           }
         }}
       />

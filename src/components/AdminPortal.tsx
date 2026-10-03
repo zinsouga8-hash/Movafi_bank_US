@@ -352,6 +352,48 @@ export const AdminPortal: React.FC<AdminPortalProps> = ({ currentUser, onExit })
     }
   };
 
+  // Action rapide : Approuver la demande & Activer le compte en 1 Clic
+  const handleQuickApproveAndActivate = async () => {
+    if (!selectedFileAccountId) return;
+    setLoading(true);
+    try {
+      const res = await api.admin.saveClientFile(selectedFileAccountId, {
+        account_status: 'active',
+        application_status: 'approved',
+        balance: draftBalance,
+        cat_code: draftCatCode,
+        cot_code: draftCotCode,
+        first_name: editFirstName,
+        last_name: editLastName,
+        phone: editPhone,
+        nationality: editNationality,
+        residence_country: editResidenceCountry,
+        city: editCity,
+        occupation: editOccupation,
+        monthly_income: Number(editMonthlyIncome) || 0,
+        income_bracket: editIncomeBracket,
+        account_type: editAccountType,
+        currency: editCurrency
+      });
+
+      if (res.success) {
+        setDraftAccountStatus('active');
+        setDraftApplicationStatus('approved');
+        setSaveSuccessPopup(true);
+        setTimeout(() => setSaveSuccessPopup(false), 5000);
+        notify('Compte approuvé et activé avec succès ! Le client peut maintenant se connecter.');
+        await openBankingFile(selectedFileAccountId);
+        await loadAccounts();
+      } else {
+        notify(res.message || 'Erreur lors de l\'activation.', 'error');
+      }
+    } catch (e: any) {
+      notify(e.message, 'error');
+    } finally {
+      setLoading(false);
+    }
+  };
+
   // Annuler les modifications et fermer Ma Fiche
   const handleCancelClientFile = () => {
     setSelectedFileAccountId(null);

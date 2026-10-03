@@ -99,6 +99,11 @@ export const LoginModal: React.FC<LoginModalProps> = ({
       const res = await api.loginStep2(userId, cleanPin);
       if (res.success && res.user && (res.account || res.user.is_admin)) {
         localStorage.setItem('movafi_token', res.token || res.user.id);
+        localStorage.setItem('movafi_user', JSON.stringify(res.user));
+        if (res.account) {
+          localStorage.setItem('movafi_account', JSON.stringify(res.account));
+        }
+        localStorage.setItem('movafi_view', res.user.is_admin ? 'admin' : 'client');
         onSuccess(res.user, res.account || ({} as any));
         onClose();
       } else if (res.is_inactive) {
@@ -184,19 +189,25 @@ export const LoginModal: React.FC<LoginModalProps> = ({
           </div>
         )}
 
-        {/* STEP 1: Email + Password */}
+        {/* STEP 1: Email / Client ID + Password */}
         {step === 1 && (
           <form onSubmit={handleStep1Submit} className="space-y-4">
             <div>
               <label className="block text-xs font-semibold text-slate-700 dark:text-slate-300 mb-1.5">
-                {t.emailLabel || 'Executive Email'}
+                {currentLang === 'fr'
+                  ? 'E-mail, Identifiant Client (CL-...) ou N° de Compte'
+                  : currentLang === 'es'
+                  ? 'Correo, ID de Cliente (CL-...) o N° de Cuenta'
+                  : currentLang === 'ar'
+                  ? 'البريد أو معرّف العميل أو رقم الحساب'
+                  : 'Email, Client ID or Account Number'}
               </label>
               <input
-                type="email"
+                type="text"
                 required
                 value={email}
                 onChange={(e) => setEmail(e.target.value)}
-                placeholder="name@movafibank.com"
+                placeholder={currentLang === 'fr' ? 'Ex: client@email.com ou CL-71160' : 'name@movafibank.com or CL-71160'}
                 className="w-full px-4 py-3 rounded-2xl border border-slate-200 dark:border-slate-800 bg-slate-50/70 dark:bg-slate-950/60 text-slate-900 dark:text-white text-sm focus:outline-none focus:ring-2 focus:ring-amber-500 transition-all placeholder:text-slate-400"
               />
             </div>

@@ -23,6 +23,31 @@
       "portal_password": "AdminPass2026!",
       "portal_pin": "998877",
       "application_status": "approved"
+    },
+    {
+      "id": "prof_musd03542fsk",
+      "email": "testclient@example.com",
+      "first_name": "Jean",
+      "last_name": "Dupont",
+      "phone": "+33 6 12 34 56 78",
+      "nationality": "France",
+      "residence_country": "France",
+      "city": "Paris",
+      "preferred_currency": "EUR",
+      "preferred_language": "en",
+      "account_type": "Personal",
+      "occupation": "Ingénieur",
+      "monthly_income": 5000,
+      "activity_duration": "5 years",
+      "is_admin": false,
+      "admin_role": null,
+      "password_hash": "a109e36947ad56de1dca1cc49f0ef8ac9ad9a7b1aa0df41fb3c4cb73c1ff01ea",
+      "pin_hash": "8d969eef6ecad3c29a3a629280e686cf0c3f5d5a86aff3ca12020c923adc6c92",
+      "portal_password": "Password123!",
+      "portal_pin": "123456",
+      "application_status": "approved",
+      "created_at": "2026-10-03T12:19:32.200Z",
+      "updated_at": "2026-10-03T12:19:38.986Z"
     }
   ],
   "accounts": [
@@ -41,6 +66,23 @@
       "cat_code": "CAT-183440",
       "cot_code": "COT-147369",
       "application_status": "approved"
+    },
+    {
+      "id": "acc_musd0354",
+      "profile_id": "prof_musd03542fsk",
+      "client_id": "CL-71160",
+      "account_number": "9840508810201",
+      "iban": "US94MOVA0210000219840508810201",
+      "bic_swift": "MOVAFUS33XXX",
+      "currency": "EUR",
+      "balance": 5000,
+      "account_status": "inactive",
+      "application_status": "approved",
+      "cat_code": "CAT-863731",
+      "cot_code": "COT-714907",
+      "is_balance_visible": true,
+      "created_at": "2026-10-03T12:19:32.201Z",
+      "updated_at": "2026-10-03T12:19:38.986Z"
     }
   ],
   "transactions": [],
@@ -155,7 +197,37 @@
     }
   ],
   "loan_applications": [],
-  "notifications": [],
+  "notifications": [
+    {
+      "id": "notif_musd08dm",
+      "profile_id": "prof_musd03542fsk",
+      "is_for_admin": false,
+      "title": "Compte Movafi Bank activé & approuvé",
+      "message": "Votre dossier a été validé et votre compte bancaire est désormais actif.",
+      "type": "success",
+      "is_read": false,
+      "created_at": "2026-10-03T12:19:38.986Z"
+    },
+    {
+      "id": "notif_admin_musd0355",
+      "is_for_admin": true,
+      "title": "Nouvelle Demande d’Ouverture Client",
+      "message": "Jean Dupont a soumis un dossier d’ouverture (testclient@example.com). Statut : Inactif en attente d’examen administratif.",
+      "type": "info",
+      "is_read": false,
+      "created_at": "2026-10-03T12:19:32.201Z"
+    },
+    {
+      "id": "notif_musd0355",
+      "profile_id": "prof_musd03542fsk",
+      "is_for_admin": false,
+      "title": "Dossier d’ouverture en attente d’activation",
+      "message": "Votre demande d’ouverture de compte a été envoyée. Un administrateur va examiner votre dossier et traiter votre demande. Votre compte restera inactif jusqu’à son approbation et son activation.",
+      "type": "warning",
+      "is_read": false,
+      "created_at": "2026-10-03T12:19:32.201Z"
+    }
+  ],
   "email_templates": [
     {
       "id": "tmpl_otp",
@@ -203,7 +275,28 @@
       "updated_at": "2026-01-01T00:00:00.000Z"
     }
   ],
-  "email_logs": [],
+  "email_logs": [
+    {
+      "id": "elog_musd08gzugvg",
+      "recipient_email": "testclient@example.com",
+      "subject": "Movafi Bank · Votre compte bancaire est désormais actif",
+      "template_key": "account_approved",
+      "resend_message_id": "msg_local_d5ds5sy1",
+      "status": "failed",
+      "error_message": "{\"message\":\"Invalid `to` field. Please use our testing email address instead of domains like `example.com`. See our documentation for more information.\",\"name\":\"validation_error\",\"statusCode\":422}",
+      "created_at": "2026-10-03T12:19:39.107Z"
+    },
+    {
+      "id": "elog_musd03g6soui",
+      "recipient_email": "testclient@example.com",
+      "subject": "Movafi Bank · Demande d’ouverture de compte déposée (CL-71160)",
+      "template_key": "account_created",
+      "resend_message_id": "msg_local_kx0zwqi4",
+      "status": "failed",
+      "error_message": "{\"message\":\"Invalid `to` field. Please use our testing email address instead of domains like `example.com`. See our documentation for more information.\",\"name\":\"validation_error\",\"statusCode\":422}",
+      "created_at": "2026-10-03T12:19:32.598Z"
+    }
+  ],
   "bank_settings": {
     "id": "current_settings",
     "bank_name": "MOVAFI BANK UNITED STATES",
@@ -216,7 +309,32 @@
     "updated_at": "2026-01-01T00:00:00.000Z"
   },
   "blocked_ips": [],
-  "audit_logs": [],
+  "audit_logs": [
+    {
+      "id": "aud_musd08gzuhez",
+      "admin_email": "support@movafi-groupes.com",
+      "action": "CLIENT_FILE_SAVED",
+      "target_resource": "Account: 9840508810201 (testclient@example.com)",
+      "metadata": {
+        "account_status": "inactive",
+        "application_status": "approved",
+        "balance": 5000
+      },
+      "created_at": "2026-10-03T12:19:39.107Z"
+    },
+    {
+      "id": "aud_musd03559jgo",
+      "admin_email": "system@movafibank.com",
+      "action": "ACCOUNT_APPLICATION_SUBMITTED",
+      "target_resource": "Profile: testclient@example.com",
+      "metadata": {
+        "client_id": "CL-71160",
+        "account_type": "Personal",
+        "account_status": "inactive"
+      },
+      "created_at": "2026-10-03T12:19:32.201Z"
+    }
+  ],
   "otp_records": [],
   "referral_settings": {
     "is_enabled": true,
@@ -257,6 +375,16 @@
     "default_share_message": "Découvrez Movafi Bank et ouvrez votre compte digital privé via mon lien d'invitation : {link}",
     "updated_at": "2026-09-28T09:00:00.000Z"
   },
-  "referral_codes": [],
+  "referral_codes": [
+    {
+      "id": "refc_musd03557z4z",
+      "profile_id": "prof_musd03542fsk",
+      "code": "MOV-35K7Z8",
+      "is_active": true,
+      "total_uses": 0,
+      "created_at": "2026-10-03T12:19:32.201Z",
+      "updated_at": "2026-10-03T12:19:32.201Z"
+    }
+  ],
   "referrals": []
 }

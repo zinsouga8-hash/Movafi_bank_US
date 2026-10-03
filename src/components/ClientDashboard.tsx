@@ -72,6 +72,12 @@ export const ClientDashboard: React.FC<ClientDashboardProps> = ({
     }
   }, [initialTab]);
 
+  useEffect(() => {
+    if (activeTab) {
+      localStorage.setItem('movafi_client_tab', activeTab);
+    }
+  }, [activeTab]);
+
   // Core Data States
   const [account, setAccount] = useState<BankAccount>(initialAccount);
   const [allAccounts, setAllAccounts] = useState<BankAccount[]>([initialAccount]);

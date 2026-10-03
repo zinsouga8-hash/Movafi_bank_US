@@ -12,25 +12,28 @@ const PORT = process.env.PORT ? parseInt(process.env.PORT) : 3000;
 async function startServer() {
   const app = express();
 
-  // Parse JSON bodies
-  app.use(express.json({ limit: '10mb' }));
-  app.use(express.urlencoded({ extended: true, limit: '10mb' }));
+  // Parse JSON bodies (up to 50mb for documents/base64 uploads)
+  app.use(express.json({ limit: '50mb' }));
+  app.use(express.urlencoded({ extended: true, limit: '50mb' }));
 
   // Mount API router
   app.use('/api', apiRouter);
 
   // Health check endpoint
   app.get('/health', (req, res) => {
-    res.json({ status: 'ok', timestamp: new Date().toISOString(), bank: 'MOVAFI BANK UNITED STATES' });
+    res.json({ status: 'ok', timestamp: new Date().toISOString(), bank: 'MOVAFI BANK' });
   });
 
   if (!isProduction) {
-    // Development mode: Mount Vite middleware
+    // Development mode: Mount Vite middleware without watching database files
     const vite = await createViteServer({
       server: {
         middlewareMode: true,
         port: PORT,
-        host: '0.0.0.0'
+        host: '0.0.0.0',
+        watch: {
+          ignored: ['**/movafi_database*.json', '**/movafi_database*.tmp']
+        }
       },
       appType: 'spa'
     });

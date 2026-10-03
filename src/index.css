@@ -25,16 +25,16 @@
 
 /* Authentic 50/50 Dual-Tone Mixed Theme (50% Clair / 50% Sombre) */
 html.theme-mixed {
-  background-color: #f1f5f9;
-  color: #0f172a;
+  background-color: #f8fafc !important;
+  color: #0f172a !important;
 }
 
 html.theme-mixed body {
-  background-color: #f8fafc;
-  color: #0f172a;
+  background-color: #f8fafc !important;
+  color: #0f172a !important;
 }
 
-/* Sombre (50%) : En-tête, Barre Supérieure et Pied de Page */
+/* Sombre (50%) : En-tête, Navigation supérieure, et Pied de Page */
 html.theme-mixed header {
   background-color: #0b1120 !important;
   color: #ffffff !important;
@@ -59,7 +59,19 @@ html.theme-mixed footer {
   color: #f8fafc !important;
 }
 
-/* Clair (50%) : Corps de page, Cartes blanches, Tables, et Formulaires */
+/* Sombre : Éléments Prestige (Cartes de Solde Principal, Cartes Bancaires VIP) */
+html.theme-mixed .bg-gradient-to-br.from-slate-950,
+html.theme-mixed .bg-slate-950.text-white {
+  background: linear-gradient(135deg, #0b1120 0%, #111827 50%, #0b1120 100%) !important;
+  color: #ffffff !important;
+  border-color: rgba(245, 158, 11, 0.4) !important;
+}
+
+html.theme-mixed .bg-gradient-to-br.from-slate-950 * {
+  color: inherit;
+}
+
+/* Clair (50%) : Tableaux de bord, Formulaires, Modales, Tables, et Cartes de contenu */
 html.theme-mixed main {
   background-color: #f8fafc !important;
   color: #0f172a !important;
@@ -70,19 +82,23 @@ html.theme-mixed .bg-slate-50 {
   color: #0f172a !important;
 }
 
-html.theme-mixed .bg-slate-900,
-html.theme-mixed .bg-slate-950 {
+html.theme-mixed .bg-slate-900:not(header *):not(footer *):not(.bg-gradient-to-br *):not([class*="from-slate-950"]) {
   background-color: #ffffff !important;
   color: #0f172a !important;
   border-color: #e2e8f0 !important;
+  box-shadow: 0 1px 3px 0 rgba(0, 0, 0, 0.05) !important;
 }
 
-html.theme-mixed .text-white:not(header *):not(footer *):not(.bg-amber-600 *):not(.bg-gradient-to-r *):not(.keep-white) {
+html.theme-mixed .text-white:not(header *):not(footer *):not(.bg-amber-600 *):not(.bg-amber-500 *):not(.bg-gradient-to-r *):not([class*="from-slate-950"] *):not(.keep-white) {
   color: #0f172a !important;
 }
 
-html.theme-mixed .border-slate-800,
-html.theme-mixed .border-slate-700 {
+html.theme-mixed .text-slate-400:not(header *):not(footer *):not([class*="from-slate-950"] *) {
+  color: #64748b !important;
+}
+
+html.theme-mixed .border-slate-800:not(header *):not(footer *),
+html.theme-mixed .border-slate-700:not(header *):not(footer *) {
   border-color: #e2e8f0 !important;
 }
 

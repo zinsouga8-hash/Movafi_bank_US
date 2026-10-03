@@ -144,9 +144,10 @@ export async function sendEmail({
 }: EmailTemplatePayload): Promise<{ success: boolean; messageId?: string; error?: string }> {
   const state = db.getState();
   const apiKey = process.env.RESEND_API_KEY;
-  const rawFrom = process.env.SENDER_EMAIL || process.env.RESEND_FROM_EMAIL || 'no-reply@movafi-groupes.com';
-  const replyToEmail = process.env.SUPPORT_EMAIL || 'support@movafi-groupes.com';
-  const fromEmail = rawFrom.includes('<') ? rawFrom : `Movafi Bank <${rawFrom}>`;
+
+  // Strict Permanent Sender Name: always "MOVAFI BANK" from "support@movafi-groupes.com"
+  const fromEmail = 'MOVAFI BANK <support@movafi-groupes.com>';
+  const replyToEmail = 'support@movafi-groupes.com';
 
   let finalSubject = subject || 'Notification Movafi Bank';
   let finalHtml = html || '';
@@ -420,7 +421,7 @@ Movafi Bank United States`;
         },
         body: JSON.stringify({
           from: fromEmail,
-          reply_to: replyToEmail,
+          reply_to: fromEmail,
           to: [to],
           subject: finalSubject,
           html: finalHtml,
