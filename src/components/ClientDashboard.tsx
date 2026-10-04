@@ -53,6 +53,7 @@ interface ClientDashboardProps {
   onLogout: () => void;
   settings?: BankSettings;
   initialTab?: 'overview' | 'transfer' | 'recharge' | 'withdraw' | 'cards' | 'financing' | 'profile' | 'referrals';
+  onTabChange?: (tab: 'overview' | 'transfer' | 'recharge' | 'withdraw' | 'cards' | 'financing' | 'profile' | 'referrals') => void;
 }
 
 export const ClientDashboard: React.FC<ClientDashboardProps> = ({
@@ -61,13 +62,20 @@ export const ClientDashboard: React.FC<ClientDashboardProps> = ({
   currentLang,
   onLogout,
   settings,
-  initialTab
+  initialTab,
+  onTabChange
 }) => {
   const t = translations[currentLang];
-  const [activeTab, setActiveTab] = useState<'overview' | 'transfer' | 'recharge' | 'withdraw' | 'cards' | 'financing' | 'profile' | 'referrals'>(initialTab || 'overview');
+  const [activeTab, setActiveTab] = useState<'overview' | 'transfer' | 'recharge' | 'withdraw' | 'cards' | 'financing' | 'profile' | 'referrals'>(() => {
+    const saved = localStorage.getItem('movafi_client_tab') as any;
+    if (saved && ['overview', 'transfer', 'recharge', 'withdraw', 'cards', 'financing', 'profile', 'referrals'].includes(saved)) {
+      return saved;
+    }
+    return initialTab || 'overview';
+  });
 
   useEffect(() => {
-    if (initialTab) {
+    if (initialTab && initialTab !== activeTab) {
       setActiveTab(initialTab);
     }
   }, [initialTab]);
@@ -75,8 +83,9 @@ export const ClientDashboard: React.FC<ClientDashboardProps> = ({
   useEffect(() => {
     if (activeTab) {
       localStorage.setItem('movafi_client_tab', activeTab);
+      onTabChange?.(activeTab);
     }
-  }, [activeTab]);
+  }, [activeTab, onTabChange]);
 
   // Core Data States
   const [account, setAccount] = useState<BankAccount>(initialAccount);
@@ -162,39 +171,46 @@ export const ClientDashboard: React.FC<ClientDashboardProps> = ({
   };
 
   // -------------------------------------------------------------
-  // TRANSFER LOGIC
+  // TRANSFER LOGIC (Unified Single Rail Selector)
   // -------------------------------------------------------------
   const [showDormantModal, setShowDormantModal] = useState(false);
-  const [settlementChannel, setSettlementChannel] = useState<'Domestic' | 'Fair Value' | 'International' | 'SWIFT'>('Domestic');
-  const [transferMethod, setTransferMethod] = useState<string>('Virement SEPA (Single Euro Payments Area)');
 
-  const channelMethods: Record<'Domestic' | 'Fair Value' | 'International' | 'SWIFT', string[]> = {
-    'Domestic': [
-      'Virement SEPA (Single Euro Payments Area)',
-      'Virement Bancaire National Instantané Confirmé',
-      'Virement Bancaire National Ordinaire (Clearing)'
-    ],
-    'Fair Value': [
-      'Virement SEPA Entreprise / Fair Value',
-      'Virement Bancaire Garanti Fair Value avec IBAN Confirmé',
-      'Virement Interbancaire Direct Confirmé'
-    ],
-    'International': [
-      'Virement Bancaire Confirmé avec IBAN Bénéficiaire',
-      'Virement SEPA International (Zone Euro & EEA)',
-      'Virement Bancaire Transfrontalier Multi-Devises'
-    ],
-    'SWIFT': [
-      'Virement Bancaire SWIFT Confirmé avec IBAN du Bénéficiaire',
-      'Virement Bancaire SEPA via Réseau SWIFT Correspondant',
-      'Virement SWIFT MT103 Prioritaire Garanti'
-    ]
+  // International transfer methods across countries/currencies of the bank, plus Mexican local methods if MXN account
+  const getAvailableTransferMethods = () => {
+    const internationalMethods = [
+      'Virement Bancaire International SWIFT (Tous pays - Multidevises)',
+      'Virement Bancaire International (États-Unis - Fedwire / Wire Transfer)',
+      'Virement Bancaire International (Canada - EFT / Interac Wire)',
+      'Virement Bancaire International (Suisse - SIC / SWIFT CHF)',
+      'Virement Bancaire International SEPA (Espagne / Zone Euro)',
+      'Virement Bancaire International (Émirats Arabes Unis / Dubaï - UAEFTS / IPI)',
+      'Virement Bancaire International (Mexique - SPEI International)'
+    ];
+
+    const isMexicoAccount =
+      account.currency === 'MXN' ||
+      (user.residence_country && user.residence_country.toLowerCase().includes('mexic'));
+
+    if (isMexicoAccount) {
+      return [
+        ...internationalMethods,
+        'OXXO Pay (Paiement & Virement de proximité Mexique)',
+        'Mercado Pago / Mercado Pay (Transfert Local Mexique)',
+        'SPEI Local (Système de Paiement Électronique Interbancaire Mexique)'
+      ];
+    }
+
+    return internationalMethods;
   };
+
+  const [transferMethod, setTransferMethod] = useState<string>(
+    'Virement Bancaire International SWIFT (Tous pays - Multidevises)'
+  );
 
   const [transferRecipient, setTransferRecipient] = useState('');
   const [transferAccount, setTransferAccount] = useState('');
   const [transferBank, setTransferBank] = useState('');
-  const [transferCategory, setTransferCategory] = useState('Virement Bancaire SEPA');
+  const [transferCategory, setTransferCategory] = useState('Virement Bancaire SWIFT');
   const [transferAmount, setTransferAmount] = useState('');
   const [transferRef, setTransferRef] = useState('');
   const [transferDesc, setTransferDesc] = useState('');
@@ -379,10 +395,17 @@ export const ClientDashboard: React.FC<ClientDashboardProps> = ({
   // -------------------------------------------------------------
   // CARDS LOGIC
   // -------------------------------------------------------------
+  const [showRequestCardModal, setShowRequestCardModal] = useState(false);
+  const [cardRequestStep, setCardRequestStep] = useState<1 | 2>(1);
   const [newCardNetwork, setNewCardNetwork] = useState<'visa' | 'mastercard'>('visa');
-  const [newCardTier, setNewCardTier] = useState<'standard' | 'gold' | 'platinum'>('gold');
+  const [newCardTier, setNewCardTier] = useState<CardTier>('gold');
   const [revealedCardNumbers, setRevealedCardNumbers] = useState<Record<string, boolean>>({});
   const [revealedCardCvc, setRevealedCardCvc] = useState<Record<string, boolean>>({});
+
+  // Modals for pop-up messages
+  const [cardRequestSuccessModal, setCardRequestSuccessModal] = useState<{ title: string; message: string } | null>(null);
+  const [cardActionModal, setCardActionModal] = useState<{ title: string; message: string; type?: 'info' | 'warning' | 'error' | 'success' } | null>(null);
+  const [transferSuccessModal, setTransferSuccessModal] = useState<string | null>(null);
 
   // Transfer from Balance to Card Modal
   const [cardFundingId, setCardFundingId] = useState<string | null>(null);
@@ -397,7 +420,14 @@ export const ClientDashboard: React.FC<ClientDashboardProps> = ({
   const [physCountry, setPhysCountry] = useState(user.residence_country || 'United States');
   const [physPhone, setPhysPhone] = useState(user.phone || '+1 (555) 000-0000');
 
-  const handleRequestNewCard = async () => {
+  const openNewCardModal = () => {
+    setNewCardNetwork('visa');
+    setNewCardTier('gold');
+    setCardRequestStep(1);
+    setShowRequestCardModal(true);
+  };
+
+  const submitCardRequest = async () => {
     setLoading(true);
     try {
       const res = await api.requestCard({
@@ -406,16 +436,64 @@ export const ClientDashboard: React.FC<ClientDashboardProps> = ({
         tier: newCardTier
       });
       if (res.success) {
-        flash(`Bespoke ${newCardTier.toUpperCase()} card issued.`);
+        setShowRequestCardModal(false);
+        setCardRequestSuccessModal({
+          title: 'Demande de carte envoyée !',
+          message: 'Votre demande de création de carte a été enregistrée avec succès. Veuillez patienter pendant que le service de l\'administration approuve votre demande de création de carte dans les plus brefs délais.'
+        });
         await refreshData();
       } else {
-        flash(res.message || 'Card generation failed.', 'error');
+        flash(res.message || 'Échec de la demande de carte.', 'error');
       }
     } catch (e: any) {
-      flash(e.message || 'Error creating card.', 'error');
+      flash(e.message || 'Erreur lors de la création de la carte.', 'error');
     } finally {
       setLoading(false);
     }
+  };
+
+  const handleToggleRevealCvc = (c: BankCard) => {
+    if (!c.is_active) {
+      setCardActionModal({
+        title: 'Carte Inactive',
+        message: 'Votre carte est actuellement inactive. Veuillez contacter l\'assistance client pour obtenir votre code CVC et demander l\'activation de la carte.',
+        type: 'warning'
+      });
+      return;
+    }
+    setRevealedCardCvc((prev) => ({ ...prev, [c.id]: !prev[c.id] }));
+  };
+
+  const handleInitiateCardFunding = (c: BankCard) => {
+    if (c.creation_status !== 'approved') {
+      setCardActionModal({
+        title: 'Demande en cours de validation',
+        message: 'Votre demande de carte est actuellement en cours de validation par le service d\'administration. Veuillez patienter avant d\'effectuer un transfert.',
+        type: 'info'
+      });
+      return;
+    }
+    if (!c.is_active) {
+      setCardActionModal({
+        title: 'Carte Inactive',
+        message: 'Votre carte est actuellement inactive. Veuillez contacter le service client pour activer votre carte et obtenir votre code CVC avant d\'effectuer un transfert.',
+        type: 'warning'
+      });
+      return;
+    }
+    if (!c.allow_balance_transfer) {
+      setCardActionModal({
+        title: 'Transfert Bloqué',
+        message: 'Le transfert depuis le solde principal est actuellement bloqué sur cette carte. Veuillez contacter le service client pour activer le transfert.',
+        type: 'warning'
+      });
+      return;
+    }
+    setCardFundingId(c.id);
+  };
+
+  const handleRequestNewCard = () => {
+    openNewCardModal();
   };
 
   const handleCardFundingSubmit = async () => {

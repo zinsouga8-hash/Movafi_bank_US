@@ -689,16 +689,18 @@ export const OnboardingModal: React.FC<OnboardingModalProps> = ({
 
         {/* Dynamic Compact Assistance Card with Collapsible Details (Brief 1-2 lines by default) */}
         {step !== 6 && currentAssistance && (
-          <div className="px-3 py-2 rounded-xl bg-amber-50/70 dark:bg-amber-950/25 border border-amber-200/70 dark:border-amber-900/35 text-[11px] text-amber-900 dark:text-amber-200 shrink-0 transition-all">
+          <div className="px-3 py-1.5 rounded-xl bg-amber-50/80 dark:bg-amber-950/30 border border-amber-200/70 dark:border-amber-900/40 text-[11px] text-amber-900 dark:text-amber-200 shrink-0 transition-all">
             <div className="flex items-center justify-between gap-2">
-              <div className="flex items-center gap-1.5 font-bold text-amber-800 dark:text-amber-300 text-xs truncate">
+              <div className="flex items-center gap-1.5 min-w-0 flex-1">
                 <HelpCircle className="w-3.5 h-3.5 shrink-0 text-amber-600 dark:text-amber-400" />
-                <span className="truncate">{currentAssistance.title || (currentLang === 'fr' ? 'Aide' : 'Guidance')}</span>
+                <p className={`text-[11px] text-amber-900 dark:text-amber-200 leading-snug font-medium truncate ${isHelpExpanded ? '' : 'line-clamp-1'}`}>
+                  {(currentAssistance as any).shortSummary || currentAssistance.format || currentAssistance.why || ''}
+                </p>
               </div>
               <button
                 type="button"
                 onClick={() => setIsHelpExpanded(!isHelpExpanded)}
-                className="text-[10px] font-bold text-amber-700 dark:text-amber-300 hover:text-amber-900 dark:hover:text-amber-100 flex items-center gap-1 shrink-0 cursor-pointer bg-amber-100/90 dark:bg-amber-900/50 px-2 py-0.5 rounded-md transition-colors"
+                className="text-[10px] font-bold text-amber-800 dark:text-amber-300 hover:text-amber-950 dark:hover:text-amber-100 flex items-center gap-1 shrink-0 cursor-pointer bg-amber-200/60 dark:bg-amber-900/60 hover:bg-amber-200 dark:hover:bg-amber-900 px-2 py-0.5 rounded-md transition-colors"
               >
                 <span>
                   {isHelpExpanded
@@ -709,14 +711,12 @@ export const OnboardingModal: React.FC<OnboardingModalProps> = ({
               </button>
             </div>
 
-            {/* Always visible brief notice: strictly 1-2 concise lines, leaving space for the fields below */}
-            <p className={`text-[11px] text-amber-800/90 dark:text-amber-200/90 leading-snug mt-1 ${isHelpExpanded ? '' : 'line-clamp-2'}`}>
-              {(currentAssistance as any).shortSummary || currentAssistance.format || currentAssistance.why || ''}
-            </p>
-
             {/* Collapsible expanded full guidance */}
             {isHelpExpanded && (
               <div className="pt-2 mt-1.5 border-t border-amber-200/70 dark:border-amber-900/50 space-y-1.5 text-[10.5px] animate-in fade-in duration-150">
+                <div className="font-bold text-amber-800 dark:text-amber-300 text-xs">
+                  {currentAssistance.title || (currentLang === 'fr' ? 'Aide & Instructions' : 'Guidance')}
+                </div>
                 {currentAssistance.why && (
                   <p className="leading-relaxed opacity-95">
                     <strong className="text-amber-950 dark:text-amber-100">{currentLang === 'fr' ? 'Pourquoi : ' : 'Why: '}</strong>
@@ -753,14 +753,6 @@ export const OnboardingModal: React.FC<OnboardingModalProps> = ({
           {/* STEP 1: SECURITY CREDENTIALS */}
           {step === 1 && (
             <form onSubmit={handleStep1Submit} className="space-y-4">
-              {/* Compact Prestigious Header for Step 1 */}
-              <div className="py-2.5 px-4 rounded-2xl bg-gradient-to-r from-slate-950 via-slate-900 to-slate-950 border border-amber-500/30 flex items-center justify-between shadow-md">
-                <MovafiLogo size="sm" layout="horizontal" textColor="white" />
-                <span className="text-[10px] font-mono uppercase text-amber-400 font-bold tracking-wider">
-                  {currentLang === 'fr' ? 'Ouverture de Compte' : 'Account Opening'}
-                </span>
-              </div>
-
               <div>
                 <label className="block text-xs font-semibold text-slate-700 dark:text-slate-300 mb-1">
                   {currentLang === 'fr' ? 'Adresse E-mail Professionnelle ou Personnelle' : 'Professional or Personal Email'}

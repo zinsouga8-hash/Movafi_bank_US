@@ -8,11 +8,12 @@ const __dirname = path.dirname(__filename);
 const CWD = process.cwd();
 const ROOT_DIR = fs.existsSync(path.resolve(CWD, 'movafi_database.json'))
   ? CWD
-  : path.resolve(__dirname, '../../');
+  : (fs.existsSync(path.resolve(__dirname, '../../movafi_database.json'))
+      ? path.resolve(__dirname, '../../')
+      : CWD);
 
 const DB_FILE_PATH = path.resolve(ROOT_DIR, 'movafi_database.json');
 const DB_BACKUP_PATH = path.resolve(ROOT_DIR, 'movafi_database.backup.json');
-const DB_TEMP_PATH = path.resolve(ROOT_DIR, 'movafi_database.tmp');
 import {
   UserProfile,
   BankAccount,

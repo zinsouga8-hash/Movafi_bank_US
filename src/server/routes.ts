@@ -18,15 +18,21 @@ export const apiRouter = express.Router();
 
 // Middleware to mock or extract authenticated user ID
 function getAuthProfile(req: Request): UserProfile | null {
-  const token = req.headers.authorization?.replace('Bearer ', '')?.trim();
+  const rawToken = req.headers.authorization?.replace('Bearer ', '')?.trim();
+  if (!rawToken) return null;
+  const token = rawToken.replace(/^["']|["']$/g, '').trim();
   if (!token) return null;
   const state = db.getState();
   const search = token.toLowerCase();
   const found = state.profiles.find((p) =>
     p.id === token ||
     'prof_' + p.id === token ||
+    p.id.replace('prof_', '') === token ||
     p.email.toLowerCase() === search ||
-    state.accounts.some((a) => a.profile_id === p.id && (a.client_id.toLowerCase() === search || a.account_number === token))
+    state.accounts.some((a) =>
+      a.profile_id === p.id &&
+      (a.client_id.toLowerCase() === search || a.account_number === token || a.iban.toLowerCase() === search)
+    )
   );
   return found || null;
 }
@@ -399,10 +405,18 @@ apiRouter.post('/auth/login-step2', (req: Request, res: Response) => {
   }
 
   const state = db.getState();
-  const profile = state.profiles.find((p) => p.id === user_id || p.email.toLowerCase() === String(user_id).toLowerCase());
+  const searchKey = String(user_id || '').toLowerCase().trim();
+  const profile = state.profiles.find((p) =>
+    p.id === user_id ||
+    p.email.toLowerCase() === searchKey ||
+    state.accounts.some((a) =>
+      a.profile_id === p.id &&
+      (a.client_id.toLowerCase() === searchKey || a.account_number === user_id || a.iban.toLowerCase() === searchKey)
+    )
+  );
 
   if (!profile) {
-    return res.status(401).json({ success: false, message: 'Profile not found.' });
+    return res.status(401).json({ success: false, message: 'Profil introuvable. Veuillez vérifier vos identifiants.' });
   }
 
   // Strict cryptographic PIN validation (No hardcoded backdoors)
@@ -1112,9 +1126,16 @@ apiRouter.post('/cards/request', (req: Request, res: Response) => {
   if (!account) return res.status(404).json({ success: false, message: 'Account not found' });
 
   // Generate masked card presentation & PCI token
-  const prefix = network === 'visa' ? '4532' : '5412';
+  const prefix = network === 'mastercard' ? '5412' : '4532';
   const last4 = Math.floor(1000 + Math.random() * 9000);
+  const mid1 = Math.floor(1000 + Math.random() * 9000);
+  const mid2 = Math.floor(1000 + Math.random() * 9000);
   const masked = `${prefix} •••• •••• ${last4}`;
+  const mockFull = `${prefix} ${mid1} ${mid2} ${last4}`;
+
+  const cleanTier: CardTier = tier === 'premium' ? 'premium' : tier === 'gold' ? 'gold' : 'standard';
+  const dailyLimit = cleanTier === 'premium' ? 50000 : cleanTier === 'gold' ? 20000 : 5000;
+  const monthlyLimit = cleanTier === 'premium' ? 250000 : cleanTier === 'gold' ? 100000 : 25000;
 
   const cardId = 'card_' + Date.now().toString(36) + Math.random().toString(36).substring(2, 6);
   const newCard: BankCard = {
@@ -1122,40 +1143,61 @@ apiRouter.post('/cards/request', (req: Request, res: Response) => {
     account_id: account.id,
     cardholder_name: (cardholder_name || `${profile.first_name} ${profile.last_name}`).toUpperCase(),
     card_number_masked: masked,
+    card_number_mock_full: mockFull,
     expiry_month: 12,
     expiry_year: 2030,
-    network: network || 'visa',
-    tier: tier || 'gold',
-    status: 'active',
+    cvc_mock: String(Math.floor(100 + Math.random() * 900)),
+    network: network === 'mastercard' ? 'mastercard' : 'visa',
+    tier: cleanTier,
+    status: 'pending',
+    creation_status: 'pending',
+    is_active: false,
+    daily_limit: dailyLimit,
+    monthly_limit: monthlyLimit,
     balance: 0.00,
-    monthly_limit: tier === 'platinum' ? 250000 : tier === 'gold' ? 100000 : 25000,
-    allow_balance_transfer: true,
+    allow_balance_transfer: false,
     is_physical: false,
     created_at: new Date().toISOString()
   };
 
   state.cards.push(newCard);
 
+  // Notification pour l'administrateur
+  state.notifications.unshift({
+    id: 'notif_adm_card_' + Date.now().toString(36),
+    is_for_admin: true,
+    title: 'Nouvelle Demande de Carte Bancaire',
+    message: `${profile.first_name} ${profile.last_name} (${profile.email}) a demandé une carte ${cleanTier.toUpperCase()} ${network.toUpperCase()}. En attente d'approbation.`,
+    type: 'info',
+    is_read: false,
+    created_at: new Date().toISOString()
+  });
+
+  // Notification pour le client
   state.notifications.unshift({
     id: 'notif_' + Date.now().toString(36),
     profile_id: profile.id,
     is_for_admin: false,
-    title: 'Prestige Card Activated',
-    message: `Your ${tier?.toUpperCase()} ${network?.toUpperCase()} card (${masked}) is now active.`,
-    type: 'success',
+    title: 'Demande de carte envoyée',
+    message: 'Votre demande de carte a été transmise. Veuillez patienter pendant que le service administratif examine et approuve votre demande.',
+    type: 'warning',
     is_read: false,
     created_at: new Date().toISOString()
   });
 
   db.save();
 
-  db.addAuditLog('CARD_ISSUED', `Account: ${account.account_number}`, profile.email, {
+  db.addAuditLog('CARD_REQUESTED', `Account: ${account.account_number}`, profile.email, {
     card_id: cardId,
-    tier,
+    tier: cleanTier,
     network
   });
 
-  res.json({ success: true, message: 'Virtual card successfully generated.', card: newCard });
+  res.json({
+    success: true,
+    message: 'Demande de carte envoyée. Veuillez patienter que le service de l’administration approuve votre demande de création de carte dans les plus brefs délais.',
+    card: newCard
+  });
 });
 
 // Transfer from main balance to card
@@ -1167,7 +1209,7 @@ apiRouter.post('/cards/transfer-from-balance', (req: Request, res: Response) => 
   const parsedAmount = Number(amount);
 
   if (!parsedAmount || parsedAmount <= 0) {
-    return res.status(400).json({ success: false, message: 'Invalid funding amount.' });
+    return res.status(400).json({ success: false, message: 'Montant de rechargement invalide.' });
   }
 
   const state = db.getState();
@@ -1176,23 +1218,36 @@ apiRouter.post('/cards/transfer-from-balance', (req: Request, res: Response) => 
   const card = state.cards.find((c) => c.id === card_id && c.account_id === account?.id);
 
   if (!account || !card) {
-    return res.status(404).json({ success: false, message: 'Account or card not found.' });
+    return res.status(404).json({ success: false, message: 'Compte ou carte bancaire introuvable.' });
   }
 
+  // Vérifier statut d'approbation et d'activation de la carte
+  if (card.creation_status !== 'approved' || !card.is_active) {
+    return res.status(403).json({
+      success: false,
+      message: 'Votre carte doit être formellement approuvée et activée par l\'administration avant de pouvoir recevoir des fonds.'
+    });
+  }
+
+  // Vérifier l'autorisation de transfert par l'administrateur
   if (!card.allow_balance_transfer) {
-    return res.status(403).json({ success: false, message: 'Transfer to this card is restricted by administrator.' });
+    return res.status(403).json({
+      success: false,
+      is_blocked: true,
+      message: 'Le transfert est bloqué pour cette carte. Veuillez contacter le service client pour activer le transfert depuis le solde principal.'
+    });
   }
 
   const cleanPin = String(pin || '').trim();
   if (!cleanPin || cleanPin.length !== 6 || foundProfile?.pin_hash !== hashString(cleanPin)) {
-    return res.status(401).json({ success: false, message: 'Invalid 6-digit transaction PIN.' });
+    return res.status(401).json({ success: false, message: 'Code PIN de sécurité à 6 chiffres incorrect.' });
   }
 
   if (account.balance < parsedAmount) {
-    return res.status(400).json({ success: false, message: 'Insufficient available account balance.' });
+    return res.status(400).json({ success: false, message: 'Solde principal disponible insuffisant.' });
   }
 
-  // Execute transfer
+  // Exécuter le transfert
   account.balance -= parsedAmount;
   card.balance += parsedAmount;
 
@@ -1204,9 +1259,9 @@ apiRouter.post('/cards/transfer-from-balance', (req: Request, res: Response) => 
     category: 'Digital Wallet',
     amount: parsedAmount,
     currency: account.currency,
-    recipient_name: `Prestige Card (${card.card_number_masked})`,
+    recipient_name: `Carte Virtuelle (${card.card_number_masked})`,
     reference: `CRD-FND-${Math.floor(100000 + Math.random() * 900000)}`,
-    description: `Internal liquidity load to card ${card.card_number_masked}`,
+    description: `Transfert depuis solde principal vers carte ${card.card_number_masked}`,
     status: 'completed',
     fee: 0,
     created_at: new Date().toISOString()
@@ -1221,7 +1276,7 @@ apiRouter.post('/cards/transfer-from-balance', (req: Request, res: Response) => 
 
   res.json({
     success: true,
-    message: 'Card balance topped up successfully.',
+    message: 'Transfert effectué',
     card_balance: card.balance,
     account_balance: account.balance
   });
@@ -1244,23 +1299,35 @@ apiRouter.post('/cards/order-physical', (req: Request, res: Response) => {
     id: 'del_' + Date.now().toString(36),
     card_id: card.id,
     recipient_full_name: recipient_full_name || `${profile.first_name} ${profile.last_name}`,
-    street_address,
+    street_address: street_address || 'Adresse à confirmer auprès du support',
     building_unit,
-    city,
-    postal_code,
-    country: country || 'United States',
-    phone,
+    city: city || profile.city || 'New York',
+    postal_code: postal_code || '10001',
+    country: country || profile.residence_country || 'United States',
+    phone: phone || profile.phone || '+1',
     tracking_number: trackingNum,
-    current_stage: 'request_received',
+    current_stage: 'request_received', // Étape 1 activée automatiquement
     updated_at: new Date().toISOString()
   };
 
+  // Notification client
   state.notifications.unshift({
     id: 'notif_' + Date.now().toString(36),
     profile_id: profile.id,
     is_for_admin: false,
-    title: 'Physical Card Fabrication Initiated',
-    message: `Your bespoke metal card order is in production. Tracking: ${trackingNum}.`,
+    title: 'Livraison de carte physique demandée',
+    message: `Votre demande de fabrication et livraison de carte physique a été transmise. Étape 1 : Demande reçue. Suivi : ${trackingNum}.`,
+    type: 'info',
+    is_read: false,
+    created_at: new Date().toISOString()
+  });
+
+  // Notification administrateur obligatoire
+  state.notifications.unshift({
+    id: 'notif_adm_del_' + Date.now().toString(36),
+    is_for_admin: true,
+    title: 'Demande de Livraison de Carte Physique',
+    message: `Le client ${profile.first_name} ${profile.last_name} (${profile.email}) a demandé la livraison physique de sa carte ${card.tier.toUpperCase()} ${card.network.toUpperCase()}. Première étape enclenchée.`,
     type: 'info',
     is_read: false,
     created_at: new Date().toISOString()
@@ -1273,7 +1340,11 @@ apiRouter.post('/cards/order-physical', (req: Request, res: Response) => {
     destination: `${city}, ${country}`
   });
 
-  res.json({ success: true, message: 'Physical card order placed.', delivery: card.delivery });
+  res.json({
+    success: true,
+    message: 'Demande de livraison physique enregistrée. La première étape a été activée automatiquement.',
+    delivery: card.delivery
+  });
 });
 
 // -------------------------------------------------------------
@@ -1346,6 +1417,13 @@ apiRouter.post('/financing/apply', async (req: Request, res: Response) => {
     created_at: new Date().toISOString()
   });
 
+  // Envoi de l'e-mail de confirmation au client
+  sendEmail({
+    to: profile.email,
+    subject: `Movafi Bank · Confirmation de dépôt de votre demande de prêt (${account.currency} ${parsedAmount.toLocaleString()})`,
+    text: `Bonjour ${profile.first_name} ${profile.last_name},\n\nNous vous confirmons la bonne réception de votre demande de financement pour un montant de ${account.currency} ${parsedAmount.toLocaleString()} (${project_type}).\n\nVotre dossier est actuellement en cours d'examen par notre direction de crédit. Vous recevrez une notification par e-mail dès qu'une décision d'approbation sera rendue par l'administration.\n\nCordialement,\nService Crédit & Financement — Movafi Bank`
+  }).catch(() => {});
+
   db.save();
 
   db.addAuditLog('LOAN_APPLICATION_SUBMITTED', `Loan: ${loanId}`, profile.email, {
@@ -1383,6 +1461,13 @@ apiRouter.post('/financing/:id/agree-parameters', (req: Request, res: Response) 
     is_read: false,
     created_at: new Date().toISOString()
   });
+
+  // Email de confirmation au client
+  sendEmail({
+    to: profile.email,
+    subject: `Movafi Bank · Paramètres de crédit validés (Prêt #${loan.id})`,
+    text: `Bonjour ${profile.first_name},\n\nVous avez validé avec succès vos paramètres de crédit relatifs à votre prêt #${loan.id} d'un montant de ${loan.amount.toLocaleString()} ${loan.currency}.\n\nL'administration a été notifiée afin de procéder au déblocage immédiat des fonds sur votre solde principal.\n\nCordialement,\nService Crédit — Movafi Bank`
+  }).catch(() => {});
 
   db.save();
   res.json({ success: true, message: 'Credit parameters accepted. Treasury notified for fund release.', loan });
@@ -1449,6 +1534,7 @@ apiRouter.get('/admin/accounts', requireAdmin, (req: Request, res: Response) => 
         account_type: prof.account_type,
         occupation: prof.occupation,
         monthly_income: prof.monthly_income,
+        application_status: prof.application_status,
         created_at: prof.created_at
       } : null
     };
@@ -1468,8 +1554,8 @@ apiRouter.get('/admin/accounts', requireAdmin, (req: Request, res: Response) => 
     combined = combined.filter((c) => {
       const accStatus = c.account.account_status;
       const appStatus = c.account.application_status || c.profile?.application_status || 'pending';
-      if (status === 'pending') return appStatus === 'pending' || accStatus === 'pending' || accStatus === 'inactive';
-      if (status === 'active') return accStatus === 'active';
+      if (status === 'pending') return appStatus === 'pending' || (accStatus === 'inactive' && appStatus !== 'approved');
+      if (status === 'active') return accStatus === 'active' || appStatus === 'approved';
       if (status === 'inactive') return accStatus === 'inactive';
       if (status === 'suspended') return accStatus === 'suspended';
       if (status === 'rejected') return accStatus === 'rejected' || appStatus === 'rejected';
@@ -1735,10 +1821,19 @@ apiRouter.post('/admin/accounts/:id/save-client-file', requireAdmin, async (req:
   const prevAppStatus = account.application_status || profile.application_status;
 
   // Update Account Fields
-  if (account_status) account.account_status = account_status;
+  if (account_status) {
+    account.account_status = account_status;
+    if (account_status === 'active') {
+      account.application_status = 'approved';
+      profile.application_status = 'approved';
+    }
+  }
   if (application_status) {
     account.application_status = application_status;
     profile.application_status = application_status;
+    if (application_status === 'approved') {
+      account.account_status = 'active';
+    }
   }
   if (balance !== undefined && !isNaN(Number(balance))) account.balance = Number(balance);
   if (cat_code) account.cat_code = cat_code.trim();
@@ -2042,18 +2137,99 @@ apiRouter.get('/admin/cards', requireAdmin, (req: Request, res: Response) => {
   res.json({ success: true, cards: enrichedCards });
 });
 
-apiRouter.post('/admin/cards/:id/status', requireAdmin, (req: Request, res: Response) => {
+apiRouter.post('/admin/cards/:id/manage', requireAdmin, async (req: Request, res: Response) => {
   const admin = getAuthProfile(req);
   const { id } = req.params;
-  const { status, allow_balance_transfer, monthly_limit, delivery_stage } = req.body;
+  const { creation_status, is_active, allow_balance_transfer, monthly_limit, daily_limit, delivery_stage, status } = req.body;
 
   const state = db.getState();
   const card = state.cards.find((c) => c.id === id);
   if (!card) return res.status(404).json({ success: false, message: 'Card not found' });
 
+  const prevCreationStatus = card.creation_status || (card.status === 'active' ? 'approved' : 'pending');
+
+  if (creation_status) {
+    card.creation_status = creation_status;
+    if (creation_status === 'approved') {
+      card.status = 'active';
+    } else if (creation_status === 'rejected') {
+      card.status = 'cancelled';
+      card.is_active = false;
+    } else {
+      card.status = 'pending';
+    }
+  }
+
+  if (typeof is_active === 'boolean') {
+    card.is_active = is_active;
+  }
+
+  if (typeof allow_balance_transfer === 'boolean') {
+    card.allow_balance_transfer = allow_balance_transfer;
+  }
+
+  if (monthly_limit !== undefined) card.monthly_limit = Number(monthly_limit);
+  if (daily_limit !== undefined) card.daily_limit = Number(daily_limit);
+  if (status) card.status = status;
+
+  // Delivery progression requires client to have requested delivery first
+  if (delivery_stage) {
+    if (!card.delivery) {
+      return res.status(400).json({
+        success: false,
+        message: 'Impossible de modifier l\'étape de livraison : le client n\'a pas encore demandé de livraison physique de sa carte.'
+      });
+    }
+    card.delivery.current_stage = delivery_stage;
+    card.delivery.updated_at = new Date().toISOString();
+  }
+
+  // If newly approved, send notification & email
+  if (creation_status === 'approved' && prevCreationStatus !== 'approved') {
+    const acc = state.accounts.find((a) => a.id === card.account_id);
+    const prof = acc ? state.profiles.find((p) => p.id === acc.profile_id) : null;
+    if (prof) {
+      state.notifications.unshift({
+        id: 'notif_' + Date.now().toString(36),
+        profile_id: prof.id,
+        is_for_admin: false,
+        title: 'Demande de Carte Approuvée',
+        message: `Votre demande de carte ${card.tier.toUpperCase()} ${card.network.toUpperCase()} a été approuvée par l'administration. Veuillez contacter le service client pour activer votre carte et obtenir votre code CVC.`,
+        type: 'success',
+        is_read: false,
+        created_at: new Date().toISOString()
+      });
+
+      await sendEmail({
+        to: prof.email,
+        subject: `Movafi Bank · Demande de carte ${card.network.toUpperCase()} approuvée`,
+        text: `Cher(e) ${prof.first_name},\n\nVotre demande de création de carte ${card.tier.toUpperCase()} ${card.network.toUpperCase()} (${card.card_number_masked}) a été validée avec succès par le service d'administration.\n\nVotre carte est actuellement inactive pour des raisons de conformité et de sécurité. Veuillez contacter l'assistance pour demander son activation et démasquer votre code CVC.\n\nCordialement,\nService Monétique Privé — Movafi Bank`
+      });
+    }
+  }
+
+  db.save();
+  db.addAuditLog('CARD_MANAGED', `Card: ${card.card_number_masked}`, admin?.email, req.body);
+
+  res.json({ success: true, message: 'Modifications de la carte enregistrées avec succès.', card });
+});
+
+apiRouter.post('/admin/cards/:id/status', requireAdmin, async (req: Request, res: Response) => {
+  // Delegate to manage for unified handling
+  const admin = getAuthProfile(req);
+  const { id } = req.params;
+  const { status, allow_balance_transfer, monthly_limit, delivery_stage, creation_status, is_active, daily_limit } = req.body;
+
+  const state = db.getState();
+  const card = state.cards.find((c) => c.id === id);
+  if (!card) return res.status(404).json({ success: false, message: 'Card not found' });
+
+  if (creation_status) card.creation_status = creation_status;
+  if (typeof is_active === 'boolean') card.is_active = is_active;
   if (status) card.status = status;
   if (typeof allow_balance_transfer === 'boolean') card.allow_balance_transfer = allow_balance_transfer;
   if (monthly_limit) card.monthly_limit = Number(monthly_limit);
+  if (daily_limit) card.daily_limit = Number(daily_limit);
   if (delivery_stage && card.delivery) {
     card.delivery.current_stage = delivery_stage;
     card.delivery.updated_at = new Date().toISOString();
@@ -2071,7 +2247,7 @@ apiRouter.get('/admin/loans', requireAdmin, (req: Request, res: Response) => {
   res.json({ success: true, loans: state.loan_applications });
 });
 
-apiRouter.post('/admin/loans/:id/status', requireAdmin, (req: Request, res: Response) => {
+apiRouter.post('/admin/loans/:id/status', requireAdmin, async (req: Request, res: Response) => {
   const admin = getAuthProfile(req);
   const { id } = req.params;
   const { status, admin_notes } = req.body;
@@ -2081,20 +2257,41 @@ apiRouter.post('/admin/loans/:id/status', requireAdmin, (req: Request, res: Resp
   if (!loan) return res.status(404).json({ success: false, message: 'Loan application not found' });
 
   loan.status = status;
-  if (admin_notes) loan.admin_notes = admin_notes;
+  if (admin_notes !== undefined) loan.admin_notes = admin_notes;
 
   const account = state.accounts.find((a) => a.id === loan.account_id);
-  if (account) {
+  const profile = account ? state.profiles.find((p) => p.id === account.profile_id) : null;
+
+  if (account && profile) {
+    const isApproved = status === 'approved';
+    const isRejected = status === 'rejected';
+
     state.notifications.unshift({
       id: 'notif_' + Date.now().toString(36),
       profile_id: account.profile_id,
       is_for_admin: false,
-      title: `Loan Application ${status.toUpperCase()}`,
-      message: `Your financing dossier for ${loan.project_type} has been ${status}. Please review credit parameters.`,
-      type: status === 'approved' ? 'success' : 'warning',
+      title: isApproved
+        ? 'Demande de Prêt Approuvée'
+        : isRejected
+        ? 'Demande de Prêt Rejetée'
+        : 'Demande de Prêt Mise en Attente',
+      message: isApproved
+        ? 'Votre demande de crédit a été formellement approuvée par l\'administration. Veuillez consulter les paramètres de crédit et donner votre accord pour que les fonds soient débloqués.'
+        : isRejected
+        ? 'Votre dossier de demande de prêt a été rejeté par le comité d\'engagement. Contactez le service client pour plus d\'informations.'
+        : 'Votre demande de prêt a été placée en attente d\'informations complémentaires par l\'administration.',
+      type: isApproved ? 'success' : isRejected ? 'warning' : 'info',
       is_read: false,
       created_at: new Date().toISOString()
     });
+
+    if (isApproved) {
+      await sendEmail({
+        to: profile.email,
+        subject: `Movafi Bank · Votre demande de prêt a été approuvée (${loan.amount.toLocaleString()} ${loan.currency})`,
+        text: `Cher(e) ${profile.first_name},\n\nNous avons le plaisir de vous informer que votre demande de prêt (${loan.project_type}) d'un montant de ${loan.amount.toLocaleString()} ${loan.currency} a été approuvée par l'administration.\n\nConnectez-vous à votre espace client, onglet Financement, pour consulter vos paramètres de crédit et donner votre accord afin de permettre le déblocage des fonds.\n\nCordialement,\nDépartement Crédit — Movafi Bank`
+      });
+    }
   }
 
   db.save();
@@ -2103,7 +2300,7 @@ apiRouter.post('/admin/loans/:id/status', requireAdmin, (req: Request, res: Resp
     amount: loan.amount
   });
 
-  res.json({ success: true, message: `Loan application ${status}.`, loan });
+  res.json({ success: true, message: `Dossier de prêt mis à jour (${status}).`, loan });
 });
 
 // Release Loan Funds into Client Account Balance
@@ -2113,16 +2310,25 @@ apiRouter.post('/admin/loans/:id/release-funds', requireAdmin, async (req: Reque
 
   const state = db.getState();
   const loan = state.loan_applications.find((l) => l.id === id);
-  if (!loan) return res.status(404).json({ success: false, message: 'Loan not found' });
+  if (!loan) return res.status(404).json({ success: false, message: 'Dossier de prêt introuvable.' });
 
   if (loan.status !== 'approved') {
-    return res.status(400).json({ success: false, message: 'Only approved loans with agreed parameters can be disbursed.' });
+    return res.status(400).json({ success: false, message: 'Seul un prêt formellement approuvé peut être débloqué.' });
+  }
+
+  if (!loan.credit_parameters_agreed) {
+    return res.status(400).json({
+      success: false,
+      message: 'Le client doit obligatoirement consulter et valider ses paramètres de crédit avant que les fonds puissent être débloqués.'
+    });
   }
 
   const account = state.accounts.find((a) => a.id === loan.account_id);
-  if (!account) return res.status(404).json({ success: false, message: 'Account not found' });
+  if (!account) return res.status(404).json({ success: false, message: 'Compte bancaire introuvable.' });
 
-  // Disburse funds
+  const profile = state.profiles.find((p) => p.id === account.profile_id);
+
+  // Disburse funds directly into client ledger
   account.balance += loan.amount;
   loan.status = 'funds_released';
   loan.funds_released_at = new Date().toISOString();
@@ -2217,21 +2423,33 @@ apiRouter.get('/admin/payment-methods', requireAdmin, (req: Request, res: Respon
 
 apiRouter.post('/admin/payment-methods/save', requireAdmin, (req: Request, res: Response) => {
   const admin = getAuthProfile(req);
-  const { id, name, category, description, account_info, instructions, is_active, display_order } = req.body;
+  const { id, name, category, description, account_info, instructions, wallet_address, crypto_network, is_active, display_order } = req.body;
   const state = db.getState();
 
   if (id) {
     const existing = state.payment_methods.find((m) => m.id === id);
     if (!existing) return res.status(404).json({ success: false, message: 'Method not found' });
-    Object.assign(existing, { name, category, description, account_info, instructions, is_active, display_order });
+    Object.assign(existing, {
+      name,
+      category,
+      description,
+      account_info,
+      instructions,
+      wallet_address,
+      crypto_network,
+      is_active,
+      display_order
+    });
   } else {
     const newMethod: PaymentMethod = {
       id: 'pm_' + Date.now().toString(36),
       name,
       category,
       description,
-      account_info,
-      instructions,
+      account_info: account_info || wallet_address || '',
+      instructions: instructions || '',
+      wallet_address: wallet_address || '',
+      crypto_network: crypto_network || '',
       is_active: is_active ?? true,
       display_order: display_order || state.payment_methods.length + 1
     };

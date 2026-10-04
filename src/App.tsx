@@ -51,7 +51,14 @@ export default function App() {
       return null;
     }
   });
-  const [isInitializingAuth, setIsInitializingAuth] = useState(true);
+  // If user is already cached in localStorage, start non-blocking for immediate seamless render
+  const [isInitializingAuth, setIsInitializingAuth] = useState(() => {
+    try {
+      return !localStorage.getItem('movafi_user');
+    } catch {
+      return true;
+    }
+  });
 
   // Modals & Navigation with persistent view & tab
   const [isRegisterOpen, setIsRegisterOpen] = useState(false);
@@ -59,6 +66,15 @@ export default function App() {
   const [view, setView] = useState<'public' | 'client' | 'admin'>(() => {
     const saved = localStorage.getItem('movafi_view') as any;
     if (saved === 'admin' || saved === 'client') return saved;
+    const savedUser = localStorage.getItem('movafi_user');
+    if (savedUser) {
+      try {
+        const u = JSON.parse(savedUser);
+        return u.is_admin ? 'admin' : 'client';
+      } catch {
+        return 'public';
+      }
+    }
     return 'public';
   });
   const [clientTab, setClientTab] = useState<'overview' | 'transfer' | 'recharge' | 'withdraw' | 'cards' | 'financing' | 'profile' | 'referrals'>(() => {
@@ -74,16 +90,12 @@ export default function App() {
     if (currentUser) {
       localStorage.setItem('movafi_user', JSON.stringify(currentUser));
       localStorage.setItem('movafi_token', currentUser.id);
-    } else {
-      localStorage.removeItem('movafi_user');
     }
   }, [currentUser]);
 
   useEffect(() => {
     if (currentAccount) {
       localStorage.setItem('movafi_account', JSON.stringify(currentAccount));
-    } else {
-      localStorage.removeItem('movafi_account');
     }
   }, [currentAccount]);
 
@@ -209,6 +221,8 @@ export default function App() {
     setCurrentUser(user);
     setCurrentAccount(account);
     localStorage.setItem('movafi_token', user.id);
+    localStorage.setItem('movafi_user', JSON.stringify(user));
+    localStorage.setItem('movafi_account', JSON.stringify(account));
     const savedLang = localStorage.getItem('movafi_lang') as SupportedLanguage | null;
     if (!savedLang && user.preferred_language) {
       setCurrentLang(user.preferred_language);
@@ -227,6 +241,8 @@ export default function App() {
 
   const handleLogout = () => {
     localStorage.removeItem('movafi_token');
+    localStorage.removeItem('movafi_user');
+    localStorage.removeItem('movafi_account');
     localStorage.removeItem('movafi_view');
     localStorage.removeItem('movafi_client_tab');
     setCurrentUser(null);
@@ -247,7 +263,7 @@ export default function App() {
     }
   };
 
-  if (isInitializingAuth) {
+  if (isInitializingAuth && !currentUser) {
     return (
       <div className="min-h-screen bg-slate-950 text-white flex items-center justify-center p-4">
         <div className="flex flex-col items-center gap-4 animate-in fade-in duration-500">
@@ -272,7 +288,21 @@ export default function App() {
   }
 
   // View: Client Dashboard (NO FOOTER as requested by user)
-  if (view === 'client' && currentUser && currentAccount) {
+  if (view === 'client' && currentUser) {
+    if (!currentAccount) {
+      return (
+        <div className="min-h-screen bg-slate-950 text-white flex items-center justify-center p-4">
+          <div className="flex flex-col items-center gap-4 animate-in fade-in duration-300">
+            <MovafiLogo size="lg" />
+            <div className="flex items-center gap-2 text-xs font-mono tracking-widest text-slate-400 uppercase">
+              <span className="w-1.5 h-1.5 rounded-full bg-amber-400 animate-ping" />
+              <span>Chargement du compte bancaire sécurisé...</span>
+            </div>
+          </div>
+        </div>
+      );
+    }
+
     return (
       <div className="min-h-screen flex flex-col bg-slate-50 dark:bg-slate-950 text-slate-900 dark:text-slate-100 transition-colors">
         <Header
@@ -287,9 +317,7 @@ export default function App() {
           onOpenRegister={() => setIsRegisterOpen(true)}
           onOpenPortal={() => {
             setView('client');
-            setClientTab('overview');
             localStorage.setItem('movafi_view', 'client');
-            localStorage.setItem('movafi_client_tab', 'overview');
           }}
           onOpenAdmin={() => {
             setView('admin');
@@ -308,9 +336,7 @@ export default function App() {
           onLogoClick={() => {
             if (currentUser) {
               setView('client');
-              setClientTab('overview');
               localStorage.setItem('movafi_view', 'client');
-              localStorage.setItem('movafi_client_tab', 'overview');
             } else {
               setView('public');
               localStorage.setItem('movafi_view', 'public');
@@ -325,6 +351,10 @@ export default function App() {
             onLogout={handleLogout}
             settings={bankSettings}
             initialTab={clientTab}
+            onTabChange={(tab) => {
+              setClientTab(tab as any);
+              localStorage.setItem('movafi_client_tab', tab);
+            }}
           />
         </div>
       </div>

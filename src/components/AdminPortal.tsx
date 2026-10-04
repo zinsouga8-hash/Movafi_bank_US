@@ -52,7 +52,8 @@ import {
   BankSettings,
   BlockedIP,
   AuditLog,
-  LoanRate
+  LoanRate,
+  DeliveryStage
 } from '../types/banking';
 import { formatCurrency, formatDateTime } from '../utils/formatters';
 import { MovafiLogo } from './MovafiLogo';
@@ -467,6 +468,48 @@ export const AdminPortal: React.FC<AdminPortalProps> = ({ currentUser, onExit })
     }
   };
 
+  // Modal Gérer la Carte & États Brouillons
+  const [selectedCardForManage, setSelectedCardForManage] = useState<any | null>(null);
+  const [draftCardCreationStatus, setDraftCardCreationStatus] = useState<'pending' | 'approved' | 'rejected'>('pending');
+  const [draftCardIsActive, setDraftCardIsActive] = useState<boolean>(false);
+  const [draftCardAllowTransfer, setDraftCardAllowTransfer] = useState<boolean>(false);
+  const [draftCardDeliveryStage, setDraftCardDeliveryStage] = useState<DeliveryStage>('request_received');
+
+  const openCardManageModal = (c: any) => {
+    setSelectedCardForManage(c);
+    setDraftCardCreationStatus(c.creation_status || (c.status === 'active' ? 'approved' : 'pending'));
+    setDraftCardIsActive(!!c.is_active);
+    setDraftCardAllowTransfer(!!c.allow_balance_transfer);
+    setDraftCardDeliveryStage(c.delivery?.current_stage || 'request_received');
+  };
+
+  const handleSaveCardModifications = async () => {
+    if (!selectedCardForManage) return;
+    setLoading(true);
+    try {
+      const payload: any = {
+        creation_status: draftCardCreationStatus,
+        is_active: draftCardIsActive,
+        allow_balance_transfer: draftCardAllowTransfer
+      };
+      if (selectedCardForManage.delivery) {
+        payload.delivery_stage = draftCardDeliveryStage;
+      }
+      const res = await api.admin.updateCard(selectedCardForManage.id, payload);
+      if (res.success) {
+        notify('Modifications de la carte enregistrées avec succès.');
+        setSelectedCardForManage(null);
+        await loadCards();
+      } else {
+        notify(res.message || 'Erreur lors de l\'enregistrement de la carte', 'error');
+      }
+    } catch (e: any) {
+      notify(e.message, 'error');
+    } finally {
+      setLoading(false);
+    }
+  };
+
   const handleUpdateCard = async (cardId: string, payload: any) => {
     setLoading(true);
     try {
@@ -486,6 +529,10 @@ export const AdminPortal: React.FC<AdminPortalProps> = ({ currentUser, onExit })
   // LOANS MANAGEMENT
   // -------------------------------------------------------------
   const [loansList, setLoansList] = useState<LoanApplication[]>([]);
+  const [selectedLoanForManage, setSelectedLoanForManage] = useState<LoanApplication | null>(null);
+  const [draftLoanStatus, setDraftLoanStatus] = useState<string>('pending');
+  const [draftLoanNotes, setDraftLoanNotes] = useState<string>('');
+
   const loadLoans = async () => {
     setLoading(true);
     try {
@@ -498,12 +545,37 @@ export const AdminPortal: React.FC<AdminPortalProps> = ({ currentUser, onExit })
     }
   };
 
+  const openLoanManageModal = (l: LoanApplication) => {
+    setSelectedLoanForManage(l);
+    setDraftLoanStatus(l.status);
+    setDraftLoanNotes(l.admin_notes || '');
+  };
+
+  const handleSaveLoanModifications = async () => {
+    if (!selectedLoanForManage) return;
+    setLoading(true);
+    try {
+      const res = await api.admin.updateLoanStatus(selectedLoanForManage.id, draftLoanStatus, draftLoanNotes);
+      if (res.success) {
+        notify('Modifications du dossier de prêt enregistrées avec succès.');
+        setSelectedLoanForManage(null);
+        await loadLoans();
+      } else {
+        notify(res.message || 'Erreur lors de l\'enregistrement du prêt', 'error');
+      }
+    } catch (e: any) {
+      notify(e.message, 'error');
+    } finally {
+      setLoading(false);
+    }
+  };
+
   const handleLoanStatus = async (loanId: string, status: string) => {
     setLoading(true);
     try {
       const res = await api.admin.updateLoanStatus(loanId, status);
       if (res.success) {
-        notify(`Loan status updated to ${status}.`);
+        notify(`Dossier de prêt mis à jour (${status}).`);
         await loadLoans();
       }
     } catch (e: any) {
@@ -518,8 +590,13 @@ export const AdminPortal: React.FC<AdminPortalProps> = ({ currentUser, onExit })
     try {
       const res = await api.admin.releaseLoanFunds(loanId);
       if (res.success) {
-        notify('Facility liquidity disbursed into client primary balance.');
+        notify('Fonds débloqués avec succès et crédités sur le solde principal du client.');
+        if (selectedLoanForManage && selectedLoanForManage.id === loanId) {
+          setSelectedLoanForManage((prev) => (prev ? { ...prev, status: 'funds_released' } : null));
+        }
         await loadLoans();
+      } else {
+        notify(res.message || 'Impossible de débloquer les fonds.', 'error');
       }
     } catch (e: any) {
       notify(e.message, 'error');
@@ -582,12 +659,30 @@ export const AdminPortal: React.FC<AdminPortalProps> = ({ currentUser, onExit })
 
   const handleSaveMethod = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!editingMethod?.name || !editingMethod?.account_info) return;
+    const isCrypto =
+      editingMethod?.category === 'Digital Assets' ||
+      editingMethod?.name?.toLowerCase().includes('bitcoin') ||
+      editingMethod?.name?.toLowerCase().includes('usdt') ||
+      editingMethod?.name?.toLowerCase().includes('crypto');
+
+    const address = editingMethod?.wallet_address || editingMethod?.account_info;
+    if (!editingMethod?.name || (!address && !editingMethod?.account_info)) {
+      notify('Veuillez renseigner le nom et l’adresse ou les coordonnées de paiement.', 'error');
+      return;
+    }
+
+    const payload: Partial<PaymentMethod> = {
+      ...editingMethod,
+      account_info: isCrypto ? (address || '') : (editingMethod.account_info || ''),
+      wallet_address: isCrypto ? (address || '') : editingMethod.wallet_address,
+      instructions: editingMethod.instructions || ''
+    };
+
     setLoading(true);
     try {
-      const res = await api.admin.savePaymentMethod(editingMethod);
+      const res = await api.admin.savePaymentMethod(payload);
       if (res.success) {
-        notify('Payment method saved.');
+        notify('Moyen de paiement enregistré avec succès.');
         setEditingMethod(null);
         await loadMethods();
       }
@@ -1262,7 +1357,10 @@ export const AdminPortal: React.FC<AdminPortalProps> = ({ currentUser, onExit })
                             <div className="grid grid-cols-3 gap-1.5 pt-1">
                               <button
                                 type="button"
-                                onClick={() => setDraftAccountStatus('active')}
+                                onClick={() => {
+                                  setDraftAccountStatus('active');
+                                  setDraftApplicationStatus('approved');
+                                }}
                                 className={`py-1.5 px-2 rounded-lg text-xs font-semibold cursor-pointer transition-colors ${
                                   draftAccountStatus === 'active'
                                     ? 'bg-emerald-600 text-white shadow-xs'
@@ -1324,7 +1422,10 @@ export const AdminPortal: React.FC<AdminPortalProps> = ({ currentUser, onExit })
                             <div className="grid grid-cols-3 gap-1.5 pt-1">
                               <button
                                 type="button"
-                                onClick={() => setDraftApplicationStatus('approved')}
+                                onClick={() => {
+                                  setDraftApplicationStatus('approved');
+                                  setDraftAccountStatus('active');
+                                }}
                                 className={`py-1.5 px-2 rounded-lg text-xs font-semibold cursor-pointer transition-colors ${
                                   draftApplicationStatus === 'approved'
                                     ? 'bg-emerald-600 text-white shadow-xs'
@@ -1335,7 +1436,10 @@ export const AdminPortal: React.FC<AdminPortalProps> = ({ currentUser, onExit })
                               </button>
                               <button
                                 type="button"
-                                onClick={() => setDraftApplicationStatus('pending')}
+                                onClick={() => {
+                                  setDraftApplicationStatus('pending');
+                                  setDraftAccountStatus('inactive');
+                                }}
                                 className={`py-1.5 px-2 rounded-lg text-xs font-semibold cursor-pointer transition-colors ${
                                   draftApplicationStatus === 'pending'
                                     ? 'bg-amber-600 text-white shadow-xs'
@@ -1346,7 +1450,10 @@ export const AdminPortal: React.FC<AdminPortalProps> = ({ currentUser, onExit })
                               </button>
                               <button
                                 type="button"
-                                onClick={() => setDraftApplicationStatus('rejected')}
+                                onClick={() => {
+                                  setDraftApplicationStatus('rejected');
+                                  setDraftAccountStatus('inactive');
+                                }}
                                 className={`py-1.5 px-2 rounded-lg text-xs font-semibold cursor-pointer transition-colors ${
                                   draftApplicationStatus === 'rejected'
                                     ? 'bg-rose-600 text-white shadow-xs'
@@ -1949,108 +2056,386 @@ export const AdminPortal: React.FC<AdminPortalProps> = ({ currentUser, onExit })
           )}
 
           {/* ======================================================= */}
-          {/* 3. PRESTIGE CARDS LOGISTICS (Section 49) */}
+          {/* 3. PRESTIGE CARDS LOGISTICS & MANAGEMENT */}
           {/* ======================================================= */}
           {activeSection === 'cards' && (
             <div className="space-y-6">
-              <h2 className="text-xl font-bold text-white">Prestige Cards & Logistics</h2>
+              <div className="flex items-center justify-between">
+                <div>
+                  <h2 className="text-xl font-bold text-white">Cartes Bancaires Prestige & Gestion</h2>
+                  <p className="text-xs text-slate-400">
+                    Validation des demandes de cartes, activation de sécurité, autorisation des transferts et expédition physique.
+                  </p>
+                </div>
+                <button
+                  onClick={loadCards}
+                  className="px-3 py-1.5 rounded-xl border border-slate-700 bg-slate-800 hover:bg-slate-700 text-xs text-slate-200 flex items-center gap-1.5 cursor-pointer"
+                >
+                  <RefreshCw className="w-3.5 h-3.5" />
+                  <span>Actualiser</span>
+                </button>
+              </div>
 
               <div className="overflow-x-auto rounded-2xl border border-slate-800 bg-slate-950/80">
-                <table className="w-full text-left text-xs border-collapse min-w-[640px]">
+                <table className="w-full text-left text-xs border-collapse min-w-[760px]">
                   <thead>
                     <tr className="border-b border-slate-800 text-slate-400 font-semibold bg-slate-900/60">
-                      <th className="py-3 px-4">Cardholder</th>
-                      <th className="py-3 px-4">Tier & Network</th>
-                      <th className="py-3 px-4">Masked Number</th>
-                      <th className="py-3 px-4 text-right">Card Balance</th>
-                      <th className="py-3 px-4">Balance Load Allowed</th>
-                      <th className="py-3 px-4">Physical Shipping Stage</th>
+                      <th className="py-3 px-4">Client & Titulaire</th>
+                      <th className="py-3 px-4">Réseau & Type</th>
+                      <th className="py-3 px-4">Numéro Carte</th>
+                      <th className="py-3 px-4 text-right">Solde Carte</th>
+                      <th className="py-3 px-4 text-center">Décision Demande</th>
+                      <th className="py-3 px-4 text-center">Activation</th>
+                      <th className="py-3 px-4 text-center">Transfert Solde</th>
+                      <th className="py-3 px-4">Livraison Physique</th>
                       <th className="py-3 px-4 text-right">Actions</th>
                     </tr>
                   </thead>
                   <tbody className="divide-y divide-slate-800/80">
-                    {cardsList.map((c) => (
-                      <tr key={c.id} className="hover:bg-slate-900/40">
-                        <td className="py-3 px-4">
-                          <div className="font-semibold text-white">{c.cardholder_name}</div>
-                          <div className="text-[10px] text-slate-400">{c.client_email}</div>
-                        </td>
-                        <td className="py-3 px-4 uppercase text-amber-400 font-semibold">
-                          {c.tier} {c.network}
-                        </td>
-                        <td className="py-3 px-4 font-mono text-slate-300">{c.card_number_masked}</td>
-                        <td className="py-3 px-4 text-right font-mono font-bold text-white">
-                          ${c.balance.toLocaleString()}
-                        </td>
-                        <td className="py-3 px-4">
-                          <button
-                            onClick={() =>
-                              handleUpdateCard(c.id, { allow_balance_transfer: !c.allow_balance_transfer })
-                            }
-                            className={`px-2 py-0.5 rounded text-[10px] font-semibold cursor-pointer ${
-                              c.allow_balance_transfer
-                                ? 'bg-emerald-500/20 text-emerald-400'
-                                : 'bg-slate-800 text-slate-500'
-                            }`}
-                          >
-                            {c.allow_balance_transfer ? 'Enabled' : 'Disabled'}
-                          </button>
-                        </td>
-                        <td className="py-3 px-4">
-                          {c.delivery ? (
-                            <select
-                              value={c.delivery.current_stage}
-                              onChange={(e) =>
-                                handleUpdateCard(c.id, { delivery_stage: e.target.value })
-                              }
-                              className="px-2 py-1 rounded bg-slate-800 border border-slate-700 text-xs text-slate-200"
+                    {cardsList.map((c) => {
+                      const creationStatus = c.creation_status || (c.status === 'active' ? 'approved' : 'pending');
+                      const isActive = !!c.is_active;
+                      return (
+                        <tr key={c.id} className="hover:bg-slate-900/40">
+                          <td className="py-3 px-4">
+                            <div className="font-semibold text-white">{c.cardholder_name}</div>
+                            <div className="text-[10px] text-slate-400">{c.client_email}</div>
+                          </td>
+                          <td className="py-3 px-4 uppercase text-amber-400 font-semibold">
+                            {c.tier} {c.network}
+                          </td>
+                          <td className="py-3 px-4 font-mono text-slate-300">{c.card_number_masked}</td>
+                          <td className="py-3 px-4 text-right font-mono font-bold text-white">
+                            ${Number(c.balance || 0).toLocaleString()}
+                          </td>
+                          <td className="py-3 px-4 text-center">
+                            <span
+                              className={`px-2 py-0.5 rounded-full text-[10px] font-bold uppercase tracking-wider ${
+                                creationStatus === 'approved'
+                                  ? 'bg-emerald-500/10 text-emerald-400 border border-emerald-500/30'
+                                  : creationStatus === 'rejected'
+                                  ? 'bg-rose-500/15 text-rose-400 border border-rose-500/30'
+                                  : 'bg-amber-500/10 text-amber-400 border border-amber-500/30'
+                              }`}
                             >
-                              <option value="request_received">1. Request Received</option>
-                              <option value="processing">2. Processing</option>
-                              <option value="preparation">3. Preparation</option>
-                              <option value="transit">4. Transit</option>
-                              <option value="customs">5. Customs</option>
-                              <option value="delivered">6. Delivered</option>
-                            </select>
-                          ) : (
-                            <span className="text-slate-500 text-[11px]">Virtual Only</span>
-                          )}
-                        </td>
-                        <td className="py-3 px-4 text-right">
-                          <button
-                            onClick={() =>
-                              handleUpdateCard(c.id, { status: c.status === 'active' ? 'blocked' : 'active' })
-                            }
-                            className="px-2 py-1 rounded border border-slate-700 text-[10px] font-semibold text-slate-300 hover:bg-slate-800 cursor-pointer"
-                          >
-                            {c.status === 'active' ? 'Block Card' : 'Activate'}
-                          </button>
-                        </td>
-                      </tr>
-                    ))}
+                              {creationStatus === 'approved' ? 'Approuvée' : creationStatus === 'rejected' ? 'Rejetée' : 'En attente'}
+                            </span>
+                          </td>
+                          <td className="py-3 px-4 text-center">
+                            <span
+                              className={`px-2 py-0.5 rounded-full text-[10px] font-bold ${
+                                isActive
+                                  ? 'bg-emerald-500/20 text-emerald-300 border border-emerald-500/30'
+                                  : 'bg-slate-800 text-slate-400 border border-slate-700'
+                              }`}
+                            >
+                              {isActive ? 'Active' : 'Inactive'}
+                            </span>
+                          </td>
+                          <td className="py-3 px-4 text-center">
+                            <span
+                              className={`px-2 py-0.5 rounded-full text-[10px] font-semibold ${
+                                c.allow_balance_transfer
+                                  ? 'bg-emerald-500/15 text-emerald-400'
+                                  : 'bg-rose-500/10 text-rose-400'
+                              }`}
+                            >
+                              {c.allow_balance_transfer ? 'Autorisé' : 'Bloqué'}
+                            </span>
+                          </td>
+                          <td className="py-3 px-4">
+                            {c.delivery ? (
+                              <span className="text-amber-400 font-semibold text-[11px] capitalize">
+                                Étape: {c.delivery.current_stage.replace('_', ' ')}
+                              </span>
+                            ) : (
+                              <span className="text-slate-500 text-[11px]">Non demandée</span>
+                            )}
+                          </td>
+                          <td className="py-3 px-4 text-right">
+                            <button
+                              onClick={() => openCardManageModal(c)}
+                              className="px-3 py-1.5 rounded-xl bg-amber-500/15 hover:bg-amber-500/25 text-amber-400 border border-amber-500/30 text-xs font-semibold cursor-pointer transition-colors"
+                            >
+                              Gérer la carte
+                            </button>
+                          </td>
+                        </tr>
+                      );
+                    })}
                   </tbody>
                 </table>
               </div>
+
+              {/* MODAL : GÉRER LA CARTE */}
+              {selectedCardForManage && (
+                <div className="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-5 bg-slate-950/80 backdrop-blur-md overflow-y-auto">
+                  <div className="w-full max-w-2xl max-h-[92vh] rounded-3xl bg-slate-900 border border-slate-700/80 shadow-2xl flex flex-col overflow-hidden my-auto animate-in fade-in zoom-in-95 duration-200">
+                    <div className="flex items-center justify-between border-b border-slate-800 p-5 bg-slate-950/80 shrink-0">
+                      <div>
+                        <h3 className="font-bold text-base text-white flex items-center gap-2">
+                          <CreditCard className="w-5 h-5 text-amber-500" />
+                          <span>Gérer la Carte Privilège · {selectedCardForManage.cardholder_name}</span>
+                        </h3>
+                        <p className="text-xs text-slate-400">
+                          {selectedCardForManage.client_email} · Réseau {selectedCardForManage.network?.toUpperCase()} · Type {selectedCardForManage.tier?.toUpperCase()}
+                        </p>
+                      </div>
+                      <button
+                        onClick={() => setSelectedCardForManage(null)}
+                        className="text-slate-400 hover:text-white p-2 rounded-xl hover:bg-slate-800 transition-colors cursor-pointer text-sm font-bold"
+                      >
+                        ✕
+                      </button>
+                    </div>
+
+                    <div className="p-6 space-y-6 overflow-y-auto flex-1 text-xs">
+                      {/* Module 1: Approbation / Rejet de la Demande */}
+                      <div className="p-4 rounded-2xl bg-slate-950 border border-slate-800 space-y-3">
+                        <div className="flex items-center justify-between">
+                          <span className="font-bold text-white text-xs uppercase tracking-wider">
+                            1. Décision de création de la carte
+                          </span>
+                          <span className={`px-2.5 py-0.5 rounded-full text-[10px] font-bold uppercase ${
+                            draftCardCreationStatus === 'approved' ? 'bg-emerald-500/10 text-emerald-400' : draftCardCreationStatus === 'rejected' ? 'bg-rose-500/15 text-rose-400' : 'bg-amber-500/10 text-amber-400'
+                          }`}>
+                            {draftCardCreationStatus === 'approved' ? 'Approuvée' : draftCardCreationStatus === 'rejected' ? 'Rejetée' : 'En attente'}
+                          </span>
+                        </div>
+                        <p className="text-slate-400 text-[11px]">
+                          L'approbation envoie automatiquement une notification et un e-mail au client. La carte reste inactive par défaut tant que vous ne l'activez pas.
+                        </p>
+                        <div className="grid grid-cols-3 gap-2 pt-1">
+                          <button
+                            type="button"
+                            onClick={() => setDraftCardCreationStatus('approved')}
+                            className={`py-2 px-3 rounded-xl border text-xs font-semibold cursor-pointer transition-all ${
+                              draftCardCreationStatus === 'approved'
+                                ? 'bg-emerald-600 text-white border-emerald-500 shadow-md'
+                                : 'bg-slate-900 border-slate-800 text-slate-300 hover:bg-slate-800'
+                            }`}
+                          >
+                            ✓ Approuver
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => setDraftCardCreationStatus('pending')}
+                            className={`py-2 px-3 rounded-xl border text-xs font-semibold cursor-pointer transition-all ${
+                              draftCardCreationStatus === 'pending'
+                                ? 'bg-amber-600 text-white border-amber-500 shadow-md'
+                                : 'bg-slate-900 border-slate-800 text-slate-300 hover:bg-slate-800'
+                            }`}
+                          >
+                            ⏱ En attente
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => setDraftCardCreationStatus('rejected')}
+                            className={`py-2 px-3 rounded-xl border text-xs font-semibold cursor-pointer transition-all ${
+                              draftCardCreationStatus === 'rejected'
+                                ? 'bg-rose-600 text-white border-rose-500 shadow-md'
+                                : 'bg-slate-900 border-slate-800 text-slate-300 hover:bg-slate-800'
+                            }`}
+                          >
+                            ✕ Rejeter
+                          </button>
+                        </div>
+                      </div>
+
+                      {/* Module 2: Activation / Désactivation de la carte */}
+                      <div className="p-4 rounded-2xl bg-slate-950 border border-slate-800 space-y-3">
+                        <div className="flex items-center justify-between">
+                          <span className="font-bold text-white text-xs uppercase tracking-wider">
+                            2. Activation de la carte (Sécurité & CVC)
+                          </span>
+                          <span className={`px-2.5 py-0.5 rounded-full text-[10px] font-bold ${
+                            draftCardIsActive ? 'bg-emerald-500/20 text-emerald-400' : 'bg-slate-800 text-slate-400'
+                          }`}>
+                            {draftCardIsActive ? 'Carte Active' : 'Carte Inactive'}
+                          </span>
+                        </div>
+                        <p className="text-slate-400 text-[11px]">
+                          La carte est inactive par défaut. Une fois activée, le client peut démasquer son code CVC sur son espace bancaire et utiliser sa carte.
+                        </p>
+                        <div className="grid grid-cols-2 gap-2 pt-1">
+                          <button
+                            type="button"
+                            onClick={() => setDraftCardIsActive(true)}
+                            className={`py-2 px-3 rounded-xl border text-xs font-semibold cursor-pointer transition-all ${
+                              draftCardIsActive
+                                ? 'bg-emerald-600 text-white border-emerald-500 shadow-md'
+                                : 'bg-slate-900 border-slate-800 text-slate-300 hover:bg-slate-800'
+                            }`}
+                          >
+                            Activer la carte
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => setDraftCardIsActive(false)}
+                            className={`py-2 px-3 rounded-xl border text-xs font-semibold cursor-pointer transition-all ${
+                              !draftCardIsActive
+                                ? 'bg-slate-800 text-white border-slate-700 shadow-md'
+                                : 'bg-slate-900 border-slate-800 text-slate-400 hover:bg-slate-800'
+                            }`}
+                          >
+                            Désactiver la carte (Inactive)
+                          </button>
+                        </div>
+                      </div>
+
+                      {/* Module 3: Autorisation du transfert depuis le solde principal */}
+                      <div className="p-4 rounded-2xl bg-slate-950 border border-slate-800 space-y-3">
+                        <div className="flex items-center justify-between">
+                          <span className="font-bold text-white text-xs uppercase tracking-wider">
+                            3. Transfert depuis le solde principal
+                          </span>
+                          <span className={`px-2.5 py-0.5 rounded-full text-[10px] font-bold ${
+                            draftCardAllowTransfer ? 'bg-emerald-500/20 text-emerald-400' : 'bg-rose-500/15 text-rose-400'
+                          }`}>
+                            {draftCardAllowTransfer ? 'Transfert Activé' : 'Transfert Bloqué'}
+                          </span>
+                        </div>
+                        <p className="text-slate-400 text-[11px]">
+                          Tant que ce bouton n'est pas activé, le client reçoit un message d'avertissement indiquant que le transfert est bloqué et qu'il doit contacter le service client.
+                        </p>
+                        <div className="grid grid-cols-2 gap-2 pt-1">
+                          <button
+                            type="button"
+                            onClick={() => setDraftCardAllowTransfer(true)}
+                            className={`py-2 px-3 rounded-xl border text-xs font-semibold cursor-pointer transition-all ${
+                              draftCardAllowTransfer
+                                ? 'bg-amber-600 text-white border-amber-500 shadow-md'
+                                : 'bg-slate-900 border-slate-800 text-slate-300 hover:bg-slate-800'
+                            }`}
+                          >
+                            Autoriser le transfert
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => setDraftCardAllowTransfer(false)}
+                            className={`py-2 px-3 rounded-xl border text-xs font-semibold cursor-pointer transition-all ${
+                              !draftCardAllowTransfer
+                                ? 'bg-rose-900/60 text-rose-200 border-rose-700 shadow-md'
+                                : 'bg-slate-900 border-slate-800 text-slate-400 hover:bg-slate-800'
+                            }`}
+                          >
+                            Bloquer le transfert
+                          </button>
+                        </div>
+                      </div>
+
+                      {/* Module 4: Suivi de livraison physique */}
+                      <div className="p-4 rounded-2xl bg-slate-950 border border-slate-800 space-y-3">
+                        <div className="flex items-center justify-between">
+                          <span className="font-bold text-white text-xs uppercase tracking-wider">
+                            4. Suivi de la livraison physique de la carte
+                          </span>
+                          {selectedCardForManage.delivery && (
+                            <span className="font-mono text-[10px] text-amber-400">
+                              {selectedCardForManage.delivery.tracking_number}
+                            </span>
+                          )}
+                        </div>
+
+                        {!selectedCardForManage.delivery ? (
+                          <div className="p-3 rounded-xl bg-slate-900/60 border border-slate-800 text-slate-400 text-xs text-center">
+                            Le client n'a pas encore demandé de livraison physique de sa carte. Les étapes ne peuvent pas être activées.
+                          </div>
+                        ) : (
+                          <div className="space-y-3">
+                            <p className="text-slate-400 text-[11px]">
+                              Le client a sollicité la fabrication physique. Cliquez sur une étape pour l'activer instantanément :
+                            </p>
+                            <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
+                              {[
+                                { id: 'request_received', label: '1. Demande reçue' },
+                                { id: 'processing', label: '2. Traitement dossier' },
+                                { id: 'preparation', label: '3. Préparation & Gravure' },
+                                { id: 'transit', label: '4. En transit express' },
+                                { id: 'customs', label: '5. Dédouanement' },
+                                { id: 'delivered', label: '6. Carte livrée' }
+                              ].map((step) => {
+                                const isCurrent = draftCardDeliveryStage === step.id;
+                                return (
+                                  <button
+                                    key={step.id}
+                                    type="button"
+                                    onClick={() => setDraftCardDeliveryStage(step.id as DeliveryStage)}
+                                    className={`py-2 px-2.5 rounded-xl border text-[11px] font-semibold text-center cursor-pointer transition-all ${
+                                      isCurrent
+                                        ? 'bg-amber-500 text-slate-950 border-amber-400 shadow-md font-bold'
+                                        : 'bg-slate-900 border-slate-800 text-slate-300 hover:bg-slate-800'
+                                    }`}
+                                  >
+                                    {step.label}
+                                  </button>
+                                );
+                              })}
+                            </div>
+                            <div className="text-[11px] text-slate-400 bg-slate-900/60 p-2.5 rounded-xl border border-slate-800">
+                              Étape actuellement sélectionnée : <strong className="text-amber-400 capitalize">{draftCardDeliveryStage.replace('_', ' ')}</strong>
+                            </div>
+                          </div>
+                        )}
+                      </div>
+                    </div>
+
+                    <div className="flex items-center justify-between border-t border-slate-800 p-5 bg-slate-950/80 shrink-0">
+                      <button
+                        type="button"
+                        onClick={() => setSelectedCardForManage(null)}
+                        className="px-4 py-2.5 rounded-xl border border-slate-700 text-xs font-semibold text-slate-300 hover:bg-slate-800 cursor-pointer"
+                      >
+                        Fermer sans enregistrer
+                      </button>
+                      <button
+                        type="button"
+                        onClick={handleSaveCardModifications}
+                        disabled={loading}
+                        className="px-5 py-2.5 rounded-xl bg-amber-500 hover:bg-amber-400 text-slate-950 font-bold text-xs shadow-lg transition-colors cursor-pointer flex items-center gap-1.5"
+                      >
+                        <Save className="w-4 h-4" />
+                        <span>Enregistrer les modifications</span>
+                      </button>
+                    </div>
+                  </div>
+                </div>
+              )}
             </div>
           )}
 
           {/* ======================================================= */}
-          {/* 4. LOAN REQUESTS & RELEASE (Section 50) */}
+          {/* 4. LOAN REQUESTS & RELEASE */}
           {/* ======================================================= */}
           {activeSection === 'loans' && (
             <div className="space-y-6">
-              <h2 className="text-xl font-bold text-white">Credit Facilities & Disbursement</h2>
+              <div className="flex items-center justify-between">
+                <div>
+                  <h2 className="text-xl font-bold text-white">Demandes de Crédit & Déblocage des Fonds</h2>
+                  <p className="text-xs text-slate-400">
+                    Examen des dossiers de prêt, approbation et déblocage après validation des paramètres de crédit par le client.
+                  </p>
+                </div>
+                <button
+                  onClick={loadLoans}
+                  className="px-3 py-1.5 rounded-xl border border-slate-700 bg-slate-800 hover:bg-slate-700 text-xs text-slate-200 flex items-center gap-1.5 cursor-pointer"
+                >
+                  <RefreshCw className="w-3.5 h-3.5" />
+                  <span>Actualiser</span>
+                </button>
+              </div>
 
               <div className="overflow-x-auto rounded-2xl border border-slate-800 bg-slate-950/80">
-                <table className="w-full text-left text-xs border-collapse min-w-[640px]">
+                <table className="w-full text-left text-xs border-collapse min-w-[720px]">
                   <thead>
                     <tr className="border-b border-slate-800 text-slate-400 font-semibold bg-slate-900/60">
-                      <th className="py-3 px-4">Borrower</th>
-                      <th className="py-3 px-4">Project</th>
-                      <th className="py-3 px-4 text-right">Facility Amount</th>
-                      <th className="py-3 px-4">Rate</th>
-                      <th className="py-3 px-4">Term</th>
-                      <th className="py-3 px-4 text-center">Status</th>
+                      <th className="py-3 px-4">Emprunteur</th>
+                      <th className="py-3 px-4">Type de Projet</th>
+                      <th className="py-3 px-4 text-right">Montant Emprunté</th>
+                      <th className="py-3 px-4">Taux & Durée</th>
+                      <th className="py-3 px-4 text-right">Mensualité</th>
+                      <th className="py-3 px-4 text-center">Statut Prêt</th>
+                      <th className="py-3 px-4 text-center">Paramètres Crédit</th>
                       <th className="py-3 px-4 text-right">Actions</th>
                     </tr>
                   </thead>
@@ -2065,47 +2450,255 @@ export const AdminPortal: React.FC<AdminPortalProps> = ({ currentUser, onExit })
                         <td className="py-3 px-4 text-right font-mono font-bold text-amber-400">
                           {formatCurrency(loan.amount, loan.currency)}
                         </td>
-                        <td className="py-3 px-4 font-mono">{loan.rate_percent}%</td>
-                        <td className="py-3 px-4">{loan.duration_months} Mos</td>
+                        <td className="py-3 px-4 font-mono text-slate-300">
+                          {loan.rate_percent}% · {loan.duration_months} mois
+                        </td>
+                        <td className="py-3 px-4 text-right font-mono text-white">
+                          {formatCurrency(loan.monthly_payment, loan.currency)}
+                        </td>
                         <td className="py-3 px-4 text-center">
-                          <span className="px-2 py-0.5 rounded-full text-[10px] font-semibold uppercase bg-amber-500/10 text-amber-400">
-                            {loan.status}
+                          <span
+                            className={`px-2.5 py-0.5 rounded-full text-[10px] font-bold uppercase tracking-wider ${
+                              loan.status === 'funds_released'
+                                ? 'bg-emerald-500/20 text-emerald-400 border border-emerald-500/30'
+                                : loan.status === 'approved'
+                                ? 'bg-emerald-500/10 text-emerald-400 border border-emerald-500/30'
+                                : loan.status === 'rejected'
+                                ? 'bg-rose-500/15 text-rose-400 border border-rose-500/30'
+                                : 'bg-amber-500/10 text-amber-400 border border-amber-500/30'
+                            }`}
+                          >
+                            {loan.status === 'funds_released'
+                              ? 'Fonds Débloqués'
+                              : loan.status === 'approved'
+                              ? 'Approuvé'
+                              : loan.status === 'rejected'
+                              ? 'Rejeté'
+                              : 'En attente'}
                           </span>
                         </td>
-                        <td className="py-3 px-4 text-right space-x-1 whitespace-nowrap">
-                          {loan.status === 'pending' && (
-                            <>
-                              <button
-                                onClick={() => handleLoanStatus(loan.id, 'approved')}
-                                className="px-2.5 py-1 rounded-lg bg-emerald-600 hover:bg-emerald-500 text-white font-semibold text-[11px] cursor-pointer"
-                              >
-                                Approve
-                              </button>
-                              <button
-                                onClick={() => handleLoanStatus(loan.id, 'rejected')}
-                                className="px-2.5 py-1 rounded-lg bg-rose-600 hover:bg-rose-500 text-white font-semibold text-[11px] cursor-pointer"
-                              >
-                                Reject
-                              </button>
-                            </>
+                        <td className="py-3 px-4 text-center">
+                          {loan.credit_parameters_agreed ? (
+                            <span className="px-2 py-0.5 rounded-full text-[10px] font-semibold bg-emerald-500/10 text-emerald-400 border border-emerald-500/20">
+                              ✓ Validés par client
+                            </span>
+                          ) : (
+                            <span className="px-2 py-0.5 rounded-full text-[10px] font-semibold bg-slate-800 text-slate-400">
+                              En attente validation
+                            </span>
                           )}
-                          {loan.status === 'approved' && (
-                            <button
-                              onClick={() => handleReleaseLoanFunds(loan.id)}
-                              className="px-3 py-1 rounded-lg bg-amber-500 hover:bg-amber-400 text-slate-950 font-bold text-[11px] cursor-pointer"
-                            >
-                              Release Funds
-                            </button>
-                          )}
-                          {loan.status === 'funds_released' && (
-                            <span className="text-[11px] text-emerald-400 font-semibold">Disbursed</span>
-                          )}
+                        </td>
+                        <td className="py-3 px-4 text-right">
+                          <button
+                            onClick={() => openLoanManageModal(loan)}
+                            className="px-3 py-1.5 rounded-xl bg-amber-500/15 hover:bg-amber-500/25 text-amber-400 border border-amber-500/30 text-xs font-semibold cursor-pointer transition-colors"
+                          >
+                            Gérer le prêt
+                          </button>
                         </td>
                       </tr>
                     ))}
                   </tbody>
                 </table>
               </div>
+
+              {/* MODAL : GÉRER LE PRÊT */}
+              {selectedLoanForManage && (
+                <div className="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-5 bg-slate-950/80 backdrop-blur-md overflow-y-auto">
+                  <div className="w-full max-w-2xl max-h-[92vh] rounded-3xl bg-slate-900 border border-slate-700/80 shadow-2xl flex flex-col overflow-hidden my-auto animate-in fade-in zoom-in-95 duration-200">
+                    <div className="flex items-center justify-between border-b border-slate-800 p-5 bg-slate-950/80 shrink-0">
+                      <div>
+                        <h3 className="font-bold text-base text-white flex items-center gap-2">
+                          <Landmark className="w-5 h-5 text-amber-500" />
+                          <span>Dossier de Financement · #{selectedLoanForManage.id}</span>
+                        </h3>
+                        <p className="text-xs text-slate-400">
+                          {selectedLoanForManage.borrower_name} ({selectedLoanForManage.borrower_email})
+                        </p>
+                      </div>
+                      <button
+                        onClick={() => setSelectedLoanForManage(null)}
+                        className="text-slate-400 hover:text-white p-2 rounded-xl hover:bg-slate-800 transition-colors cursor-pointer text-sm font-bold"
+                      >
+                        ✕
+                      </button>
+                    </div>
+
+                    <div className="p-6 space-y-6 overflow-y-auto flex-1 text-xs">
+                      {/* Récapitulatif du crédit */}
+                      <div className="p-4 rounded-2xl bg-slate-950 border border-slate-800 grid grid-cols-2 sm:grid-cols-3 gap-3">
+                        <div>
+                          <span className="text-slate-500 text-[10px] uppercase font-bold block">Montant</span>
+                          <span className="font-mono text-base font-extrabold text-amber-400">
+                            {formatCurrency(selectedLoanForManage.amount, selectedLoanForManage.currency)}
+                          </span>
+                        </div>
+                        <div>
+                          <span className="text-slate-500 text-[10px] uppercase font-bold block">Taux d'intérêt</span>
+                          <span className="font-mono text-sm font-bold text-white">
+                            {selectedLoanForManage.rate_percent}% TAEG
+                          </span>
+                        </div>
+                        <div>
+                          <span className="text-slate-500 text-[10px] uppercase font-bold block">Durée</span>
+                          <span className="text-sm font-bold text-white">
+                            {selectedLoanForManage.duration_months} mois
+                          </span>
+                        </div>
+                        <div>
+                          <span className="text-slate-500 text-[10px] uppercase font-bold block">Mensualité</span>
+                          <span className="font-mono text-sm font-bold text-white">
+                            {formatCurrency(selectedLoanForManage.monthly_payment, selectedLoanForManage.currency)}
+                          </span>
+                        </div>
+                        <div>
+                          <span className="text-slate-500 text-[10px] uppercase font-bold block">Coût total</span>
+                          <span className="font-mono text-sm font-bold text-white">
+                            {formatCurrency(selectedLoanForManage.total_cost, selectedLoanForManage.currency)}
+                          </span>
+                        </div>
+                        <div>
+                          <span className="text-slate-500 text-[10px] uppercase font-bold block">Type de projet</span>
+                          <span className="text-xs font-semibold text-slate-200">
+                            {selectedLoanForManage.project_type}
+                          </span>
+                        </div>
+                      </div>
+
+                      {/* Module 1: Décision administrative */}
+                      <div className="p-4 rounded-2xl bg-slate-950 border border-slate-800 space-y-3">
+                        <div className="flex items-center justify-between">
+                          <span className="font-bold text-white text-xs uppercase tracking-wider">
+                            1. Décision d'approbation du prêt
+                          </span>
+                          <span className={`px-2.5 py-0.5 rounded-full text-[10px] font-bold uppercase ${
+                            draftLoanStatus === 'approved' ? 'bg-emerald-500/10 text-emerald-400' : draftLoanStatus === 'rejected' ? 'bg-rose-500/15 text-rose-400' : 'bg-amber-500/10 text-amber-400'
+                          }`}>
+                            {draftLoanStatus === 'approved' ? 'Approuvé' : draftLoanStatus === 'rejected' ? 'Rejeté' : 'En attente'}
+                          </span>
+                        </div>
+                        <p className="text-slate-400 text-[11px]">
+                          Une fois le prêt approuvé, le client reçoit une notification et pourra accéder au bouton « Paramètres de crédit » pour les consulter et donner son accord.
+                        </p>
+                        <div className="grid grid-cols-3 gap-2 pt-1">
+                          <button
+                            type="button"
+                            onClick={() => setDraftLoanStatus('approved')}
+                            className={`py-2 px-3 rounded-xl border text-xs font-semibold cursor-pointer transition-all ${
+                              draftLoanStatus === 'approved'
+                                ? 'bg-emerald-600 text-white border-emerald-500 shadow-md'
+                                : 'bg-slate-900 border-slate-800 text-slate-300 hover:bg-slate-800'
+                            }`}
+                          >
+                            ✓ Approuver
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => setDraftLoanStatus('pending')}
+                            className={`py-2 px-3 rounded-xl border text-xs font-semibold cursor-pointer transition-all ${
+                              draftLoanStatus === 'pending'
+                                ? 'bg-amber-600 text-white border-amber-500 shadow-md'
+                                : 'bg-slate-900 border-slate-800 text-slate-300 hover:bg-slate-800'
+                            }`}
+                          >
+                            ⏱ En attente
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => setDraftLoanStatus('rejected')}
+                            className={`py-2 px-3 rounded-xl border text-xs font-semibold cursor-pointer transition-all ${
+                              draftLoanStatus === 'rejected'
+                                ? 'bg-rose-600 text-white border-rose-500 shadow-md'
+                                : 'bg-slate-900 border-slate-800 text-slate-300 hover:bg-slate-800'
+                            }`}
+                          >
+                            ✕ Rejeter
+                          </button>
+                        </div>
+                      </div>
+
+                      {/* Module 2: Paramètres de crédit & Déblocage des fonds */}
+                      <div className="p-4 rounded-2xl bg-slate-950 border border-slate-800 space-y-3">
+                        <div className="flex items-center justify-between">
+                          <span className="font-bold text-white text-xs uppercase tracking-wider">
+                            2. Validation des Paramètres de Crédit & Déblocage
+                          </span>
+                          {selectedLoanForManage.status === 'funds_released' ? (
+                            <span className="px-2.5 py-0.5 rounded-full text-[10px] font-bold bg-emerald-500/20 text-emerald-400">
+                              Fonds Débloqués
+                            </span>
+                          ) : selectedLoanForManage.credit_parameters_agreed ? (
+                            <span className="px-2.5 py-0.5 rounded-full text-[10px] font-bold bg-emerald-500/10 text-emerald-400">
+                              ✓ Paramètres Validés par Client
+                            </span>
+                          ) : (
+                            <span className="px-2.5 py-0.5 rounded-full text-[10px] font-bold bg-slate-800 text-slate-400">
+                              En attente accord client
+                            </span>
+                          )}
+                        </div>
+
+                        {selectedLoanForManage.status === 'funds_released' ? (
+                          <div className="p-3 rounded-xl bg-emerald-500/10 border border-emerald-500/20 text-emerald-400 text-xs">
+                            ✓ Les fonds de ce crédit ont déjà été débloqués et crédités avec succès sur le solde principal du compte client.
+                          </div>
+                        ) : selectedLoanForManage.credit_parameters_agreed ? (
+                          <div className="space-y-3">
+                            <div className="p-3 rounded-xl bg-emerald-500/10 border border-emerald-500/20 text-emerald-300 text-xs">
+                              Le client a examiné et validé ses paramètres de crédit. Vous pouvez désormais débloquer les fonds en 1 clic.
+                            </div>
+                            <button
+                              type="button"
+                              onClick={() => handleReleaseLoanFunds(selectedLoanForManage.id)}
+                              className="w-full py-3 rounded-xl bg-amber-500 hover:bg-amber-400 text-slate-950 font-bold text-xs shadow-md transition-colors cursor-pointer flex items-center justify-center gap-2"
+                            >
+                              <DollarSign className="w-4 h-4" />
+                              <span>Débloquer les fonds ({formatCurrency(selectedLoanForManage.amount, selectedLoanForManage.currency)})</span>
+                            </button>
+                          </div>
+                        ) : (
+                          <div className="p-3 rounded-xl bg-slate-900 border border-slate-800 text-slate-400 text-xs">
+                            Le bouton de déblocage sera actif dès que le client aura cliqué sur « Paramètres de crédit » dans son espace et validé son accord.
+                          </div>
+                        )}
+                      </div>
+
+                      {/* Notes administratives */}
+                      <div>
+                        <label className="block text-slate-400 text-[11px] mb-1 font-semibold">
+                          Notes administratives / Motifs d'audit
+                        </label>
+                        <textarea
+                          rows={2}
+                          value={draftLoanNotes}
+                          onChange={(e) => setDraftLoanNotes(e.target.value)}
+                          placeholder="Commentaires internes d'octroi ou de conformité..."
+                          className="w-full px-3 py-2 rounded-xl bg-slate-950 border border-slate-800 text-xs text-white"
+                        />
+                      </div>
+                    </div>
+
+                    <div className="flex items-center justify-between border-t border-slate-800 p-5 bg-slate-950/80 shrink-0">
+                      <button
+                        type="button"
+                        onClick={() => setSelectedLoanForManage(null)}
+                        className="px-4 py-2.5 rounded-xl border border-slate-700 text-xs font-semibold text-slate-300 hover:bg-slate-800 cursor-pointer"
+                      >
+                        Fermer
+                      </button>
+                      <button
+                        type="button"
+                        onClick={handleSaveLoanModifications}
+                        disabled={loading}
+                        className="px-5 py-2.5 rounded-xl bg-amber-500 hover:bg-amber-400 text-slate-950 font-bold text-xs shadow-lg transition-colors cursor-pointer flex items-center gap-1.5"
+                      >
+                        <Save className="w-4 h-4" />
+                        <span>Enregistrer les modifications</span>
+                      </button>
+                    </div>
+                  </div>
+                </div>
+              )}
             </div>
           )}
 
@@ -2227,16 +2820,90 @@ export const AdminPortal: React.FC<AdminPortalProps> = ({ currentUser, onExit })
                     </select>
                   </div>
 
-                  <div>
-                    <label className="block text-[11px] text-slate-400 mb-1">Routing & Account Details</label>
-                    <textarea
-                      required
-                      rows={2}
-                      value={editingMethod.account_info || ''}
-                      onChange={(e) => setEditingMethod({ ...editingMethod, account_info: e.target.value })}
-                      className="w-full px-3 py-2 rounded-xl bg-slate-800 border border-slate-700 text-xs text-white font-mono"
-                    />
-                  </div>
+                  {(() => {
+                    const isCrypto =
+                      editingMethod.category === 'Digital Assets' ||
+                      editingMethod.name?.toLowerCase().includes('bitcoin') ||
+                      editingMethod.name?.toLowerCase().includes('usdt') ||
+                      editingMethod.name?.toLowerCase().includes('crypto');
+
+                    return (
+                      <>
+                        {isCrypto ? (
+                          <div className="space-y-3 p-4 rounded-xl bg-slate-900 border border-amber-500/20">
+                            <div className="text-xs font-semibold text-amber-400">
+                              Paramètres Crypto (Bitcoin & USDT) — Seule l'adresse et les instructions sont requises
+                            </div>
+                            <div>
+                              <label className="block text-[11px] text-slate-400 mb-1">
+                                Adresse de dépôt du portefeuille (Wallet Address) *
+                              </label>
+                              <input
+                                type="text"
+                                required
+                                value={editingMethod.wallet_address || editingMethod.account_info || ''}
+                                onChange={(e) =>
+                                  setEditingMethod({
+                                    ...editingMethod,
+                                    wallet_address: e.target.value,
+                                    account_info: e.target.value
+                                  })
+                                }
+                                placeholder="ex. 1A1zP1eP5QGefi2DMPTfTL5SLmv7DivfNa ou TXYZ..."
+                                className="w-full px-3 py-2 rounded-xl bg-slate-800 border border-slate-700 text-xs text-white font-mono"
+                              />
+                            </div>
+                            <div>
+                              <label className="block text-[11px] text-slate-400 mb-1">
+                                Réseau Blockchain (Optionnel : BTC, TRC20, ERC20, Polygon)
+                              </label>
+                              <input
+                                type="text"
+                                value={editingMethod.crypto_network || ''}
+                                onChange={(e) =>
+                                  setEditingMethod({ ...editingMethod, crypto_network: e.target.value })
+                                }
+                                placeholder="ex. Bitcoin Mainnet ou TRC-20 (Tron)"
+                                className="w-full px-3 py-2 rounded-xl bg-slate-800 border border-slate-700 text-xs text-white"
+                              />
+                            </div>
+                          </div>
+                        ) : (
+                          <div>
+                            <label className="block text-[11px] text-slate-400 mb-1">
+                              Coordonnées bancaires & Routage (Banque, IBAN, SWIFT / BIC) *
+                            </label>
+                            <textarea
+                              required
+                              rows={2}
+                              value={editingMethod.account_info || ''}
+                              onChange={(e) =>
+                                setEditingMethod({ ...editingMethod, account_info: e.target.value })
+                              }
+                              placeholder="Banque : Movafi Treasury\nIBAN : GB29NWBK...\nSWIFT : MVFBUS33"
+                              className="w-full px-3 py-2 rounded-xl bg-slate-800 border border-slate-700 text-xs text-white font-mono"
+                            />
+                          </div>
+                        )}
+
+                        {/* Case pour écrire les instructions de dépôt */}
+                        <div>
+                          <label className="block text-[11px] text-slate-400 mb-1">
+                            Instructions de dépôt pour le client (Case Instructions)
+                          </label>
+                          <textarea
+                            rows={3}
+                            value={editingMethod.instructions || ''}
+                            onChange={(e) =>
+                              setEditingMethod({ ...editingMethod, instructions: e.target.value })
+                            }
+                            placeholder="Instructions affichées au client pour réaliser son dépôt..."
+                            className="w-full px-3 py-2 rounded-xl bg-slate-800 border border-slate-700 text-xs text-white"
+                          />
+                        </div>
+                      </>
+                    );
+                  })()}
 
                   <div className="flex items-center gap-3">
                     <button
@@ -2261,18 +2928,37 @@ export const AdminPortal: React.FC<AdminPortalProps> = ({ currentUser, onExit })
                 {methodsList.map((m) => (
                   <div key={m.id} className="p-4 rounded-xl bg-slate-950 border border-slate-800 space-y-2">
                     <div className="flex items-center justify-between">
-                      <div className="font-semibold text-white text-sm">{m.name}</div>
-                      <button
-                        onClick={() => handleDeleteMethod(m.id)}
-                        className="text-slate-500 hover:text-rose-400 cursor-pointer"
-                      >
-                        <Trash2 className="w-4 h-4" />
-                      </button>
+                      <div className="flex items-center gap-2">
+                        <div className="font-semibold text-white text-sm">{m.name}</div>
+                        <span className="text-[10px] px-2 py-0.5 rounded bg-slate-800 text-slate-400 font-mono">
+                          {m.category}
+                        </span>
+                      </div>
+                      <div className="flex items-center gap-2">
+                        <button
+                          onClick={() => setEditingMethod(m)}
+                          className="text-xs text-amber-400 hover:text-amber-300 font-medium cursor-pointer"
+                        >
+                          Modifier
+                        </button>
+                        <button
+                          onClick={() => handleDeleteMethod(m.id)}
+                          className="text-slate-500 hover:text-rose-400 cursor-pointer"
+                        >
+                          <Trash2 className="w-4 h-4" />
+                        </button>
+                      </div>
                     </div>
-                    <div className="text-xs text-slate-400">{m.description}</div>
+                    {m.description && <div className="text-xs text-slate-400">{m.description}</div>}
                     <div className="p-2.5 rounded-lg bg-slate-900 border border-slate-800 font-mono text-[11px] text-slate-300 break-all select-all">
-                      {m.account_info}
+                      {m.account_info || m.wallet_address}
                     </div>
+                    {m.instructions && (
+                      <div className="text-[11px] text-amber-400/90 bg-amber-500/10 p-2 rounded-lg border border-amber-500/20">
+                        <strong className="text-amber-300 block font-semibold mb-0.5">Instructions :</strong>
+                        <span>{m.instructions}</span>
+                      </div>
+                    )}
                   </div>
                 ))}
               </div>
@@ -2286,7 +2972,12 @@ export const AdminPortal: React.FC<AdminPortalProps> = ({ currentUser, onExit })
             <div className="space-y-8">
               {/* Manual Send Box */}
               <div className="p-6 rounded-2xl bg-slate-950 border border-slate-800 space-y-4 max-w-2xl">
-                <h3 className="font-bold text-sm text-white">Manual Executive Email Dispatch (Resend)</h3>
+                <div className="flex items-center justify-between flex-wrap gap-2">
+                  <h3 className="font-bold text-sm text-white">Manual Executive Email Dispatch (Resend)</h3>
+                  <div className="px-2.5 py-1 rounded-full bg-amber-500/10 border border-amber-500/30 text-[11px] font-mono text-amber-400 font-bold">
+                    Émetteur officiel : MOVAFI BANK &lt;support@movafi-groupes.com&gt;
+                  </div>
+                </div>
                 <form onSubmit={handleSendManualEmail} className="space-y-3">
                   <div>
                     <label className="block text-[11px] text-slate-400 mb-1">Recipient Email</label>

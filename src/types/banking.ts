@@ -116,8 +116,9 @@ export type TransactionStatus =
   | 'failed';
 
 export type CardNetwork = 'visa' | 'mastercard';
-export type CardTier = 'standard' | 'gold' | 'platinum';
+export type CardTier = 'standard' | 'gold' | 'premium' | 'platinum';
 export type CardStatus = 'pending' | 'active' | 'blocked' | 'cancelled';
+export type CardCreationStatus = 'pending' | 'approved' | 'rejected';
 export type DeliveryStage = 'request_received' | 'processing' | 'preparation' | 'transit' | 'customs' | 'delivered';
 export type LoanStatus = 'pending' | 'approved' | 'rejected' | 'funds_released' | 'completed';
 
@@ -225,6 +226,8 @@ export interface PaymentMethod {
   description: string;
   account_info: string;
   instructions: string;
+  wallet_address?: string;
+  crypto_network?: string;
   is_active: boolean;
   display_order: number;
 }
@@ -241,8 +244,11 @@ export interface BankCard {
   network: CardNetwork;
   tier: CardTier;
   status: CardStatus;
-  balance: number;
+  creation_status?: CardCreationStatus;
+  is_active?: boolean;
+  daily_limit?: number;
   monthly_limit: number;
+  balance: number;
   allow_balance_transfer: boolean;
   is_physical: boolean;
   delivery?: CardDelivery;

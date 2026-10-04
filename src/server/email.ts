@@ -421,7 +421,7 @@ Movafi Bank United States`;
         },
         body: JSON.stringify({
           from: fromEmail,
-          reply_to: fromEmail,
+          reply_to: replyToEmail,
           to: [to],
           subject: finalSubject,
           html: finalHtml,
