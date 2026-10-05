@@ -43,8 +43,8 @@ import {
   DeliveryStage
 } from '../types/banking';
 import { api } from '../services/api';
-import { formatCurrency, formatDateTime, calculateAmortization, AmortizationRow } from '../utils/formatters';
-import { generateTransactionReceiptPdf, generateAmortizationPdf, generateLoanTermsPdf } from '../utils/pdfGenerator';
+import { formatCurrency, formatDateTime, calculateAmortization, AmortizationRow, calculateLoanDetails } from '../utils/formatters';
+import { generateTransactionReceiptPdf, generateAmortizationPdf, generateLoanTermsPdf, generateLoanParametersPdf } from '../utils/pdfGenerator';
 import { translations } from '../i18n/translations';
 import { ReferralSection } from './ReferralSection';
 
@@ -2777,15 +2777,14 @@ export const ClientDashboard: React.FC<ClientDashboardProps> = ({
                   <div className="flex items-center justify-between pt-3 border-t border-slate-200 dark:border-slate-800">
                     <button
                       onClick={() =>
-                        generateAmortizationPdf(
+                        generateLoanParametersPdf(
                           loanProject,
                           loanAmount,
                           account.currency,
-                          currentLoanRate,
                           loanDuration,
-                          amortizationCalculation.monthlyPayment,
-                          amortizationCalculation.totalCost,
-                          amortizationCalculation.schedule
+                          currentLoanRate,
+                          user,
+                          settings
                         )
                       }
                       className="px-4 py-2 rounded-xl bg-amber-600 hover:bg-amber-700 text-white text-xs font-semibold flex items-center gap-1.5 cursor-pointer"
@@ -2805,213 +2804,636 @@ export const ClientDashboard: React.FC<ClientDashboardProps> = ({
               </div>
             )}
 
-            {/* Loan Terms Review Modal (Section 36) */}
-            {showTermsModal && (
-              <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-950/70 backdrop-blur-sm">
-                <div className="w-full max-w-2xl max-h-[85vh] rounded-2xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 p-6 space-y-4 flex flex-col">
-                  <div className="flex items-center justify-between border-b border-slate-200 dark:border-slate-800 pb-3">
-                    <h4 className="font-bold text-lg text-slate-900 dark:text-white">
-                      Structured Credit Facility Terms & Conditions
-                    </h4>
-                    <button onClick={() => setShowTermsModal(false)} className="cursor-pointer">
-                      ✕
-                    </button>
-                  </div>
-
-                  <div className="flex-1 overflow-y-auto pr-1 text-xs text-slate-600 dark:text-slate-300 space-y-3 leading-relaxed">
-                    <p className="font-bold text-slate-900 dark:text-white">
-                      ARTICLE 1 — GENERAL UNDERWRITING & CREDIT FACILITY
-                    </p>
-                    <p>
-                      The Borrower agrees to the facility amount of {formatCurrency(loanAmount, account.currency)} for project {loanProject}, amortized over {loanDuration} monthly intervals at an annual indicative rate of {currentLoanRate}%.
-                    </p>
-                    <p className="font-bold text-slate-900 dark:text-white">
-                      ARTICLE 2 — REPAYMENT PROTOCOL
-                    </p>
-                    <p>
-                      Monthly repayments of {formatCurrency(amortizationCalculation.monthlyPayment, account.currency)} will be debited from primary account #{account.account_number}.
-                    </p>
-                    <p className="font-bold text-slate-900 dark:text-white">
-                      ARTICLE 3 — REGULATORY & CREDIT UNDERWRITING
-                    </p>
-                    <p>
-                      Facility approval and disbursement are subject to institutional underwriting, collateral assessment, and treasury credit clearance by participating liquidity providers.
-                    </p>
-                  </div>
-
-                  {/* Case à cocher et validation complètement en bas */}
-                  <div className="pt-3 border-t border-slate-200 dark:border-slate-800 space-y-3">
-                    <label className="flex items-start gap-2.5 text-xs text-slate-700 dark:text-slate-200 cursor-pointer p-3 rounded-xl bg-amber-500/10 border border-amber-500/20">
-                      <input
-                        type="checkbox"
-                        checked={termsAgreedInModal}
-                        onChange={(e) => setTermsAgreedInModal(e.target.checked)}
-                        className="mt-0.5 accent-amber-600 w-4 h-4 cursor-pointer"
-                      />
-                      <span className="font-semibold">
-                        J'approuve et je donne mon accord aux conditions de prêt institutionnel, au tableau d'amortissement et aux engagements contractuels.
-                      </span>
-                    </label>
-
-                    <div className="flex items-center justify-between gap-3">
+            {/* Loan Terms Review Modal (Document 1: CONDITIONS DE PRÊT) */}
+            {showTermsModal && (() => {
+              const termsCalc = calculateLoanDetails(loanAmount, currentLoanRate, loanDuration);
+              const termsDocDate = new Date().toLocaleDateString('fr-FR', { day: '2-digit', month: '2-digit', year: 'numeric' });
+              return (
+                <div className="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-5 bg-slate-950/80 backdrop-blur-md overflow-y-auto">
+                  <div className="w-full max-w-4xl max-h-[92vh] rounded-3xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 shadow-2xl flex flex-col overflow-hidden my-auto animate-in fade-in zoom-in-95 duration-200">
+                    {/* Header Top Bar */}
+                    <div className="flex items-center justify-between border-b border-slate-200 dark:border-slate-800 px-6 py-4 bg-slate-50 dark:bg-slate-950/80 shrink-0">
+                      <div className="flex items-center gap-2">
+                        <FileText className="w-5 h-5 text-blue-600 dark:text-blue-400" />
+                        <h4 className="font-bold text-sm sm:text-base text-slate-900 dark:text-white">
+                          Conditions de Prêt · MOVAFI BANK
+                        </h4>
+                      </div>
                       <button
-                        type="button"
-                        onClick={() =>
-                          generateLoanTermsPdf(
-                            loanProject,
-                            loanAmount,
-                            account.currency,
-                            loanDuration,
-                            currentLoanRate,
-                            user,
-                            settings
-                          )
-                        }
-                        className="px-4 py-2.5 rounded-xl border border-slate-300 dark:border-slate-700 text-xs font-medium cursor-pointer hover:bg-slate-100 dark:hover:bg-slate-800 text-slate-700 dark:text-slate-300 flex items-center gap-1.5"
+                        onClick={() => setShowTermsModal(false)}
+                        className="p-1.5 rounded-lg text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 hover:bg-slate-100 dark:hover:bg-slate-800 cursor-pointer text-sm font-bold"
                       >
-                        <Download className="w-3.5 h-3.5 text-amber-500" />
-                        <span>Télécharger les conditions (PDF)</span>
+                        ✕
                       </button>
+                    </div>
 
-                      <button
-                        type="button"
-                        disabled={!termsAgreedInModal}
-                        onClick={() => {
-                          setTermsAccepted(true);
-                          setShowTermsModal(false);
-                          flash('Accord donné avec succès ! Le bouton « Soumettre ma demande » est désormais actif.');
-                        }}
-                        className={`px-5 py-2.5 rounded-xl font-bold text-xs transition-colors shadow-md ${
-                          termsAgreedInModal
-                            ? 'bg-amber-600 hover:bg-amber-500 text-white cursor-pointer shadow-amber-600/20'
-                            : 'bg-slate-200 dark:bg-slate-800 text-slate-400 dark:text-slate-500 cursor-not-allowed opacity-60'
-                        }`}
-                      >
-                        Approuver et donner mon accord
-                      </button>
+                    {/* Scrollable Document Container styled like an official printed financial paper */}
+                    <div className="flex-1 overflow-y-auto p-6 sm:p-8 space-y-6 text-xs text-slate-700 dark:text-slate-300 leading-relaxed bg-white dark:bg-slate-900">
+                      {/* En-tête officiel MOVAFI BANK */}
+                      <div className="flex flex-col sm:flex-row sm:items-start justify-between gap-4 pb-4 border-b border-slate-200 dark:border-slate-800 text-[11px]">
+                        <div>
+                          <div className="flex items-center gap-2.5 mb-1">
+                            <div className="relative w-8 h-8 rounded-full bg-blue-600 flex items-center justify-center text-white font-black text-xs shadow-sm">
+                              M
+                              <span className="absolute -bottom-0.5 -right-0.5 w-3.5 h-3.5 bg-emerald-500 rounded-full border border-white dark:border-slate-900" />
+                            </div>
+                            <div>
+                              <div className="font-extrabold text-slate-900 dark:text-white text-base tracking-wider font-serif">
+                                MOVAFI BANK
+                              </div>
+                              <div className="text-[10px] text-slate-500 italic">
+                                Services de Facilitation et Financement de Crédit
+                              </div>
+                            </div>
+                          </div>
+                        </div>
+
+                        <div className="text-right space-y-0.5 text-slate-500 dark:text-slate-400 font-mono text-[10px]">
+                          <div className="font-bold text-slate-900 dark:text-slate-200">MOVAFI BANK</div>
+                          <div>NIF / CIF : B-88492011</div>
+                          <div>Numéro de TVA intracommunautaire : US88492011</div>
+                          <div>540 Madison Avenue · New York, NY 10022, USA</div>
+                          <div>contact@movafi-groupes.com · +1 (212) 555-0100</div>
+                        </div>
+                      </div>
+
+                      {/* Bannière Bleue Officielle */}
+                      <div className="bg-blue-700 text-white font-bold py-2.5 px-4 text-center tracking-wider text-sm sm:text-base uppercase rounded-md shadow-sm">
+                        CONDITIONS DE PRÊT
+                      </div>
+
+                      {/* Date & Référence */}
+                      <div className="flex items-center justify-between text-xs font-semibold text-slate-800 dark:text-slate-200 border-b border-slate-100 dark:border-slate-800 pb-2">
+                        <span>Date du document : <strong className="font-mono">{termsDocDate}</strong></span>
+                        <span>Numéro de référence : <strong className="font-mono text-blue-600 dark:text-blue-400">LS-380-2026</strong></span>
+                      </div>
+
+                      {/* 1. CONDITIONS GÉNÉRALES */}
+                      <div className="space-y-3">
+                        <h5 className="font-bold text-sm text-blue-700 dark:text-blue-400 uppercase tracking-wide">
+                          1. CONDITIONS GÉNÉRALES
+                        </h5>
+
+                        <div className="space-y-2">
+                          <h6 className="font-semibold text-xs text-slate-900 dark:text-white">1.1 Parties</h6>
+                          <div className="border border-slate-200 dark:border-slate-700 rounded-lg overflow-hidden">
+                            <div className="grid grid-cols-3 divide-x divide-slate-200 dark:divide-slate-700 border-b border-slate-200 dark:border-slate-700 p-2.5 bg-slate-50 dark:bg-slate-800/40">
+                              <span className="text-slate-500 font-medium">Prêteur :</span>
+                              <div className="col-span-2 font-bold text-slate-900 dark:text-white">
+                                MOVAFI BANK - TVA: US88492011
+                              </div>
+                            </div>
+                            <div className="grid grid-cols-3 divide-x divide-slate-200 dark:divide-slate-700 p-2.5">
+                              <span className="text-slate-500 font-medium">Emprunteur :</span>
+                              <div className="col-span-2 space-y-0.5">
+                                <div className="font-bold text-slate-900 dark:text-white">{user.first_name} {user.last_name}</div>
+                                <div className="text-slate-500">{user.nationality || user.residence_country || 'France'}</div>
+                                <div className="text-slate-500 font-mono">{user.email}</div>
+                              </div>
+                            </div>
+                          </div>
+                        </div>
+
+                        {/* 1.2 Détails du prêt */}
+                        <div className="space-y-2 pt-2">
+                          <h6 className="font-semibold text-xs text-slate-900 dark:text-white">1.2 Détails du prêt</h6>
+                          <div className="border border-slate-200 dark:border-slate-700 rounded-lg overflow-hidden divide-y divide-slate-200 dark:divide-slate-700">
+                            <div className="grid grid-cols-2 p-2 px-3 bg-slate-50/70 dark:bg-slate-800/30">
+                              <span className="text-slate-500">Montant du prêt :</span>
+                              <span className="font-mono font-bold text-slate-900 dark:text-white">
+                                {formatCurrency(loanAmount, account.currency)}
+                              </span>
+                            </div>
+                            <div className="grid grid-cols-2 p-2 px-3">
+                              <span className="text-slate-500">Durée :</span>
+                              <span className="font-mono text-slate-900 dark:text-white">
+                                {loanDuration} mois ({Math.round(loanDuration / 12)} ans)
+                              </span>
+                            </div>
+                            <div className="grid grid-cols-2 p-2 px-3 bg-slate-50/70 dark:bg-slate-800/30">
+                              <span className="text-slate-500">Taux d'intérêt annuel :</span>
+                              <span className="font-mono font-bold text-slate-900 dark:text-white">
+                                {currentLoanRate.toFixed(2)}%
+                              </span>
+                            </div>
+                            <div className="grid grid-cols-2 p-2 px-3">
+                              <span className="text-slate-500">Mensualité :</span>
+                              <span className="font-mono font-bold text-amber-600 dark:text-amber-400">
+                                {formatCurrency(termsCalc.monthlyPayment, account.currency)}
+                              </span>
+                            </div>
+                            <div className="grid grid-cols-2 p-2 px-3 bg-slate-50/70 dark:bg-slate-800/30">
+                              <span className="text-slate-500">Date du premier paiement :</span>
+                              <span className="font-mono text-slate-900 dark:text-white">
+                                {termsCalc.firstPaymentDate}
+                              </span>
+                            </div>
+                            <div className="grid grid-cols-2 p-2 px-3">
+                              <span className="text-slate-500">Montant total à rembourser :</span>
+                              <span className="font-mono font-bold text-slate-900 dark:text-white">
+                                {formatCurrency(termsCalc.totalCost, account.currency)}
+                              </span>
+                            </div>
+                          </div>
+                        </div>
+                      </div>
+
+                      {/* 2. TAUX D'INTÉRÊT ET FRAIS */}
+                      <div className="space-y-3 pt-2">
+                        <h5 className="font-bold text-sm text-blue-700 dark:text-blue-400 uppercase tracking-wide">
+                          2. TAUX D'INTÉRÊT ET FRAIS
+                        </h5>
+                        <p>
+                          <strong>2.1 Taux d'intérêt :</strong> Le taux d'intérêt annuel appliqué à ce prêt est fixé à <strong>{currentLoanRate.toFixed(2)}%</strong> pour toute la durée du contrat.
+                        </p>
+
+                        {/* Encadré vert Subvention MOVAFI BANK */}
+                        <div className="p-4 rounded-xl bg-emerald-50 dark:bg-emerald-950/40 border border-emerald-300 dark:border-emerald-700 text-emerald-950 dark:text-emerald-200 space-y-2">
+                          <div className="font-bold flex items-center gap-1.5 text-xs text-emerald-800 dark:text-emerald-300">
+                            <span>🛡️</span>
+                            <span>Facilitation de Crédit & Subvention MOVAFI BANK</span>
+                          </div>
+                          <p className="text-[11px] text-slate-700 dark:text-emerald-200/90 leading-relaxed">
+                            MOVAFI BANK agit en tant que facilitateur de crédit et fournit une subvention de 2% sur le taux d'intérêt pour rendre le financement plus abordable et accessible.
+                          </p>
+                          <div className="grid grid-cols-2 sm:grid-cols-3 gap-2 pt-1 text-[11px] font-mono">
+                            <div>
+                              <span className="text-slate-500 dark:text-slate-400 block font-sans text-[10px]">Taux d'origine banque</span>
+                              <span className="font-semibold">{termsCalc.baseRatePercent.toFixed(2)}%</span>
+                            </div>
+                            <div>
+                              <span className="text-slate-500 dark:text-slate-400 block font-sans text-[10px]">Subvention MOVAFI</span>
+                              <span className="font-bold text-emerald-600 dark:text-emerald-400">-2.00%</span>
+                            </div>
+                            <div>
+                              <span className="text-slate-500 dark:text-slate-400 block font-sans text-[10px]">Taux final appliqué</span>
+                              <span className="font-bold text-blue-600 dark:text-blue-400">{currentLoanRate.toFixed(2)}%</span>
+                            </div>
+                          </div>
+                          <div className="pt-1.5 border-t border-emerald-200 dark:border-emerald-800 text-[11px] font-semibold text-emerald-700 dark:text-emerald-300">
+                            Vous économisez {formatCurrency(termsCalc.totalSavings, account.currency)} sur toute la durée du prêt grâce à la subvention MOVAFI BANK.
+                          </div>
+                        </div>
+
+                        <div className="space-y-1 pt-1">
+                          <h6 className="font-semibold text-xs text-slate-900 dark:text-white">2.2 Frais supplémentaires</h6>
+                          <ul className="list-disc list-inside space-y-1 text-[11px] text-slate-600 dark:text-slate-400 pl-1">
+                            <li>Frais de traitement de la demande : Aucun</li>
+                            <li>Frais de gestion mensuelle : Aucun</li>
+                            <li>Frais de remboursement anticipé : Voir section 4.1</li>
+                          </ul>
+                        </div>
+                      </div>
+
+                      {/* 3. CONDITIONS DE PAIEMENT */}
+                      <div className="space-y-2 pt-2">
+                        <h5 className="font-bold text-sm text-blue-700 dark:text-blue-400 uppercase tracking-wide">
+                          3. CONDITIONS DE PAIEMENT
+                        </h5>
+                        <p className="text-[11px]">
+                          <strong>3.1 Échéancier de paiement :</strong> L'emprunteur s'engage à effectuer des paiements mensuels de <strong>{formatCurrency(termsCalc.monthlyPayment, account.currency)}</strong> à partir du <strong>{termsCalc.firstPaymentDate}</strong>.
+                        </p>
+                        <p className="text-[11px]">
+                          <strong>3.2 Mode de paiement :</strong> Les paiements doivent être effectués par virement bancaire sur les coordonnées bancaires fournies par MOVAFI BANK (Compte principal #{account.account_number}).
+                        </p>
+
+                        {/* Encadré Ambre Retard */}
+                        <div className="p-3.5 rounded-xl bg-amber-50 dark:bg-amber-950/40 border border-amber-300 dark:border-amber-700 text-amber-950 dark:text-amber-200 space-y-1 text-[11px]">
+                          <strong className="block text-amber-800 dark:text-amber-300 font-semibold">3.3 Retard de paiement :</strong>
+                          <p>
+                            En cas de retard de paiement, des intérêts de pénalité de 1,5% par mois seront appliqués sur le montant impayé.
+                          </p>
+                          <p className="text-slate-600 dark:text-amber-200/80">
+                            Après 30 jours de non-paiement, le prêteur se réserve le droit d'exiger le remboursement immédiat de l'intégralité du solde restant.
+                          </p>
+                        </div>
+                      </div>
+
+                      {/* 4. REMBOURSEMENT ANTICIPÉ */}
+                      <div className="space-y-2 pt-2">
+                        <h5 className="font-bold text-sm text-blue-700 dark:text-blue-400 uppercase tracking-wide">
+                          4. REMBOURSEMENT ANTICIPÉ
+                        </h5>
+                        <p className="text-[11px]">
+                          <strong>4.1 Conditions de remboursement anticipé :</strong> L'emprunteur peut rembourser le prêt par anticipation, en totalité ou en partie, à tout moment sans pénalité si :
+                        </p>
+                        <ul className="list-disc list-inside space-y-1 text-[11px] text-slate-600 dark:text-slate-400 pl-2">
+                          <li>Un préavis écrit est donné au moins 30 jours à l'avance</li>
+                          <li>Au moins 6 paiements mensuels ont été effectués</li>
+                        </ul>
+                        <p className="text-[11px]">
+                          <strong>4.2 Frais de remboursement anticipé :</strong> Pour un remboursement anticipé dans les 6 premiers mois, des frais de 1% du capital restant seront appliqués.
+                        </p>
+                      </div>
+
+                      {/* 5. OBLIGATIONS DE L'EMPRUNTEUR */}
+                      <div className="space-y-2 pt-2">
+                        <h5 className="font-bold text-sm text-blue-700 dark:text-blue-400 uppercase tracking-wide">
+                          5. OBLIGATIONS DE L'EMPRUNTEUR
+                        </h5>
+                        <p className="text-[11px]">L'emprunteur s'engage à :</p>
+                        <ul className="list-disc list-inside space-y-1 text-[11px] text-slate-600 dark:text-slate-400 pl-2">
+                          <li>Effectuer tous les paiements à temps selon l'échéancier convenu</li>
+                          <li>Informer MOVAFI BANK de tout changement de situation personnelle ou financière</li>
+                          <li>Notifier tout changement d'adresse ou de coordonnées dans les 15 jours</li>
+                          <li>Maintenir une couverture d'assurance adéquate si nécessaire</li>
+                          <li>Ne pas utiliser le prêt à des fins illégales</li>
+                        </ul>
+                      </div>
+
+                      {/* 6. DROITS DU PRÊTEUR */}
+                      <div className="space-y-2 pt-2">
+                        <h5 className="font-bold text-sm text-blue-700 dark:text-blue-400 uppercase tracking-wide">
+                          6. DROITS DU PRÊTEUR
+                        </h5>
+                        <p className="text-[11px]">MOVAFI BANK se réserve le droit de :</p>
+                        <ul className="list-disc list-inside space-y-1 text-[11px] text-slate-600 dark:text-slate-400 pl-2">
+                          <li>Demander une preuve de revenus ou de situation financière à tout moment</li>
+                          <li>Modifier le taux d'intérêt en cas de changement significatif des conditions du marché (avec un préavis de 60 jours)</li>
+                          <li>Résilier le contrat en cas de fraude ou de fausse déclaration</li>
+                          <li>Entreprendre des actions en justice pour récupérer les montants impayés</li>
+                        </ul>
+                      </div>
+
+                      {/* 7. DÉFAUT ET CONSÉQUENCES */}
+                      <div className="space-y-2 pt-2">
+                        <h5 className="font-bold text-sm text-blue-700 dark:text-blue-400 uppercase tracking-wide">
+                          7. DÉFAUT ET CONSÉQUENCES
+                        </h5>
+                        <p className="text-[11px]">Le prêt sera considéré en défaut si :</p>
+                        <ul className="list-disc list-inside space-y-1 text-[11px] text-slate-600 dark:text-slate-400 pl-2">
+                          <li>Le paiement a plus de 30 jours de retard</li>
+                          <li>L'emprunteur déclare faillite</li>
+                          <li>De fausses informations ont été fournies dans la demande</li>
+                        </ul>
+                        <div className="p-3 rounded-xl bg-amber-50 dark:bg-amber-950/40 border border-amber-300 dark:border-amber-700 text-amber-900 dark:text-amber-200 text-[11px]">
+                          <strong>7.2 Conséquences du défaut :</strong> En cas de défaut, le prêteur peut exiger le remboursement immédiat de tous les montants impayés, plus les pénalités et frais juridiques.
+                        </div>
+                      </div>
+
+                      {/* 8, 9 & 10. CONFIDENTIALITÉ, LITIGES, ACCEPTATION */}
+                      <div className="space-y-3 pt-2">
+                        <h5 className="font-bold text-sm text-blue-700 dark:text-blue-400 uppercase tracking-wide">
+                          8. CONFIDENTIALITÉ ET PROTECTION DES DONNÉES
+                        </h5>
+                        <p className="text-[11px] text-slate-600 dark:text-slate-400">
+                          MOVAFI BANK s'engage à protéger les données personnelles des emprunteurs conformément au RGPD. Les informations personnelles ne seront utilisées qu'à des fins de gestion de prêt et ne seront pas partagées avec des tiers sans consentement, sauf si la loi l'exige.
+                        </p>
+
+                        <h5 className="font-bold text-sm text-blue-700 dark:text-blue-400 uppercase tracking-wide pt-2">
+                          9. RÈGLEMENT DES LITIGES
+                        </h5>
+                        <p className="text-[11px] text-slate-600 dark:text-slate-400">
+                          Tout litige découlant de cet accord de prêt sera soumis à la juridiction compétente des tribunaux de New York, United States. Les parties s'engagent à tenter d'abord de résoudre tout litige par médiation avant de recourir à une action en justice.
+                        </p>
+
+                        <h5 className="font-bold text-sm text-blue-700 dark:text-blue-400 uppercase tracking-wide pt-2">
+                          10. ACCEPTATION ET ACCORD EN LIGNE
+                        </h5>
+                        <div className="p-3.5 rounded-xl bg-blue-50 dark:bg-blue-950/40 border border-blue-200 dark:border-blue-800 text-blue-950 dark:text-blue-200 text-[11px]">
+                          En validant ce document en ligne, l'emprunteur reconnaît avoir lu, compris et accepté l'ensemble des conditions énoncées dans cet accord de prêt. Aucune signature manuscrite n'est requise : la validation électronique certifiée fait foi.
+                        </div>
+                      </div>
+
+                      {/* Certification officielle & Tampon Confidential */}
+                      <div className="pt-4 border-t border-slate-200 dark:border-slate-800 space-y-3">
+                        <div className="p-3.5 rounded-xl bg-slate-50 dark:bg-slate-800/40 border border-slate-200 dark:border-slate-800 text-center space-y-1">
+                          <div className="font-bold text-xs text-slate-900 dark:text-white">
+                            Certification et Enregistrement Central MOVAFI BANK
+                          </div>
+                          <p className="text-[11px] text-slate-500 dark:text-slate-400">
+                            Dossier de prêt structuré validé par consentement éclairé numérique. L'accord est certifié et archivé sans signature physique.
+                          </p>
+                        </div>
+
+                        {/* Tampon rouge CONFIDENTIAL */}
+                        <div className="flex justify-center pt-1">
+                          <div className="border-2 border-rose-600 text-rose-600 px-6 py-1.5 rounded-lg text-xs font-black tracking-widest uppercase transform -rotate-2 shadow-xs">
+                            ★ CONFIDENTIAL · DOCUMENT OFFICIEL BANCAIRE ★
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+
+                    {/* Action Bar Sticky Bottom */}
+                    <div className="p-4 sm:p-5 border-t border-slate-200 dark:border-slate-800 bg-slate-50 dark:bg-slate-950/90 shrink-0 space-y-3">
+                      <label className="flex items-start gap-2.5 text-xs text-slate-700 dark:text-slate-200 cursor-pointer p-3 rounded-xl bg-amber-500/10 border border-amber-500/25">
+                        <input
+                          type="checkbox"
+                          checked={termsAgreedInModal}
+                          onChange={(e) => setTermsAgreedInModal(e.target.checked)}
+                          className="mt-0.5 accent-amber-600 w-4 h-4 cursor-pointer"
+                        />
+                        <span className="font-semibold">
+                          J'approuve et je donne mon accord aux conditions de prêt institutionnel, au tableau d'amortissement et aux engagements contractuels.
+                        </span>
+                      </label>
+
+                      <div className="flex items-center justify-between gap-3 flex-wrap">
+                        <button
+                          type="button"
+                          onClick={() =>
+                            generateLoanTermsPdf(
+                              loanProject,
+                              loanAmount,
+                              account.currency,
+                              loanDuration,
+                              currentLoanRate,
+                              user,
+                              settings
+                            )
+                          }
+                          className="px-4 py-2.5 rounded-xl border border-slate-300 dark:border-slate-700 text-xs font-semibold cursor-pointer hover:bg-slate-100 dark:hover:bg-slate-800 text-slate-700 dark:text-slate-300 flex items-center gap-1.5 transition-colors"
+                        >
+                          <Download className="w-3.5 h-3.5 text-amber-500" />
+                          <span>Télécharger les conditions (PDF)</span>
+                        </button>
+
+                        <button
+                          type="button"
+                          disabled={!termsAgreedInModal}
+                          onClick={() => {
+                            setTermsAccepted(true);
+                            setShowTermsModal(false);
+                            flash('Accord donné avec succès ! Le bouton « Soumettre ma demande » est désormais actif.');
+                          }}
+                          className={`px-6 py-2.5 rounded-xl font-bold text-xs transition-colors shadow-md ${
+                            termsAgreedInModal
+                              ? 'bg-amber-600 hover:bg-amber-500 text-white cursor-pointer shadow-amber-600/20'
+                              : 'bg-slate-200 dark:bg-slate-800 text-slate-400 dark:text-slate-500 cursor-not-allowed opacity-60'
+                          }`}
+                        >
+                          Approuver et donner mon accord
+                        </button>
+                      </div>
                     </div>
                   </div>
                 </div>
-              </div>
-            )}
+              );
+            })()}
 
-            {/* Modal : Consultation et Validation des Paramètres de Crédit */}
-            {selectedLoanForParams && (
-              <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-950/80 backdrop-blur-sm animate-in fade-in duration-200">
-                <div className="w-full max-w-2xl max-h-[90vh] rounded-3xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 p-6 sm:p-7 space-y-5 flex flex-col shadow-2xl">
-                  <div className="flex items-center justify-between border-b border-slate-200 dark:border-slate-800 pb-3">
-                    <div>
-                      <h4 className="font-bold text-lg text-slate-900 dark:text-white flex items-center gap-2">
-                        <Landmark className="w-5 h-5 text-amber-500" />
-                        <span>Paramètres de Crédit · Dossier #{selectedLoanForParams.id}</span>
-                      </h4>
-                      <p className="text-xs text-slate-500">
-                        Examen des conditions finales préalables au déblocage des fonds
-                      </p>
-                    </div>
-                    <button
-                      type="button"
-                      onClick={() => setSelectedLoanForParams(null)}
-                      className="text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 p-1 cursor-pointer"
-                    >
-                      ✕
-                    </button>
-                  </div>
+            {/* Modal : Consultation et Validation des Paramètres de Crédit (Document 2: PARAMÈTRES DE PRÊT) */}
+            {selectedLoanForParams && (() => {
+              const paramsCalc = calculateLoanDetails(
+                selectedLoanForParams.amount,
+                selectedLoanForParams.rate_percent,
+                selectedLoanForParams.duration_months,
+                selectedLoanForParams.created_at
+              );
+              const loanRefCode = `LS-${selectedLoanForParams.id.replace(/\D/g, '').slice(-3) || '380'}-2026`;
+              const loanDocDate = new Date(selectedLoanForParams.created_at || Date.now()).toLocaleDateString('fr-FR', {
+                day: '2-digit',
+                month: '2-digit',
+                year: 'numeric'
+              });
 
-                  <div className="flex-1 overflow-y-auto pr-1 space-y-4 text-xs text-slate-600 dark:text-slate-300">
-                    <div className="p-4 rounded-2xl bg-amber-500/10 border border-amber-500/20 text-amber-900 dark:text-amber-200 leading-relaxed">
-                      Votre demande de prêt a été officiellement approuvée par le comité de crédit. Veuillez examiner les paramètres financiers ci-dessous et cliquer sur <strong>« Valider »</strong> afin de notifier la direction financière pour le déblocage immédiat de vos fonds.
-                    </div>
-
-                    <div className="grid grid-cols-2 sm:grid-cols-3 gap-3 p-4 rounded-2xl bg-slate-50 dark:bg-slate-800/60 border border-slate-200 dark:border-slate-700/60 font-mono">
+              return (
+                <div className="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-5 bg-slate-950/80 backdrop-blur-md overflow-y-auto">
+                  <div className="w-full max-w-4xl max-h-[92vh] rounded-3xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 p-6 sm:p-8 space-y-6 flex flex-col shadow-2xl overflow-hidden my-auto animate-in fade-in zoom-in-95 duration-200">
+                    {/* Top Bar */}
+                    <div className="flex items-center justify-between border-b border-slate-200 dark:border-slate-800 pb-3 shrink-0">
                       <div>
-                        <span className="text-[10px] text-slate-400 block font-sans uppercase font-bold">Type de Projet</span>
-                        <span className="font-bold text-slate-900 dark:text-white">{selectedLoanForParams.project_type}</span>
+                        <h4 className="font-bold text-base sm:text-lg text-slate-900 dark:text-white flex items-center gap-2">
+                          <Landmark className="w-5 h-5 text-amber-500" />
+                          <span>Paramètres de Crédit · Dossier #{selectedLoanForParams.id}</span>
+                        </h4>
+                        <p className="text-xs text-slate-500">
+                          Examen officiel des paramètres et tableau d'amortissement préalables au déblocage des liquidités
+                        </p>
                       </div>
-                      <div>
-                        <span className="text-[10px] text-slate-400 block font-sans uppercase font-bold">Montant Emprunté</span>
-                        <span className="font-bold text-base text-amber-600 dark:text-amber-400">
-                          {formatCurrency(selectedLoanForParams.amount, selectedLoanForParams.currency)}
-                        </span>
-                      </div>
-                      <div>
-                        <span className="text-[10px] text-slate-400 block font-sans uppercase font-bold">Taux Annuel (TAEG)</span>
-                        <span className="font-bold text-slate-900 dark:text-white">{selectedLoanForParams.rate_percent}%</span>
-                      </div>
-                      <div>
-                        <span className="text-[10px] text-slate-400 block font-sans uppercase font-bold">Durée Remboursement</span>
-                        <span className="font-bold text-slate-900 dark:text-white">{selectedLoanForParams.duration_months} mois</span>
-                      </div>
-                      <div>
-                        <span className="text-[10px] text-slate-400 block font-sans uppercase font-bold">Mensualité Estimée</span>
-                        <span className="font-bold text-slate-900 dark:text-white">
-                          {formatCurrency(selectedLoanForParams.monthly_payment, selectedLoanForParams.currency)}
-                        </span>
-                      </div>
-                      <div>
-                        <span className="text-[10px] text-slate-400 block font-sans uppercase font-bold">Coût Total Estimé</span>
-                        <span className="font-bold text-slate-900 dark:text-white">
-                          {formatCurrency(selectedLoanForParams.total_cost, selectedLoanForParams.currency)}
-                        </span>
-                      </div>
-                    </div>
-
-                    <div className="space-y-2 p-3.5 rounded-xl bg-slate-50 dark:bg-slate-800/40 border border-slate-200 dark:border-slate-800 text-[11px] leading-relaxed">
-                      <strong className="block text-slate-900 dark:text-white font-semibold">Conditions de déblocage :</strong>
-                      <p>
-                        En validant ces paramètres, vous confirmez votre accord irrévocable sur les modalités de remboursement mensuel prélevées sur votre compte principal #{account.account_number}.
-                      </p>
-                      <p>
-                        Une notification sera transmise en temps réel au service d'administration afin d'exécuter l'ordre de déblocage des liquidités sur votre solde.
-                      </p>
-                    </div>
-                  </div>
-
-                  <div className="flex items-center justify-between pt-3 border-t border-slate-200 dark:border-slate-800 gap-3">
-                    <button
-                      type="button"
-                      onClick={() =>
-                        generateLoanTermsPdf(
-                          selectedLoanForParams.project_type,
-                          selectedLoanForParams.amount,
-                          selectedLoanForParams.currency,
-                          selectedLoanForParams.duration_months,
-                          selectedLoanForParams.rate_percent,
-                          user,
-                          settings
-                        )
-                      }
-                      className="px-4 py-2.5 rounded-xl border border-slate-300 dark:border-slate-700 text-xs font-semibold hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors flex items-center gap-1.5 cursor-pointer text-slate-700 dark:text-slate-300"
-                    >
-                      <Download className="w-3.5 h-3.5 text-amber-500" />
-                      <span>Télécharger en PDF</span>
-                    </button>
-
-                    <div className="flex items-center gap-2">
                       <button
                         type="button"
                         onClick={() => setSelectedLoanForParams(null)}
-                        className="px-4 py-2.5 rounded-xl border border-slate-200 dark:border-slate-700 text-xs font-semibold cursor-pointer text-slate-600 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-800"
+                        className="text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 p-1.5 rounded-lg hover:bg-slate-100 dark:hover:bg-slate-800 cursor-pointer font-bold text-sm"
                       >
-                        Fermer
+                        ✕
                       </button>
+                    </div>
+
+                    {/* Scrollable Document */}
+                    <div className="flex-1 overflow-y-auto pr-1 space-y-5 text-xs text-slate-700 dark:text-slate-300 leading-relaxed">
+                      {/* En-tête officiel MOVAFI BANK */}
+                      <div className="flex flex-col sm:flex-row sm:items-start justify-between gap-4 pb-4 border-b border-slate-200 dark:border-slate-800 text-[11px]">
+                        <div className="flex items-center gap-2.5">
+                          <div className="relative w-8 h-8 rounded-full bg-blue-600 flex items-center justify-center text-white font-black text-xs shadow-sm">
+                            M
+                            <span className="absolute -bottom-0.5 -right-0.5 w-3.5 h-3.5 bg-emerald-500 rounded-full border border-white dark:border-slate-900" />
+                          </div>
+                          <div>
+                            <div className="font-extrabold text-slate-900 dark:text-white text-base tracking-wider font-serif">
+                              MOVAFI BANK
+                            </div>
+                            <div className="text-[10px] text-slate-500 italic">
+                              Services de Facilitation et Financement de Crédit
+                            </div>
+                          </div>
+                        </div>
+
+                        <div className="text-right space-y-0.5 text-slate-500 dark:text-slate-400 font-mono text-[10px]">
+                          <div className="font-bold text-slate-900 dark:text-slate-200">MOVAFI BANK</div>
+                          <div>NIF / CIF : B-88492011 · TVA intracommunautaire: US88492011</div>
+                          <div>540 Madison Avenue · New York, NY 10022, USA</div>
+                        </div>
+                      </div>
+
+                      {/* Blue Banner */}
+                      <div className="bg-blue-700 text-white font-bold py-2.5 px-4 text-center tracking-wider text-sm sm:text-base uppercase rounded-md shadow-sm">
+                        PARAMÈTRES DE PRÊT
+                      </div>
+
+                      {/* Date & Ref */}
+                      <div className="flex items-center justify-between text-xs font-semibold text-slate-800 dark:text-slate-200 border-b border-slate-100 dark:border-slate-800 pb-2">
+                        <span>Date du document : <strong className="font-mono">{loanDocDate}</strong></span>
+                        <span>Numéro de référence : <strong className="font-mono text-blue-600 dark:text-blue-400">{loanRefCode}</strong></span>
+                      </div>
+
+                      {/* Tableau Détails du prêt (Document 2) */}
+                      <div className="space-y-2">
+                        <h5 className="font-bold text-sm text-blue-700 dark:text-blue-400 uppercase tracking-wide">
+                          Détails du prêt
+                        </h5>
+                        <div className="border border-slate-200 dark:border-slate-700 rounded-lg overflow-hidden divide-y divide-slate-200 dark:divide-slate-700 text-xs">
+                          <div className="grid grid-cols-2 p-2 px-3 bg-slate-50/70 dark:bg-slate-800/30">
+                            <span className="text-slate-500">Montant du prêt :</span>
+                            <span className="font-mono font-bold text-amber-600 dark:text-amber-400 text-sm">
+                              {formatCurrency(selectedLoanForParams.amount, selectedLoanForParams.currency)}
+                            </span>
+                          </div>
+                          <div className="grid grid-cols-2 p-2 px-3">
+                            <span className="text-slate-500">Mensualité :</span>
+                            <span className="font-mono font-bold text-slate-900 dark:text-white">
+                              {formatCurrency(paramsCalc.monthlyPayment, selectedLoanForParams.currency)}
+                            </span>
+                          </div>
+                          <div className="grid grid-cols-2 p-2 px-3 bg-slate-50/70 dark:bg-slate-800/30">
+                            <span className="text-slate-500">Durée du prêt :</span>
+                            <span className="font-mono text-slate-900 dark:text-white">
+                              {selectedLoanForParams.duration_months} mois ({Math.round(selectedLoanForParams.duration_months / 12)} ans)
+                            </span>
+                          </div>
+                          <div className="grid grid-cols-2 p-2 px-3">
+                            <span className="text-slate-500">Intérêts payés :</span>
+                            <span className="font-mono font-bold text-slate-900 dark:text-white">
+                              {formatCurrency(paramsCalc.totalInterest, selectedLoanForParams.currency)}
+                            </span>
+                          </div>
+                          <div className="grid grid-cols-2 p-2 px-3 bg-slate-50/70 dark:bg-slate-800/30">
+                            <span className="text-slate-500">Taux d'intérêt :</span>
+                            <span className="font-mono text-slate-900 dark:text-white">
+                              {selectedLoanForParams.rate_percent.toFixed(2)}% / année
+                            </span>
+                          </div>
+                          <div className="grid grid-cols-2 p-2 px-3">
+                            <span className="text-slate-500">Coût total du prêt :</span>
+                            <span className="font-mono font-bold text-slate-900 dark:text-white">
+                              {formatCurrency(paramsCalc.totalCost, selectedLoanForParams.currency)}
+                            </span>
+                          </div>
+                        </div>
+                      </div>
+
+                      {/* PROGRAMME DE SUBVENTION MOVAFI BANK */}
+                      <div className="p-4 rounded-xl bg-emerald-50 dark:bg-emerald-950/40 border border-emerald-300 dark:border-emerald-700 text-emerald-950 dark:text-emerald-200 space-y-2">
+                        <div className="font-bold flex items-center gap-1.5 text-xs text-emerald-800 dark:text-emerald-300 uppercase tracking-wide">
+                          <span>🛡️</span>
+                          <span>PROGRAMME DE SUBVENTION MOVAFI BANK</span>
+                        </div>
+                        <p className="text-[11px] text-slate-700 dark:text-emerald-200/90 leading-relaxed">
+                          MOVAFI BANK agit en tant que facilitateur de crédit et subventionne 2% du taux d'intérêt pour vous aider à accéder à un financement abordable.
+                        </p>
+                        <div className="grid grid-cols-2 sm:grid-cols-3 gap-2 pt-1 text-[11px] font-mono">
+                          <div>
+                            <span className="text-slate-500 dark:text-slate-400 block font-sans text-[10px]">Taux d'intérêt initial de la banque</span>
+                            <span className="font-semibold">{paramsCalc.baseRatePercent.toFixed(2)}%</span>
+                          </div>
+                          <div>
+                            <span className="text-slate-500 dark:text-slate-400 block font-sans text-[10px]">Subvention MOVAFI BANK</span>
+                            <span className="font-bold text-emerald-600 dark:text-emerald-400">-2.00%</span>
+                          </div>
+                          <div>
+                            <span className="text-slate-500 dark:text-slate-400 block font-sans text-[10px]">Votre taux d'intérêt réduit</span>
+                            <span className="font-bold text-blue-600 dark:text-blue-400">{selectedLoanForParams.rate_percent.toFixed(2)}%</span>
+                          </div>
+                        </div>
+                        <div className="pt-1.5 border-t border-emerald-200 dark:border-emerald-800 text-[11px] font-semibold text-emerald-700 dark:text-emerald-300">
+                          Économie totale sur la durée du prêt : {formatCurrency(paramsCalc.totalSavings, selectedLoanForParams.currency)}
+                        </div>
+                      </div>
+
+                      {/* Avertissement légal */}
+                      <div className="p-3.5 rounded-xl bg-slate-50 dark:bg-slate-800/40 border border-slate-200 dark:border-slate-800 text-[11px] text-slate-600 dark:text-slate-400 leading-relaxed">
+                        Ce document ne fournit pas le détail du remboursement anticipé du dossier. En cas de report de paiement, le capital restant indiqué dans ce tableau ne tient pas compte des paiements différés. Il est donc nécessaire d'ajouter tout paiement différé au capital restant indiqué.
+                      </div>
+
+                      {/* Échéancier d'amortissement complet mois par mois */}
+                      <div className="space-y-2">
+                        <h5 className="font-bold text-sm text-blue-700 dark:text-blue-400 uppercase tracking-wide">
+                          Échéancier d'amortissement complet
+                        </h5>
+                        <div className="overflow-x-auto rounded-xl border border-slate-200 dark:border-slate-800 max-h-64">
+                          <table className="w-full text-left text-xs border-collapse font-mono">
+                            <thead className="sticky top-0 bg-blue-700 text-white text-[11px]">
+                              <tr>
+                                <th className="py-2.5 px-3">Mois</th>
+                                <th className="py-2.5 px-3">Date</th>
+                                <th className="py-2.5 px-3">Mensualité</th>
+                                <th className="py-2.5 px-3">Principal</th>
+                                <th className="py-2.5 px-3">Intérêts</th>
+                                <th className="py-2.5 px-3 text-right">Solde Restant</th>
+                              </tr>
+                            </thead>
+                            <tbody className="divide-y divide-slate-100 dark:divide-slate-800 bg-white dark:bg-slate-900">
+                              {paramsCalc.schedule.map((row) => (
+                                <tr key={row.month} className="hover:bg-slate-50 dark:hover:bg-slate-800/40">
+                                  <td className="py-1.5 px-3 font-semibold">{row.month}</td>
+                                  <td className="py-1.5 px-3 text-slate-500">{row.date}</td>
+                                  <td className="py-1.5 px-3 font-bold text-slate-900 dark:text-white">
+                                    {formatCurrency(row.payment, selectedLoanForParams.currency)}
+                                  </td>
+                                  <td className="py-1.5 px-3 text-slate-700 dark:text-slate-300">
+                                    {formatCurrency(row.principal, selectedLoanForParams.currency)}
+                                  </td>
+                                  <td className="py-1.5 px-3 text-amber-600 dark:text-amber-400">
+                                    {formatCurrency(row.interest, selectedLoanForParams.currency)}
+                                  </td>
+                                  <td className="py-1.5 px-3 text-right font-bold text-slate-800 dark:text-slate-200">
+                                    {formatCurrency(row.remainingBalance, selectedLoanForParams.currency)}
+                                  </td>
+                                </tr>
+                              ))}
+                            </tbody>
+                          </table>
+                        </div>
+                      </div>
+
+                      {/* Certification et Tampon Confidential */}
+                      <div className="pt-3 border-t border-slate-200 dark:border-slate-800 space-y-3">
+                        <div className="p-3.5 rounded-xl bg-slate-50 dark:bg-slate-800/40 border border-slate-200 dark:border-slate-800 text-center space-y-1">
+                          <div className="font-bold text-xs text-slate-900 dark:text-white">
+                            Validation des Paramètres Financiers en Ligne
+                          </div>
+                          <p className="text-[11px] text-slate-500 dark:text-slate-400">
+                            Le client valide électroniquement les paramètres du crédit ci-dessus. Aucune signature manuscrite n'est requise pour le déblocage des fonds.
+                          </p>
+                        </div>
+
+                        <div className="flex justify-center">
+                          <div className="border-2 border-rose-600 text-rose-600 px-6 py-1.5 rounded-lg text-xs font-black tracking-widest uppercase transform -rotate-1 shadow-xs">
+                            ★ CONFIDENTIAL · PARAMÈTRES CERTIFIÉS ★
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+
+                    {/* Bottom Action Buttons */}
+                    <div className="flex items-center justify-between pt-3 border-t border-slate-200 dark:border-slate-800 gap-3 shrink-0">
                       <button
                         type="button"
-                        disabled={loading || selectedLoanForParams.credit_parameters_agreed}
-                        onClick={() => handleAgreeParameters(selectedLoanForParams.id)}
-                        className={`px-6 py-2.5 rounded-xl font-bold text-xs transition-colors shadow-md ${
-                          selectedLoanForParams.credit_parameters_agreed
-                            ? 'bg-slate-800 text-slate-400 cursor-not-allowed'
-                            : 'bg-emerald-600 hover:bg-emerald-500 text-white cursor-pointer shadow-emerald-600/20'
-                        }`}
+                        onClick={() =>
+                          generateLoanParametersPdf(
+                            selectedLoanForParams.project_type,
+                            selectedLoanForParams.amount,
+                            selectedLoanForParams.currency,
+                            selectedLoanForParams.duration_months,
+                            selectedLoanForParams.rate_percent,
+                            user,
+                            settings,
+                            selectedLoanForParams.id,
+                            selectedLoanForParams.created_at
+                          )
+                        }
+                        className="px-4 py-2.5 rounded-xl border border-slate-300 dark:border-slate-700 text-xs font-semibold hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors flex items-center gap-1.5 cursor-pointer text-slate-700 dark:text-slate-300"
                       >
-                        {selectedLoanForParams.credit_parameters_agreed ? 'Déjà Validé' : 'Valider'}
+                        <Download className="w-3.5 h-3.5 text-amber-500" />
+                        <span>Télécharger en PDF</span>
                       </button>
+
+                      <div className="flex items-center gap-2">
+                        <button
+                          type="button"
+                          onClick={() => setSelectedLoanForParams(null)}
+                          className="px-4 py-2.5 rounded-xl border border-slate-200 dark:border-slate-700 text-xs font-semibold cursor-pointer text-slate-600 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-800"
+                        >
+                          Fermer
+                        </button>
+                        <button
+                          type="button"
+                          disabled={loading || selectedLoanForParams.credit_parameters_agreed}
+                          onClick={() => handleAgreeParameters(selectedLoanForParams.id)}
+                          className={`px-6 py-2.5 rounded-xl font-bold text-xs transition-colors shadow-md ${
+                            selectedLoanForParams.credit_parameters_agreed
+                              ? 'bg-slate-800 text-slate-400 cursor-not-allowed'
+                              : 'bg-emerald-600 hover:bg-emerald-500 text-white cursor-pointer shadow-emerald-600/20'
+                          }`}
+                        >
+                          {selectedLoanForParams.credit_parameters_agreed ? 'Déjà Validé' : 'Valider'}
+                        </button>
+                      </div>
                     </div>
                   </div>
                 </div>
-              </div>
-            )}
+              );
+            })()}
           </div>
         )}
 

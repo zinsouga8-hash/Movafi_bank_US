@@ -1519,8 +1519,13 @@ apiRouter.get('/admin/accounts', requireAdmin, (req: Request, res: Response) => 
   const page = parseInt(req.query.page as string) || 1;
   const limit = parseInt(req.query.limit as string) || 10;
 
-  let combined = state.accounts.map((acc) => {
-    const prof = state.profiles.find((p) => p.id === acc.profile_id);
+  let combined = state.accounts
+    .filter((acc) => {
+      const prof = state.profiles.find((p) => p.id === acc.profile_id);
+      return prof && !prof.is_admin;
+    })
+    .map((acc) => {
+      const prof = state.profiles.find((p) => p.id === acc.profile_id);
     return {
       account: acc,
       profile: prof ? {

@@ -120,3 +120,58 @@ export function calculateAmortization(
     schedule
   };
 }
+
+export interface DetailedAmortizationRow extends AmortizationRow {
+  date: string;
+}
+
+export interface LoanCalculationDetails {
+  monthlyPayment: number;
+  totalInterest: number;
+  totalCost: number;
+  baseRatePercent: number;
+  subsidyPercent: number;
+  totalSavings: number;
+  firstPaymentDate: string;
+  schedule: DetailedAmortizationRow[];
+}
+
+export function calculateLoanDetails(
+  principal: number,
+  annualRatePercent: number,
+  months: number,
+  startDate?: string | Date
+): LoanCalculationDetails {
+  const subsidyPercent = 2.0;
+  const baseRatePercent = Number((annualRatePercent + subsidyPercent).toFixed(2));
+
+  const subsidizedAmort = calculateAmortization(principal, annualRatePercent, months);
+  const baseAmort = calculateAmortization(principal, baseRatePercent, months);
+
+  const totalSavings = Number(Math.max(0, baseAmort.totalCost - subsidizedAmort.totalCost).toFixed(2));
+
+  const baseDate = startDate ? new Date(startDate) : new Date();
+  const scheduleWithDates: DetailedAmortizationRow[] = subsidizedAmort.schedule.map((row) => {
+    const payDate = new Date(baseDate.getFullYear(), baseDate.getMonth() + row.month, 1);
+    const day = '01';
+    const month = String(payDate.getMonth() + 1).padStart(2, '0');
+    const year = payDate.getFullYear();
+    return {
+      ...row,
+      date: `${day}/${month}/${year}`
+    };
+  });
+
+  const firstDate = scheduleWithDates[0]?.date || '01/12/2026';
+
+  return {
+    monthlyPayment: subsidizedAmort.monthlyPayment,
+    totalInterest: subsidizedAmort.totalInterest,
+    totalCost: subsidizedAmort.totalCost,
+    baseRatePercent,
+    subsidyPercent,
+    totalSavings,
+    firstPaymentDate: firstDate,
+    schedule: scheduleWithDates
+  };
+}
