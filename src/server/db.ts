@@ -193,23 +193,67 @@ function createInitialState(): DatabaseState {
       },
       {
         id: 'pm_003',
-        name: 'Passerelle Actifs Numériques & Stablecoins',
+        name: 'Bitcoin (BTC) - Dépôt Sécurisé',
         category: 'Digital Assets',
-        description: 'Dépôt institutionnel en stablecoins sécurisés (USDC / USDT).',
-        account_info: 'Réseau ERC-20 / TRC-20 vérifié',
-        instructions: 'Génération de l\'adresse de dépôt dédiée sur confirmation de conformité.',
+        description: 'Dépôt direct de Bitcoin sécurisé sur le cold storage de la trésorerie Movafi.',
+        account_info: 'bc1qar0srrr7xfkvy5l643lydnw9re59gtzzwf5mdq',
+        wallet_address: 'bc1qar0srrr7xfkvy5l643lydnw9re59gtzzwf5mdq',
+        crypto_network: 'Bitcoin Mainnet',
+        instructions: 'Envoyez uniquement des BTC sur cette adresse. Le crédit sera effectif après 2 confirmations du réseau.',
         is_active: true,
         display_order: 3
       },
       {
         id: 'pm_004',
+        name: 'USDT (Tether USD - TRC-20)',
+        category: 'Digital Assets',
+        description: 'Dépôt direct de stablecoins Tether (USDT) avec frais de réseau réduits.',
+        account_info: 'TX7n9QZkMvd8L7bY8P92U9dK3Z4aM1qW8x',
+        wallet_address: 'TX7n9QZkMvd8L7bY8P92U9dK3Z4aM1qW8x',
+        crypto_network: 'TRC-20 (Tron Network)',
+        instructions: 'Veillez à sélectionner impérativement le réseau TRC-20 (Tron) lors du transfert pour éviter toute perte de fonds.',
+        is_active: true,
+        display_order: 4
+      },
+      {
+        id: 'pm_005',
+        name: 'PayPal International',
+        category: 'Fintech',
+        description: 'Règlement instantané via solde PayPal vérifié ou carte liée.',
+        account_info: 'paypal-treasury@movafi-groupes.com',
+        instructions: 'Transférez le montant à notre compte trésorerie PayPal en indiquant votre Identifiant Client (Client ID) dans la note.',
+        is_active: true,
+        display_order: 5
+      },
+      {
+        id: 'pm_006',
+        name: 'MoneyGram International',
+        category: 'Cash / Agency',
+        description: 'Transfert international d\'espèces ou en ligne via le réseau MoneyGram.',
+        account_info: 'Bénéficiaire : MOVAFI BANK TREASURY DESK / Agent Code : MG-994021',
+        instructions: 'Rendez-vous dans une agence MoneyGram ou sur le portail en ligne. Indiquez le code référence de la transaction après envoi.',
+        is_active: true,
+        display_order: 6
+      },
+      {
+        id: 'pm_007',
+        name: 'Western Union International',
+        category: 'Cash / Agency',
+        description: 'Envoi d\'argent rapide et sécurisé via le réseau Western Union mondial.',
+        account_info: 'Bénéficiaire : MOVAFI TREASURY SERVICES / MTCN Tracking Required',
+        instructions: 'Après transmission des fonds, déclarez le numéro de contrôle MTCN à 10 chiffres dans le formulaire de déclaration.',
+        is_active: true,
+        display_order: 7
+      },
+      {
+        id: 'pm_008',
         name: 'Service Conciergerie Privée & Dépôt Agence',
         category: 'Cash / Agency',
         description: 'Prise en charge personnalisée et dépôt haute sécurité en agence privée.',
         account_info: 'Desk Privé: 540 Madison Avenue, New York, NY 10022',
         instructions: 'Prenez contact avec votre banquier privé dédié pour planifier votre dépôt.',
         is_active: true,
-        display_order: 4
+        display_order: 8
       }
     ],
     cards: [],

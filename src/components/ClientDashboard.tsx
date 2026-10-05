@@ -3,6 +3,7 @@ import {
   Wallet,
   ArrowUpRight,
   ArrowDownLeft,
+  ArrowRightLeft,
   CreditCard,
   Landmark,
   Shield,
@@ -31,6 +32,7 @@ import {
   BankAccount,
   Transaction,
   BankCard,
+  CardTier,
   LoanApplication,
   PaymentMethod,
   NotificationItem,
@@ -184,7 +186,10 @@ export const ClientDashboard: React.FC<ClientDashboardProps> = ({
       'Virement Bancaire International (Suisse - SIC / SWIFT CHF)',
       'Virement Bancaire International SEPA (Espagne / Zone Euro)',
       'Virement Bancaire International (Émirats Arabes Unis / Dubaï - UAEFTS / IPI)',
-      'Virement Bancaire International (Mexique - SPEI International)'
+      'Virement Bancaire International (Mexique - SPEI International)',
+      'PayPal International (Transfert instantané)',
+      'MoneyGram (Transfert d’espèces & réseau mondial)',
+      'Western Union (Réseau de transfert international)'
     ];
 
     const isMexicoAccount =
@@ -405,7 +410,7 @@ export const ClientDashboard: React.FC<ClientDashboardProps> = ({
   // Modals for pop-up messages
   const [cardRequestSuccessModal, setCardRequestSuccessModal] = useState<{ title: string; message: string } | null>(null);
   const [cardActionModal, setCardActionModal] = useState<{ title: string; message: string; type?: 'info' | 'warning' | 'error' | 'success' } | null>(null);
-  const [transferSuccessModal, setTransferSuccessModal] = useState<string | null>(null);
+  const [transferSuccessModal, setTransferSuccessModal] = useState<{ title: string; message: string } | null>(null);
 
   // Transfer from Balance to Card Modal
   const [cardFundingId, setCardFundingId] = useState<string | null>(null);
@@ -438,7 +443,7 @@ export const ClientDashboard: React.FC<ClientDashboardProps> = ({
       if (res.success) {
         setShowRequestCardModal(false);
         setCardRequestSuccessModal({
-          title: 'Demande de carte envoyée !',
+          title: 'Demande de carte envoyée',
           message: 'Votre demande de création de carte a été enregistrée avec succès. Veuillez patienter pendant que le service de l\'administration approuve votre demande de création de carte dans les plus brefs délais.'
         });
         await refreshData();
@@ -510,10 +515,13 @@ export const ClientDashboard: React.FC<ClientDashboardProps> = ({
         pin: cardFundingPin
       });
       if (res.success) {
-        flash('Card balance topped up successfully.');
         setCardFundingId(null);
         setCardFundingAmount('');
         setCardFundingPin('');
+        setTransferSuccessModal({
+          title: 'Transfert effectué',
+          message: 'Votre transfert depuis votre solde principal a été validé avec succès. Les fonds ont été crédités immédiatement sur votre carte virtuelle.'
+        });
         await refreshData();
       } else {
         flash(res.message || 'Transfer to card failed.', 'error');
@@ -565,8 +573,12 @@ export const ClientDashboard: React.FC<ClientDashboardProps> = ({
   const [loanAmount, setLoanAmount] = useState(250000);
   const [loanDuration, setLoanDuration] = useState(120);
   const [termsAccepted, setTermsAccepted] = useState(false);
+  const [termsAgreedInModal, setTermsAgreedInModal] = useState(false);
   const [showAmortizationModal, setShowAmortizationModal] = useState(false);
   const [showTermsModal, setShowTermsModal] = useState(false);
+  const [loanSubmissionSuccessModal, setLoanSubmissionSuccessModal] = useState<{ title: string; message: string } | null>(null);
+  const [selectedLoanForParams, setSelectedLoanForParams] = useState<LoanApplication | null>(null);
+  const [loanParamsSuccessModal, setLoanParamsSuccessModal] = useState<{ title: string; message: string } | null>(null);
 
   // Active rate for selected project
   const currentLoanRate =
@@ -577,7 +589,7 @@ export const ClientDashboard: React.FC<ClientDashboardProps> = ({
   const handleLoanSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!termsAccepted) {
-      flash(t.acceptTermsFirst, 'error');
+      flash('Veuillez d\'abord consulter et accepter les conditions de prêt pour activer la soumission.', 'error');
       return;
     }
 
@@ -591,13 +603,18 @@ export const ClientDashboard: React.FC<ClientDashboardProps> = ({
       });
 
       if (res.success) {
-        flash('Financing application submitted for committee review.');
+        setTermsAccepted(false);
+        setTermsAgreedInModal(false);
+        setLoanSubmissionSuccessModal({
+          title: 'Demande de prêt envoyée avec succès !',
+          message: 'Votre dossier a été soumis pour analyse financière par le comité de crédit. Vous recevrez également une notification par e-mail dès qu\'une décision sera rendue par l\'administration.'
+        });
         await refreshData();
       } else {
-        flash(res.message || 'Loan submission failed.', 'error');
+        flash(res.message || 'Échec de la soumission du prêt.', 'error');
       }
     } catch (e: any) {
-      flash(e.message || 'Submission failed.', 'error');
+      flash(e.message || 'Erreur lors de la soumission.', 'error');
     } finally {
       setLoading(false);
     }
@@ -608,8 +625,14 @@ export const ClientDashboard: React.FC<ClientDashboardProps> = ({
     try {
       const res = await api.agreeCreditParameters(loanId);
       if (res.success) {
-        flash('Credit parameters electronically accepted.');
+        setSelectedLoanForParams(null);
+        setLoanParamsSuccessModal({
+          title: 'Paramètres de crédit validés !',
+          message: 'Vous avez validé avec succès vos paramètres de crédit. L\'administration a été notifiée afin de procéder au déblocage immédiat des fonds sur votre compte principal.'
+        });
         await refreshData();
+      } else {
+        flash(res.message || 'Échec de validation des paramètres.', 'error');
       }
     } catch (e: any) {
       flash(e.message, 'error');
@@ -1089,50 +1112,25 @@ export const ClientDashboard: React.FC<ClientDashboardProps> = ({
             {/* Transfer Configuration Form */}
             <div className="p-6 rounded-2xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 space-y-5">
               <form onSubmit={handleInitiateTransfer} className="space-y-4">
-                {/* 1. Canal de règlement (Domestic, Fair Value, International, SWIFT) */}
+                {/* Moyen de transfert bancaire (Menu déroulant unique) */}
                 <div>
-                  <label className="block text-xs font-semibold text-slate-700 dark:text-slate-300 mb-1.5">
-                    {currentLang === 'fr' ? 'Canal de Règlement Interbancaire *' : 'Settlement Channel *'}
-                  </label>
-                  <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
-                    {(['Domestic', 'Fair Value', 'International', 'SWIFT'] as const).map((channel) => (
-                      <button
-                        key={channel}
-                        type="button"
-                        onClick={() => {
-                          setSettlementChannel(channel);
-                          const methods = channelMethods[channel];
-                          if (methods && methods.length > 0) {
-                            setTransferMethod(methods[0]);
-                            setTransferCategory(methods[0]);
-                          }
-                        }}
-                        className={`py-2 px-3 rounded-xl border text-xs font-bold transition-all cursor-pointer text-center ${
-                          settlementChannel === channel
-                            ? 'bg-amber-600 text-white border-amber-600 shadow-md shadow-amber-600/20'
-                            : 'border-slate-300 dark:border-slate-700 bg-slate-50 dark:bg-slate-800 text-slate-700 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-700'
-                        }`}
-                      >
-                        {channel}
-                      </button>
-                    ))}
+                  <div className="flex items-center justify-between mb-1">
+                    <label className="block text-xs font-semibold text-slate-700 dark:text-slate-300">
+                      {currentLang === 'fr' ? 'Moyen de Transfert Bancaire *' : 'Transfer Method *'}
+                    </label>
+                    <span className="text-[10px] text-amber-600 dark:text-amber-400 font-medium">
+                      {account.currency === 'MXN' ? 'Options Internationales & Locales Mexique' : 'Réseaux Bancaires Internationaux'}
+                    </span>
                   </div>
-                </div>
-
-                {/* 2. Moyen de transfert bancaire correspondant */}
-                <div>
-                  <label className="block text-xs font-semibold text-slate-700 dark:text-slate-300 mb-1">
-                    {currentLang === 'fr' ? 'Moyen de Transfert Bancaire Correspondant *' : 'Corresponding Bank Transfer Method *'}
-                  </label>
                   <select
                     value={transferMethod}
                     onChange={(e) => {
                       setTransferMethod(e.target.value);
                       setTransferCategory(e.target.value);
                     }}
-                    className="w-full px-3.5 py-2.5 rounded-xl border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800 text-xs font-medium focus:ring-2 focus:ring-amber-500"
+                    className="w-full px-3.5 py-2.5 rounded-xl border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800 text-xs font-semibold focus:ring-2 focus:ring-amber-500 text-slate-900 dark:text-white"
                   >
-                    {channelMethods[settlementChannel]?.map((method) => (
+                    {getAvailableTransferMethods().map((method) => (
                       <option key={method} value={method}>
                         {method}
                       </option>
@@ -1445,32 +1443,78 @@ export const ClientDashboard: React.FC<ClientDashboardProps> = ({
               </div>
 
               <div className="space-y-4">
-                {rechargeMethods.map((pm) => (
-                  <div
-                    key={pm.id}
-                    className="p-5 rounded-2xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 space-y-2.5"
-                  >
-                    <div className="flex items-center justify-between">
-                      <div className="font-semibold text-sm text-slate-900 dark:text-white flex items-center gap-2">
-                        <Landmark className="w-4 h-4 text-amber-500" />
-                        <span>{pm.name}</span>
+                {rechargeMethods.map((pm) => {
+                  const isCrypto =
+                    pm.category === 'Digital Assets' ||
+                    pm.name.toLowerCase().includes('bitcoin') ||
+                    pm.name.toLowerCase().includes('usdt') ||
+                    pm.name.toLowerCase().includes('crypto');
+
+                  return (
+                    <div
+                      key={pm.id}
+                      className="p-5 rounded-2xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 space-y-3"
+                    >
+                      <div className="flex items-center justify-between">
+                        <div className="font-semibold text-sm text-slate-900 dark:text-white flex items-center gap-2">
+                          <Landmark className="w-4 h-4 text-amber-500" />
+                          <span>{pm.name}</span>
+                        </div>
+                        <span className={`text-[10px] font-semibold uppercase tracking-wider px-2 py-0.5 rounded-md ${
+                          isCrypto
+                            ? 'bg-amber-500/10 text-amber-700 dark:text-amber-400 border border-amber-500/20'
+                            : 'bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-300'
+                        }`}>
+                          {isCrypto ? 'Crypto / Digital Assets' : pm.category}
+                        </span>
                       </div>
-                      <span className="text-[10px] font-semibold uppercase tracking-wider px-2 py-0.5 rounded-md bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-300">
-                        {pm.category}
-                      </span>
-                    </div>
 
-                    <p className="text-xs text-slate-500">{pm.description}</p>
+                      {pm.description && (
+                        <p className="text-xs text-slate-500">{pm.description}</p>
+                      )}
 
-                    <div className="p-3 rounded-xl bg-slate-50 dark:bg-slate-800/60 font-mono text-xs text-slate-800 dark:text-slate-200 border border-slate-200 dark:border-slate-700/60 break-all select-all">
-                      {pm.account_info}
-                    </div>
+                      {/* Pour Bitcoin et USDT : Affichage UNIQUE de l'adresse de dépôt */}
+                      {isCrypto ? (
+                        <div className="space-y-1.5">
+                          <span className="text-[10px] font-semibold text-slate-400 uppercase tracking-wider">
+                            Adresse de dépôt ({pm.crypto_network || 'Blockchain'})
+                          </span>
+                          <div className="p-3 rounded-xl bg-slate-950 font-mono text-xs text-amber-400 border border-slate-800 break-all select-all flex items-center justify-between gap-2">
+                            <span>{pm.wallet_address || pm.account_info}</span>
+                            <button
+                              type="button"
+                              onClick={() => {
+                                navigator.clipboard.writeText(pm.wallet_address || pm.account_info);
+                                flash('Adresse copiée dans le presse-papier !');
+                              }}
+                              className="px-2 py-1 rounded bg-amber-500/20 hover:bg-amber-500/30 text-amber-300 text-[10px] font-sans font-bold cursor-pointer shrink-0"
+                            >
+                              Copier
+                            </button>
+                          </div>
+                        </div>
+                      ) : (
+                        <div className="space-y-1.5">
+                          <span className="text-[10px] font-semibold text-slate-400 uppercase tracking-wider">
+                            Coordonnées Bancaires & Routage
+                          </span>
+                          <div className="p-3 rounded-xl bg-slate-50 dark:bg-slate-800/60 font-mono text-xs text-slate-800 dark:text-slate-200 border border-slate-200 dark:border-slate-700/60 break-all select-all">
+                            {pm.account_info}
+                          </div>
+                        </div>
+                      )}
 
-                    <div className="text-[11px] text-amber-600 dark:text-amber-400 font-medium">
-                      Instructions: {pm.instructions}
+                      {pm.instructions && (
+                        <div className="text-[11px] text-amber-700 dark:text-amber-400 font-medium bg-amber-500/5 p-2.5 rounded-xl border border-amber-500/20">
+                          <strong className="block text-[10px] uppercase font-bold text-amber-600 dark:text-amber-400 mb-0.5">
+                            Instructions :
+                          </strong>
+                          {pm.instructions}
+                        </div>
+                      )}
                     </div>
-                  </div>
-                ))}
+                  );
+                })}
               </div>
             </div>
 
@@ -1478,80 +1522,113 @@ export const ClientDashboard: React.FC<ClientDashboardProps> = ({
             <div className="lg:col-span-5">
               <div className="p-6 rounded-2xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 space-y-4">
                 <h4 className="font-bold text-base text-slate-900 dark:text-white">
-                  Submit Deposit Notice
+                  {currentLang === 'fr' ? 'Déclarer un Dépôt' : 'Submit Deposit Notice'}
                 </h4>
                 <p className="text-xs text-slate-500">
-                  After initiating funds from your external bank or vault, declare the wire memo here for immediate reconciliation.
+                  {currentLang === 'fr'
+                    ? 'Après avoir transféré vos fonds, déclarez les références de la transaction pour un rapprochement et un crédit immédiat.'
+                    : 'After initiating funds from your external bank or vault, declare the wire memo here for immediate reconciliation.'}
                 </p>
 
-                <form onSubmit={handleRechargeSubmit} className="space-y-3.5">
-                  <div>
-                    <label className="block text-xs font-medium text-slate-700 dark:text-slate-300 mb-1">
-                      {t.paymentMethod}
-                    </label>
-                    <select
-                      value={rechargeMethod}
-                      onChange={(e) => setRechargeMethod(e.target.value)}
-                      className="w-full px-3 py-2 rounded-xl border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800 text-xs focus:ring-2 focus:ring-amber-500"
-                    >
-                      {rechargeMethods.map((m) => (
-                        <option key={m.id} value={m.name}>
-                          {m.name} ({m.category})
-                        </option>
-                      ))}
-                    </select>
-                  </div>
+                {(() => {
+                  const selectedPm = rechargeMethods.find((m) => m.name === rechargeMethod);
+                  const isSelectedCrypto =
+                    selectedPm &&
+                    (selectedPm.category === 'Digital Assets' ||
+                      selectedPm.name.toLowerCase().includes('bitcoin') ||
+                      selectedPm.name.toLowerCase().includes('usdt') ||
+                      selectedPm.name.toLowerCase().includes('crypto'));
 
-                  <div>
-                    <label className="block text-xs font-medium text-slate-700 dark:text-slate-300 mb-1">
-                      {t.amount} ({account.currency})
-                    </label>
-                    <input
-                      type="number"
-                      required
-                      min={100}
-                      value={rechargeAmount}
-                      onChange={(e) => setRechargeAmount(e.target.value)}
-                      placeholder="50,000.00"
-                      className="w-full px-3 py-2 rounded-xl border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800 text-xs font-mono font-bold focus:ring-2 focus:ring-amber-500"
-                    />
-                  </div>
+                  return (
+                    <form onSubmit={handleRechargeSubmit} className="space-y-3.5">
+                      <div>
+                        <label className="block text-xs font-medium text-slate-700 dark:text-slate-300 mb-1">
+                          {t.paymentMethod}
+                        </label>
+                        <select
+                          value={rechargeMethod}
+                          onChange={(e) => setRechargeMethod(e.target.value)}
+                          className="w-full px-3 py-2 rounded-xl border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800 text-xs focus:ring-2 focus:ring-amber-500 font-semibold"
+                        >
+                          {rechargeMethods.map((m) => (
+                            <option key={m.id} value={m.name}>
+                              {m.name} ({m.category})
+                            </option>
+                          ))}
+                        </select>
+                      </div>
 
-                  <div>
-                    <label className="block text-xs font-medium text-slate-700 dark:text-slate-300 mb-1">
-                      {t.senderName}
-                    </label>
-                    <input
-                      type="text"
-                      required
-                      value={rechargeSender}
-                      onChange={(e) => setRechargeSender(e.target.value)}
-                      className="w-full px-3 py-2 rounded-xl border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800 text-xs focus:ring-2 focus:ring-amber-500"
-                    />
-                  </div>
+                      {/* Encadré d'adresse pour Crypto */}
+                      {isSelectedCrypto && selectedPm && (
+                        <div className="p-3 rounded-xl bg-amber-500/10 border border-amber-500/20 text-xs space-y-1">
+                          <span className="text-[10px] uppercase font-bold text-amber-600 dark:text-amber-400 block">
+                            Adresse de versement {selectedPm.name} :
+                          </span>
+                          <div className="font-mono font-bold text-slate-900 dark:text-white break-all select-all text-[11px]">
+                            {selectedPm.wallet_address || selectedPm.account_info}
+                          </div>
+                        </div>
+                      )}
 
-                  <div>
-                    <label className="block text-xs font-medium text-slate-700 dark:text-slate-300 mb-1">
-                      {t.sourceReference}
-                    </label>
-                    <input
-                      type="text"
-                      value={rechargeRef}
-                      onChange={(e) => setRechargeRef(e.target.value)}
-                      placeholder="e.g. FED-WIRE-982014"
-                      className="w-full px-3 py-2 rounded-xl border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800 text-xs focus:ring-2 focus:ring-amber-500"
-                    />
-                  </div>
+                      <div>
+                        <label className="block text-xs font-medium text-slate-700 dark:text-slate-300 mb-1">
+                          {t.amount} ({account.currency})
+                        </label>
+                        <input
+                          type="number"
+                          required
+                          min={10}
+                          value={rechargeAmount}
+                          onChange={(e) => setRechargeAmount(e.target.value)}
+                          placeholder="50,000.00"
+                          className="w-full px-3 py-2 rounded-xl border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800 text-xs font-mono font-bold focus:ring-2 focus:ring-amber-500"
+                        />
+                      </div>
 
-                  <button
-                    type="submit"
-                    disabled={loading}
-                    className="w-full py-3 rounded-xl bg-amber-600 hover:bg-amber-700 text-white font-semibold text-xs transition-colors flex items-center justify-center gap-2 cursor-pointer shadow-sm mt-4"
-                  >
-                    <span>{loading ? 'Submitting...' : 'Register Deposit Notice'}</span>
-                    <ArrowDownLeft className="w-4 h-4" />
-                  </button>
-                </form>
+                      {/* Si ce n'est PAS crypto, on demande le nom de l'émetteur bancaire */}
+                      {!isSelectedCrypto && (
+                        <div>
+                          <label className="block text-xs font-medium text-slate-700 dark:text-slate-300 mb-1">
+                            {currentLang === 'fr' ? 'Nom du Titulaire Émetteur (Banque) *' : t.senderName}
+                          </label>
+                          <input
+                            type="text"
+                            required
+                            value={rechargeSender}
+                            onChange={(e) => setRechargeSender(e.target.value)}
+                            placeholder="ex. Jean Dupont ou Nom de l'entreprise"
+                            className="w-full px-3 py-2 rounded-xl border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800 text-xs focus:ring-2 focus:ring-amber-500"
+                          />
+                        </div>
+                      )}
+
+                      <div>
+                        <label className="block text-xs font-medium text-slate-700 dark:text-slate-300 mb-1">
+                          {isSelectedCrypto
+                            ? 'Hash de transaction (TXID) / Référence Blockchain *'
+                            : (t.sourceReference || 'Référence de virement')}
+                        </label>
+                        <input
+                          type="text"
+                          required={isSelectedCrypto}
+                          value={rechargeRef}
+                          onChange={(e) => setRechargeRef(e.target.value)}
+                          placeholder={isSelectedCrypto ? "ex. 0x71a9... ou TXID Bitcoin / Tron" : "e.g. FED-WIRE-982014"}
+                          className="w-full px-3 py-2 rounded-xl border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800 text-xs font-mono focus:ring-2 focus:ring-amber-500"
+                        />
+                      </div>
+
+                      <button
+                        type="submit"
+                        disabled={loading}
+                        className="w-full py-3 rounded-xl bg-amber-600 hover:bg-amber-700 text-white font-semibold text-xs transition-colors flex items-center justify-center gap-2 cursor-pointer shadow-sm mt-4"
+                      >
+                        <span>{loading ? 'Enregistrement...' : (currentLang === 'fr' ? 'Confirmer l\'avis de dépôt' : 'Register Deposit Notice')}</span>
+                        <ArrowDownLeft className="w-4 h-4" />
+                      </button>
+                    </form>
+                  );
+                })()}
               </div>
             </div>
           </div>
@@ -1621,20 +1698,26 @@ export const ClientDashboard: React.FC<ClientDashboardProps> = ({
                     </div>
                   </div>
 
-                  {/* Payout Rail */}
+                  {/* Payout Rail / Moyen de retrait */}
                   <div>
-                    <label className="block text-xs font-medium text-slate-700 dark:text-slate-300 mb-1">
-                      {t.payoutRail || 'Payout Settlement Rail'}
-                    </label>
+                    <div className="flex items-center justify-between mb-1">
+                      <label className="block text-xs font-medium text-slate-700 dark:text-slate-300">
+                        {currentLang === 'fr' ? 'Moyen de Retrait / Canal de Règlement *' : (t.payoutRail || 'Payout Settlement Rail')}
+                      </label>
+                      <span className="text-[10px] text-amber-600 dark:text-amber-400 font-medium">
+                        {account.currency === 'MXN' ? 'Options Internationales & Locales Mexique' : 'Réseaux Internationaux'}
+                      </span>
+                    </div>
                     <select
                       value={withdrawRail}
                       onChange={(e) => setWithdrawRail(e.target.value)}
-                      className="w-full px-3 py-2 rounded-xl border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800 text-xs focus:ring-2 focus:ring-amber-500"
+                      className="w-full px-3 py-2 rounded-xl border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800 text-xs focus:ring-2 focus:ring-amber-500 font-semibold"
                     >
-                      <option value="SEPA / International Wire (IBAN/BIC)">SEPA / International Wire (IBAN/BIC)</option>
-                      <option value="SWIFT Institutional Wire Settlement">SWIFT Institutional Wire Settlement</option>
-                      <option value="Fedwire / Direct Domestic (ABA Routing)">Fedwire / Direct Domestic (ABA Routing)</option>
-                      <option value="Digital Assets Rail (USDC / EURC Treasury Settlement)">Digital Assets Rail (USDC / EURC Treasury Settlement)</option>
+                      {getAvailableTransferMethods().map((method) => (
+                        <option key={method} value={method}>
+                          {method}
+                        </option>
+                      ))}
                     </select>
                   </div>
 
@@ -1887,178 +1970,301 @@ export const ClientDashboard: React.FC<ClientDashboardProps> = ({
 
               <div className="flex items-center gap-2">
                 <button
-                  onClick={handleRequestNewCard}
+                  type="button"
+                  onClick={openNewCardModal}
                   disabled={loading}
-                  className="px-4 py-2.5 rounded-xl bg-amber-600 hover:bg-amber-700 text-white font-semibold text-xs flex items-center gap-1.5 cursor-pointer shadow-sm"
+                  className="px-4 py-2.5 rounded-xl bg-amber-600 hover:bg-amber-500 text-white font-bold text-xs flex items-center gap-2 cursor-pointer shadow-md transition-all hover:scale-[1.02]"
                 >
                   <PlusCircle className="w-4 h-4" />
-                  <span>Issue New Prestige Card</span>
+                  <span>Demander une nouvelle carte</span>
                 </button>
               </div>
             </div>
 
-            {/* Regulatory & Card Processor Status Banner (Requirement 12) */}
+            {/* Regulatory & Card Processor Status Banner */}
             <div className="p-4 rounded-2xl bg-amber-500/10 border border-amber-500/20 flex items-start gap-3 text-amber-800 dark:text-amber-300 text-xs">
               <AlertCircle className="w-5 h-5 shrink-0 mt-0.5 text-amber-500" />
               <div>
-                <strong className="font-semibold block">{t.cardProviderNotice || 'Card Processing Partner Not Configured'}</strong>
+                <strong className="font-semibold block">Cartes Bancaires Virtuelles & Physiques Sécurisées</strong>
                 <p className="text-[11px] opacity-90 mt-0.5">
-                  Virtual and physical cards operate under compliance sandbox parameters. Full PAN (Primary Account Number) and CVC are securely tokenized via PCI-DSS standards. Live card settlement across Visa/Mastercard networks is activated upon integration with licensed card processing partners.
+                  Vos cartes virtuelles opèrent sous les normes internationales PCI-DSS. Les numéros et codes CVC sont protégés par chiffrement. Une fois votre demande validée par l'administration, demandez l'activation auprès du service client pour démasquer votre CVC et utiliser vos plafonds.
                 </p>
               </div>
             </div>
 
             {/* Cards Grid */}
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-              {cards.map((c) => {
-                return (
-                  <div
-                    key={c.id}
-                    className="p-6 rounded-2xl bg-gradient-to-br from-slate-900 via-slate-800 to-slate-950 text-white border border-slate-700 shadow-xl space-y-6 relative overflow-hidden"
-                  >
-                    {/* Metal Sheen Corner Badge */}
-                    <div className="flex items-center justify-between">
-                      <div className="flex items-center gap-2">
-                        <div className="w-6 h-6 rounded bg-amber-500/20 text-amber-400 flex items-center justify-center font-bold text-xs">
-                          M
-                        </div>
-                        <span className="text-xs font-semibold tracking-wider uppercase text-amber-400">
-                          {c.tier} {c.network}
-                        </span>
-                      </div>
-                      <span className="text-[10px] font-mono uppercase px-2 py-0.5 rounded bg-white/10 text-slate-300">
-                        {c.status}
-                      </span>
-                    </div>
+            {cards.length === 0 ? (
+              <div className="p-12 rounded-3xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 text-center space-y-4">
+                <div className="w-16 h-16 rounded-2xl bg-amber-500/10 text-amber-500 mx-auto flex items-center justify-center">
+                  <CreditCard className="w-8 h-8" />
+                </div>
+                <div>
+                  <h4 className="font-bold text-base text-slate-900 dark:text-white">
+                    Aucune carte bancaire active
+                  </h4>
+                  <p className="text-xs text-slate-500 mt-1 max-w-md mx-auto">
+                    Commandez instantanément votre première carte bancaire Visa ou Mastercard (Standard, Gold ou Premium) avec plafonds personnalisés.
+                  </p>
+                </div>
+                <button
+                  type="button"
+                  onClick={openNewCardModal}
+                  className="px-5 py-2.5 rounded-xl bg-amber-600 hover:bg-amber-500 text-white font-bold text-xs cursor-pointer shadow-md"
+                >
+                  Demander une nouvelle carte
+                </button>
+              </div>
+            ) : (
+              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+                {cards.map((c) => {
+                  const isPremium = c.tier === 'premium';
+                  const isGold = c.tier === 'gold';
 
-                    {/* Chip Graphic */}
-                    <div className="w-10 h-7 rounded-md bg-gradient-to-br from-amber-300 to-amber-600 border border-amber-200/50 shadow-xs" />
+                  const cardBg = isPremium
+                    ? 'bg-gradient-to-br from-zinc-950 via-slate-900 to-black border-amber-500/40 shadow-2xl'
+                    : isGold
+                    ? 'bg-gradient-to-br from-amber-800 via-amber-700 to-amber-950 border-amber-400/50 shadow-2xl'
+                    : 'bg-gradient-to-br from-slate-900 via-blue-950 to-slate-950 border-blue-500/30 shadow-2xl';
 
-                    {/* Masked Card Number with Tokenized Badge */}
-                    <div className="flex items-center justify-between">
-                      <div className="font-mono text-lg tracking-widest font-semibold text-slate-100">
-                        {c.card_number_masked}
-                      </div>
-                      <span className="text-[10px] font-mono px-2 py-0.5 rounded bg-amber-500/10 text-amber-300 border border-amber-500/20">
-                        Tokenized
-                      </span>
-                    </div>
+                  return (
+                    <div
+                      key={c.id}
+                      className="space-y-4"
+                    >
+                      {/* VRAIE CARTE VIRTUELLE DESSINÉE */}
+                      <div className={`p-6 rounded-3xl text-white border space-y-5 relative overflow-hidden transition-all duration-300 hover:shadow-amber-500/10 ${cardBg}`}>
+                        {/* Shimmer overlay */}
+                        <div className="absolute inset-0 bg-gradient-to-tr from-white/0 via-white/5 to-white/0 pointer-events-none" />
 
-                    {/* Cardholder, Expiry, CVV */}
-                    <div className="flex items-center justify-between text-xs pt-2 border-t border-slate-800">
-                      <div>
-                        <div className="text-[10px] text-slate-400 uppercase">{t.cardholder}</div>
-                        <div className="font-semibold text-slate-200 truncate max-w-[140px]">
-                          {c.cardholder_name}
-                        </div>
-                      </div>
+                        {/* Card Header : Brand & Network */}
+                        <div className="flex items-center justify-between relative z-10">
+                          <div className="flex items-center gap-2">
+                            <span className="font-serif font-black tracking-wider text-sm bg-gradient-to-r from-amber-200 to-amber-400 bg-clip-text text-transparent">
+                              MOVAFI BANK
+                            </span>
+                            <span className="text-[10px] font-mono px-2 py-0.5 rounded-full bg-white/10 uppercase tracking-widest font-bold border border-white/10 text-amber-300">
+                              {c.tier.toUpperCase()}
+                            </span>
+                          </div>
 
-                      <div>
-                        <div className="text-[10px] text-slate-400 uppercase">{t.expires}</div>
-                        <div className="font-mono font-medium">
-                          {String(c.expiry_month).padStart(2, '0')}/{c.expiry_year % 100}
-                        </div>
-                      </div>
-
-                      <div>
-                        <div className="text-[10px] text-slate-400 uppercase">CVV</div>
-                        <div className="flex items-center gap-1 font-mono font-medium text-slate-400">
-                          <span>•••</span>
-                        </div>
-                      </div>
-                    </div>
-
-                    {/* Balance & Limit */}
-                    <div className="flex items-center justify-between text-xs pt-2 bg-white/5 p-3 rounded-xl border border-white/10">
-                      <div>
-                        <div className="text-[10px] text-slate-400">{t.cardBalance}</div>
-                        <div className="font-mono font-bold text-amber-400">
-                          {formatCurrency(c.balance, account.currency)}
-                        </div>
-                      </div>
-                      <div className="text-right">
-                        <div className="text-[10px] text-slate-400">{t.cardLimit}</div>
-                        <div className="font-mono font-semibold text-slate-300">
-                          {formatCurrency(c.monthly_limit, account.currency)}
-                        </div>
-                      </div>
-                    </div>
-
-                    {/* Card Actions */}
-                    <div className="space-y-2 pt-1">
-                      {c.allow_balance_transfer ? (
-                        <button
-                          onClick={() => setCardFundingId(c.id)}
-                          className="w-full py-2 rounded-xl bg-amber-500 hover:bg-amber-400 text-slate-950 font-semibold text-xs transition-colors cursor-pointer"
-                        >
-                          {t.transferToCard}
-                        </button>
-                      ) : (
-                        <div className="text-[11px] text-center text-slate-500 italic">
-                          Balance funding disabled by administrator
-                        </div>
-                      )}
-
-                      {!c.is_physical && (
-                        <button
-                          onClick={() => setOrderingPhysicalForCard(c.id)}
-                          className="w-full py-2 rounded-xl border border-white/20 text-slate-200 hover:bg-white/10 font-semibold text-xs transition-colors cursor-pointer"
-                        >
-                          {t.orderPhysical}
-                        </button>
-                      )}
-                    </div>
-
-                    {/* 6-Stage Physical Logistics Tracker (Section 31) */}
-                    {c.delivery && (
-                      <div className="pt-3 border-t border-slate-800 space-y-2">
-                        <div className="flex items-center justify-between text-[11px]">
-                          <span className="font-semibold text-amber-400 flex items-center gap-1">
-                            <Truck className="w-3.5 h-3.5" />
-                            <span>Physical Shipping</span>
-                          </span>
-                          <span className="font-mono text-slate-400 text-[10px]">
-                            {c.delivery.tracking_number}
-                          </span>
-                        </div>
-
-                        {/* 6 Stages indicators */}
-                        {(() => {
-                          const stages: DeliveryStage[] = [
-                            'request_received',
-                            'processing',
-                            'preparation',
-                            'transit',
-                            'customs',
-                            'delivered'
-                          ];
-                          const currentIndex = stages.indexOf(c.delivery.current_stage);
-
-                          return (
-                            <div className="space-y-1">
-                              <div className="grid grid-cols-6 gap-1">
-                                {stages.map((st, idx) => (
-                                  <div
-                                    key={st}
-                                    className={`h-1.5 rounded-full ${
-                                      idx <= currentIndex ? 'bg-amber-400' : 'bg-slate-700'
-                                    }`}
-                                    title={st.replace('_', ' ')}
-                                  />
-                                ))}
+                          {/* Network Logo : Visa / Mastercard */}
+                          <div className="flex items-center">
+                            {c.network === 'mastercard' ? (
+                              <div className="flex items-center -space-x-2">
+                                <div className="w-6 h-6 rounded-full bg-rose-600/90 shadow-sm" />
+                                <div className="w-6 h-6 rounded-full bg-amber-500/90 shadow-sm" />
                               </div>
-                              <div className="text-[10px] text-slate-400 capitalize">
-                                Stage {currentIndex + 1} of 6: {c.delivery.current_stage.replace('_', ' ')}
+                            ) : (
+                              <div className="font-sans font-black italic tracking-tighter text-base text-blue-300 bg-white/10 px-2 py-0.5 rounded border border-white/20">
+                                VISA
                               </div>
+                            )}
+                          </div>
+                        </div>
+
+                        {/* EMV Chip & Contactless */}
+                        <div className="flex items-center justify-between pt-1 relative z-10">
+                          {/* Realistic Metallic Gold Chip */}
+                          <div className="w-11 h-8 rounded-lg bg-gradient-to-br from-amber-300 via-yellow-400 to-amber-600 border border-amber-200/60 shadow-inner flex flex-col justify-between p-1">
+                            <div className="w-full h-0.5 bg-amber-700/40 rounded-full" />
+                            <div className="flex justify-between">
+                              <div className="w-3 h-3 border border-amber-700/40 rounded-sm" />
+                              <div className="w-3 h-3 border border-amber-700/40 rounded-sm" />
                             </div>
-                          );
-                        })()}
+                            <div className="w-full h-0.5 bg-amber-700/40 rounded-full" />
+                          </div>
+
+                          {/* Contactless waves symbol */}
+                          <div className="flex items-center gap-0.5 text-slate-400 rotate-90">
+                            <span className="text-sm font-bold">)</span>
+                            <span className="text-base font-bold">)</span>
+                            <span className="text-lg font-bold">)</span>
+                          </div>
+                        </div>
+
+                        {/* Numéro de la carte (format 4x4) */}
+                        <div className="relative z-10 pt-2">
+                          <div className="font-mono text-lg tracking-widest font-bold text-white drop-shadow-sm flex items-center justify-between">
+                            <span>{c.card_number_masked}</span>
+                            <span className="text-[10px] uppercase font-sans tracking-normal font-semibold px-2 py-0.5 rounded bg-white/10 text-slate-300">
+                              Virtuelle
+                            </span>
+                          </div>
+                        </div>
+
+                        {/* Nom du titulaire, Expiration et CVC */}
+                        <div className="flex items-center justify-between text-xs pt-3 border-t border-white/10 relative z-10">
+                          <div>
+                            <div className="text-[9px] text-slate-400 uppercase font-semibold tracking-wider">Titulaire</div>
+                            <div className="font-bold text-slate-100 tracking-wide uppercase truncate max-w-[130px]">
+                              {c.cardholder_name}
+                            </div>
+                          </div>
+
+                          <div>
+                            <div className="text-[9px] text-slate-400 uppercase font-semibold tracking-wider">Expire</div>
+                            <div className="font-mono font-bold text-slate-200">
+                              {String(c.expiry_month).padStart(2, '0')}/{c.expiry_year % 100}
+                            </div>
+                          </div>
+
+                          <div>
+                            <div className="text-[9px] text-slate-400 uppercase font-semibold tracking-wider flex items-center gap-1">
+                              <span>CVC</span>
+                              <button
+                                type="button"
+                                onClick={() => handleToggleRevealCvc(c)}
+                                className="text-amber-400 hover:text-amber-300 cursor-pointer"
+                                title="Démasquer le CVC"
+                              >
+                                {revealedCardCvc[c.id] ? <EyeOff className="w-3 h-3" /> : <Eye className="w-3 h-3" />}
+                              </button>
+                            </div>
+                            <div className="font-mono font-bold text-amber-300 flex items-center gap-1">
+                              <span>{revealedCardCvc[c.id] && c.is_active ? c.cvc_mock : '•••'}</span>
+                            </div>
+                          </div>
+                        </div>
                       </div>
-                    )}
-                  </div>
-                );
-              })}
-            </div>
+
+                      {/* Statuts & Actions sous la carte */}
+                      <div className="p-4 rounded-2xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 space-y-3.5 shadow-sm">
+                        {/* Deux badges distincts exigés par l'utilisateur */}
+                        <div className="flex items-center justify-between gap-2 text-xs">
+                          {/* Statut 1 : Demande de validation */}
+                          <span
+                            className={`px-2.5 py-1 rounded-full text-[10px] font-bold flex items-center gap-1 ${
+                              c.creation_status === 'approved'
+                                ? 'bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border border-emerald-500/20'
+                                : c.creation_status === 'rejected'
+                                ? 'bg-rose-500/10 text-rose-600 dark:text-rose-400 border border-rose-500/20'
+                                : 'bg-amber-500/10 text-amber-700 dark:text-amber-400 border border-amber-500/20'
+                            }`}
+                          >
+                            <span className="w-1.5 h-1.5 rounded-full bg-current" />
+                            <span>
+                              {c.creation_status === 'approved'
+                                ? 'Demande approuvée'
+                                : c.creation_status === 'rejected'
+                                ? 'Demande rejetée'
+                                : 'Demande en cours de validation'}
+                            </span>
+                          </span>
+
+                          {/* Statut 2 : Activation de la carte */}
+                          <span
+                            className={`px-2.5 py-1 rounded-full text-[10px] font-bold flex items-center gap-1 ${
+                              c.is_active
+                                ? 'bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border border-emerald-500/20'
+                                : 'bg-slate-100 dark:bg-slate-800 text-slate-500 dark:text-slate-400 border border-slate-200 dark:border-slate-700'
+                            }`}
+                          >
+                            <span className={`w-1.5 h-1.5 rounded-full ${c.is_active ? 'bg-emerald-500' : 'bg-slate-400'}`} />
+                            <span>{c.is_active ? 'Carte active' : 'Carte inactive'}</span>
+                          </span>
+                        </div>
+
+                        {/* Solde & Plafonds */}
+                        <div className="flex items-center justify-between p-3 rounded-xl bg-slate-50 dark:bg-slate-800/60 border border-slate-200 dark:border-slate-700/60 text-xs">
+                          <div>
+                            <span className="text-[10px] text-slate-400 block font-semibold">Solde de la carte</span>
+                            <span className="font-mono font-extrabold text-sm text-amber-600 dark:text-amber-400">
+                              {formatCurrency(c.balance, account.currency)}
+                            </span>
+                          </div>
+                          <div className="text-right">
+                            <span className="text-[10px] text-slate-400 block font-semibold">Plafond mensuel</span>
+                            <span className="font-mono font-bold text-slate-700 dark:text-slate-300">
+                              {formatCurrency(c.monthly_limit || (c.tier === 'premium' ? 100000 : c.tier === 'gold' ? 25000 : 10000), account.currency)}
+                            </span>
+                          </div>
+                        </div>
+
+                        {/* Bouton : Transférer depuis solde principal */}
+                        <button
+                          type="button"
+                          onClick={() => handleInitiateCardFunding(c)}
+                          className="w-full py-2.5 rounded-xl bg-amber-500 hover:bg-amber-400 text-slate-950 font-bold text-xs transition-colors cursor-pointer shadow-xs flex items-center justify-center gap-1.5"
+                        >
+                          <ArrowRightLeft className="w-3.5 h-3.5" />
+                          <span>Transférer depuis solde principal</span>
+                        </button>
+
+                        {/* Bouton : Demander une livraison physique de ma carte */}
+                        {!c.is_physical && (
+                          <button
+                            type="button"
+                            onClick={() => setOrderingPhysicalForCard(c.id)}
+                            className="w-full py-2 rounded-xl border border-slate-300 dark:border-slate-700 hover:bg-slate-50 dark:hover:bg-slate-800 text-slate-700 dark:text-slate-300 font-semibold text-xs transition-colors cursor-pointer flex items-center justify-center gap-1.5"
+                          >
+                            <Truck className="w-3.5 h-3.5 text-amber-500" />
+                            <span>Demander une livraison physique de ma carte</span>
+                          </button>
+                        )}
+
+                        {/* 6-Stage Physical Logistics Tracker */}
+                        {c.delivery && (
+                          <div className="pt-2 border-t border-slate-100 dark:border-slate-800 space-y-2">
+                            <div className="flex items-center justify-between text-[11px]">
+                              <span className="font-semibold text-amber-600 dark:text-amber-400 flex items-center gap-1">
+                                <Truck className="w-3.5 h-3.5" />
+                                <span>Suivi Livraison Physique</span>
+                              </span>
+                              <span className="font-mono text-slate-400 text-[10px]">
+                                {c.delivery.tracking_number}
+                              </span>
+                            </div>
+
+                            {(() => {
+                              const stages: DeliveryStage[] = [
+                                'request_received',
+                                'processing',
+                                'preparation',
+                                'transit',
+                                'customs',
+                                'delivered'
+                              ];
+                              const currentIndex = stages.indexOf(c.delivery.current_stage);
+
+                              const stageLabels: Record<string, string> = {
+                                request_received: 'Demande reçue',
+                                processing: 'Traitement du dossier',
+                                preparation: 'Préparation & Gravure',
+                                transit: 'En transit express',
+                                customs: 'Dédouanement sécurisé',
+                                delivered: 'Carte livrée'
+                              };
+
+                              return (
+                                <div className="space-y-1.5">
+                                  <div className="grid grid-cols-6 gap-1">
+                                    {stages.map((st, idx) => (
+                                      <div
+                                        key={st}
+                                        className={`h-1.5 rounded-full transition-all ${
+                                          idx <= currentIndex ? 'bg-amber-500' : 'bg-slate-200 dark:bg-slate-700'
+                                        }`}
+                                        title={stageLabels[st]}
+                                      />
+                                    ))}
+                                  </div>
+                                  <div className="text-[10px] text-slate-500 dark:text-slate-400 flex items-center justify-between">
+                                    <span>Étape {currentIndex + 1}/6 :</span>
+                                    <strong className="text-amber-600 dark:text-amber-400">
+                                      {stageLabels[c.delivery.current_stage] || c.delivery.current_stage}
+                                    </strong>
+                                  </div>
+                                </div>
+                              );
+                            })()}
+                          </div>
+                        )}
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+            )}
 
             {/* Top Up Card Modal */}
             {cardFundingId && (
@@ -2354,27 +2560,54 @@ export const ClientDashboard: React.FC<ClientDashboardProps> = ({
                     </div>
                   </div>
 
-                  {/* Submission Form with Mandatory Terms Acceptance (Section 37) */}
+                  {/* Formulaire de soumission avec validation obligatoire des conditions */}
                   <form onSubmit={handleLoanSubmit} className="pt-3 border-t border-slate-200 dark:border-slate-700 space-y-3">
-                    <label className="flex items-start gap-2 text-xs text-slate-600 dark:text-slate-300 cursor-pointer">
-                      <input
-                        type="checkbox"
-                        checked={termsAccepted}
-                        onChange={(e) => setTermsAccepted(e.target.checked)}
-                        className="mt-0.5 accent-amber-600"
-                      />
-                      <span>
-                        I have reviewed the structured Institutional Loan Terms and formally accept credit parameters.
-                      </span>
-                    </label>
+                    {/* Message d'information et bouton pour consulter les conditions */}
+                    {!termsAccepted ? (
+                      <div className="p-3.5 rounded-xl bg-amber-500/10 border border-amber-500/30 text-xs text-amber-800 dark:text-amber-300 space-y-2">
+                        <div className="flex items-start gap-2">
+                          <AlertCircle className="w-4 h-4 text-amber-500 shrink-0 mt-0.5" />
+                          <span>
+                            Veuillez consulter les conditions de prêt et donner votre accord pour pouvoir soumettre la demande.
+                          </span>
+                        </div>
+                        <button
+                          type="button"
+                          onClick={() => setShowTermsModal(true)}
+                          className="w-full py-2 px-3 rounded-lg bg-amber-500 hover:bg-amber-400 text-slate-950 font-bold text-xs flex items-center justify-center gap-1.5 cursor-pointer shadow-xs transition-colors"
+                        >
+                          <FileText className="w-3.5 h-3.5" />
+                          <span>Consulter les conditions de prêt</span>
+                        </button>
+                      </div>
+                    ) : (
+                      <div className="p-3 rounded-xl bg-emerald-500/10 border border-emerald-500/30 text-xs text-emerald-800 dark:text-emerald-300 flex items-center justify-between">
+                        <span className="font-semibold flex items-center gap-1.5">
+                          <span>✓</span>
+                          <span>Conditions de prêt consultées et accord formel accordé.</span>
+                        </span>
+                        <button
+                          type="button"
+                          onClick={() => setShowTermsModal(true)}
+                          className="text-[11px] underline font-bold cursor-pointer"
+                        >
+                          Revoir
+                        </button>
+                      </div>
+                    )}
 
+                    {/* Bouton soumettre ma demande : inactif / désactivé tant que conditions non validées */}
                     <button
                       type="submit"
                       disabled={!termsAccepted || loading}
-                      className="w-full py-3 rounded-xl bg-slate-950 dark:bg-amber-500 disabled:opacity-50 disabled:cursor-not-allowed text-white dark:text-slate-950 font-semibold text-xs transition-colors flex items-center justify-center gap-2 cursor-pointer shadow-md"
+                      className={`w-full py-3 rounded-xl font-bold text-xs transition-all flex items-center justify-center gap-2 shadow-md ${
+                        termsAccepted && !loading
+                          ? 'bg-amber-600 hover:bg-amber-500 text-white cursor-pointer shadow-amber-600/20'
+                          : 'bg-slate-200 dark:bg-slate-800 text-slate-400 dark:text-slate-500 cursor-not-allowed opacity-60'
+                      }`}
                     >
                       <Landmark className="w-4 h-4" />
-                      <span>{loading ? 'Submitting...' : t.submitApplication}</span>
+                      <span>{loading ? 'Envoi en cours...' : 'Soumettre ma demande'}</span>
                     </button>
                   </form>
                 </div>
@@ -2383,25 +2616,43 @@ export const ClientDashboard: React.FC<ClientDashboardProps> = ({
 
             {/* My Financing Applications (Section 38, 39, 40) */}
             <div className="p-6 rounded-2xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 space-y-4">
-              <h4 className="font-bold text-base text-slate-900 dark:text-white">
-                {t.myLoans}
-              </h4>
+              <div className="flex items-center justify-between flex-wrap gap-2">
+                <h4 className="font-bold text-base text-slate-900 dark:text-white">
+                  {currentLang === 'fr' ? 'Mes Demandes de Financement' : t.myLoans}
+                </h4>
+                {loans.some((l) => l.status === 'approved' && !l.credit_parameters_agreed) && (
+                  <span className="px-2.5 py-1 rounded-full text-[11px] font-bold bg-amber-500/15 text-amber-600 dark:text-amber-400 border border-amber-500/30 animate-pulse">
+                    Action requise : Paramètres de crédit à valider
+                  </span>
+                )}
+              </div>
+
+              {/* Message d'information pour prêt approuvé */}
+              {loans.some((l) => l.status === 'approved' && !l.credit_parameters_agreed) && (
+                <div className="p-3.5 rounded-xl bg-amber-500/10 border border-amber-500/30 text-xs text-amber-900 dark:text-amber-200 flex items-start gap-2.5">
+                  <AlertCircle className="w-4 h-4 text-amber-500 shrink-0 mt-0.5" />
+                  <div>
+                    <strong className="block font-semibold">Votre demande de prêt a été approuvée !</strong>
+                    <span>Veuillez consulter les paramètres de crédit et donner votre accord pour que les fonds soient débloqués.</span>
+                  </div>
+                </div>
+              )}
 
               {loans.length === 0 ? (
                 <div className="text-center py-8 text-xs text-slate-400">
-                  No financing dossiers currently submitted.
+                  {currentLang === 'fr' ? 'Aucun dossier de crédit actuellement soumis.' : 'No financing dossiers currently submitted.'}
                 </div>
               ) : (
                 <div className="overflow-x-auto">
                   <table className="w-full text-left text-xs border-collapse">
                     <thead>
                       <tr className="border-b border-slate-200 dark:border-slate-800 text-slate-400 font-semibold">
-                        <th className="py-2.5 px-3">Project</th>
-                        <th className="py-2.5 px-3">Amount</th>
-                        <th className="py-2.5 px-3">Term</th>
-                        <th className="py-2.5 px-3">Rate</th>
-                        <th className="py-2.5 px-3">Monthly</th>
-                        <th className="py-2.5 px-3 text-center">Status</th>
+                        <th className="py-2.5 px-3">Projet</th>
+                        <th className="py-2.5 px-3">Montant</th>
+                        <th className="py-2.5 px-3">Durée</th>
+                        <th className="py-2.5 px-3">Taux</th>
+                        <th className="py-2.5 px-3">Mensualité</th>
+                        <th className="py-2.5 px-3 text-center">Statut Prêt</th>
                         <th className="py-2.5 px-3 text-right">Actions</th>
                       </tr>
                     </thead>
@@ -2414,27 +2665,50 @@ export const ClientDashboard: React.FC<ClientDashboardProps> = ({
                           <td className="py-3 px-3 font-mono font-bold">
                             {formatCurrency(l.amount, l.currency)}
                           </td>
-                          <td className="py-3 px-3">{l.duration_months} Mos</td>
+                          <td className="py-3 px-3">{l.duration_months} Mois</td>
                           <td className="py-3 px-3 font-mono">{l.rate_percent}%</td>
                           <td className="py-3 px-3 font-mono">
                             {formatCurrency(l.monthly_payment, l.currency)}
                           </td>
                           <td className="py-3 px-3 text-center whitespace-nowrap">
-                            <span className="px-2 py-0.5 rounded-full text-[10px] font-semibold bg-amber-500/10 text-amber-700 dark:text-amber-400">
-                              {l.status.toUpperCase()}
+                            <span
+                              className={`px-2.5 py-0.5 rounded-full text-[10px] font-bold uppercase ${
+                                l.status === 'funds_released'
+                                  ? 'bg-emerald-500/20 text-emerald-600 dark:text-emerald-400 border border-emerald-500/30'
+                                  : l.status === 'approved'
+                                  ? 'bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border border-emerald-500/30'
+                                  : l.status === 'rejected'
+                                  ? 'bg-rose-500/10 text-rose-600 dark:text-rose-400 border border-rose-500/30'
+                                  : 'bg-amber-500/10 text-amber-700 dark:text-amber-400 border border-amber-500/30'
+                              }`}
+                            >
+                              {l.status === 'funds_released'
+                                ? 'Fonds Débloqués'
+                                : l.status === 'approved'
+                                ? 'Approuvé'
+                                : l.status === 'rejected'
+                                ? 'Rejeté'
+                                : 'En attente'}
                             </span>
                           </td>
-                          <td className="py-3 px-3 text-right whitespace-nowrap space-x-1">
-                            {l.status === 'approved' && !l.credit_parameters_agreed && (
+                          <td className="py-3 px-3 text-right whitespace-nowrap space-x-1.5">
+                            {/* Le bouton Paramètres de crédit s'affiche UNIQUEMENT si le prêt a été approuvé par l'administrateur */}
+                            {(l.status === 'approved' || l.status === 'funds_released') && (
                               <button
-                                onClick={() => handleAgreeParameters(l.id)}
-                                className="px-2.5 py-1 rounded-lg bg-emerald-600 hover:bg-emerald-700 text-white text-[11px] font-semibold cursor-pointer"
+                                type="button"
+                                onClick={() => setSelectedLoanForParams(l)}
+                                className={`px-3 py-1.5 rounded-lg text-xs font-bold cursor-pointer transition-colors shadow-xs ${
+                                  !l.credit_parameters_agreed
+                                    ? 'bg-emerald-600 hover:bg-emerald-500 text-white animate-pulse'
+                                    : 'bg-slate-100 hover:bg-slate-200 dark:bg-slate-800 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-300'
+                                }`}
                               >
-                                Agree Parameters
+                                {l.credit_parameters_agreed ? 'Paramètres validés' : 'Paramètres de crédit'}
                               </button>
                             )}
 
                             <button
+                              type="button"
                               onClick={() =>
                                 generateLoanTermsPdf(
                                   l.project_type,
@@ -2446,9 +2720,9 @@ export const ClientDashboard: React.FC<ClientDashboardProps> = ({
                                   settings
                                 )
                               }
-                              className="px-2 py-1 rounded-lg border border-slate-300 dark:border-slate-700 text-[11px] hover:bg-slate-100 dark:hover:bg-slate-800 cursor-pointer"
+                              className="px-2.5 py-1.5 rounded-lg border border-slate-300 dark:border-slate-700 text-[11px] hover:bg-slate-100 dark:hover:bg-slate-800 cursor-pointer text-slate-700 dark:text-slate-300"
                             >
-                              Download Terms
+                              PDF Contrat
                             </button>
                           </td>
                         </tr>
@@ -2565,34 +2839,175 @@ export const ClientDashboard: React.FC<ClientDashboardProps> = ({
                     </p>
                   </div>
 
-                  <div className="flex items-center justify-between pt-3 border-t border-slate-200 dark:border-slate-800">
-                    <button
-                      onClick={() => {
-                        setTermsAccepted(true);
-                        setShowTermsModal(false);
-                        flash('Loan terms reviewed and agreed.');
-                      }}
-                      className="px-5 py-2.5 rounded-xl bg-amber-600 hover:bg-amber-700 text-white font-semibold text-xs cursor-pointer"
-                    >
-                      Accept Terms & Continue
-                    </button>
+                  {/* Case à cocher et validation complètement en bas */}
+                  <div className="pt-3 border-t border-slate-200 dark:border-slate-800 space-y-3">
+                    <label className="flex items-start gap-2.5 text-xs text-slate-700 dark:text-slate-200 cursor-pointer p-3 rounded-xl bg-amber-500/10 border border-amber-500/20">
+                      <input
+                        type="checkbox"
+                        checked={termsAgreedInModal}
+                        onChange={(e) => setTermsAgreedInModal(e.target.checked)}
+                        className="mt-0.5 accent-amber-600 w-4 h-4 cursor-pointer"
+                      />
+                      <span className="font-semibold">
+                        J'approuve et je donne mon accord aux conditions de prêt institutionnel, au tableau d'amortissement et aux engagements contractuels.
+                      </span>
+                    </label>
 
+                    <div className="flex items-center justify-between gap-3">
+                      <button
+                        type="button"
+                        onClick={() =>
+                          generateLoanTermsPdf(
+                            loanProject,
+                            loanAmount,
+                            account.currency,
+                            loanDuration,
+                            currentLoanRate,
+                            user,
+                            settings
+                          )
+                        }
+                        className="px-4 py-2.5 rounded-xl border border-slate-300 dark:border-slate-700 text-xs font-medium cursor-pointer hover:bg-slate-100 dark:hover:bg-slate-800 text-slate-700 dark:text-slate-300 flex items-center gap-1.5"
+                      >
+                        <Download className="w-3.5 h-3.5 text-amber-500" />
+                        <span>Télécharger les conditions (PDF)</span>
+                      </button>
+
+                      <button
+                        type="button"
+                        disabled={!termsAgreedInModal}
+                        onClick={() => {
+                          setTermsAccepted(true);
+                          setShowTermsModal(false);
+                          flash('Accord donné avec succès ! Le bouton « Soumettre ma demande » est désormais actif.');
+                        }}
+                        className={`px-5 py-2.5 rounded-xl font-bold text-xs transition-colors shadow-md ${
+                          termsAgreedInModal
+                            ? 'bg-amber-600 hover:bg-amber-500 text-white cursor-pointer shadow-amber-600/20'
+                            : 'bg-slate-200 dark:bg-slate-800 text-slate-400 dark:text-slate-500 cursor-not-allowed opacity-60'
+                        }`}
+                      >
+                        Approuver et donner mon accord
+                      </button>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            )}
+
+            {/* Modal : Consultation et Validation des Paramètres de Crédit */}
+            {selectedLoanForParams && (
+              <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-950/80 backdrop-blur-sm animate-in fade-in duration-200">
+                <div className="w-full max-w-2xl max-h-[90vh] rounded-3xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 p-6 sm:p-7 space-y-5 flex flex-col shadow-2xl">
+                  <div className="flex items-center justify-between border-b border-slate-200 dark:border-slate-800 pb-3">
+                    <div>
+                      <h4 className="font-bold text-lg text-slate-900 dark:text-white flex items-center gap-2">
+                        <Landmark className="w-5 h-5 text-amber-500" />
+                        <span>Paramètres de Crédit · Dossier #{selectedLoanForParams.id}</span>
+                      </h4>
+                      <p className="text-xs text-slate-500">
+                        Examen des conditions finales préalables au déblocage des fonds
+                      </p>
+                    </div>
                     <button
+                      type="button"
+                      onClick={() => setSelectedLoanForParams(null)}
+                      className="text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 p-1 cursor-pointer"
+                    >
+                      ✕
+                    </button>
+                  </div>
+
+                  <div className="flex-1 overflow-y-auto pr-1 space-y-4 text-xs text-slate-600 dark:text-slate-300">
+                    <div className="p-4 rounded-2xl bg-amber-500/10 border border-amber-500/20 text-amber-900 dark:text-amber-200 leading-relaxed">
+                      Votre demande de prêt a été officiellement approuvée par le comité de crédit. Veuillez examiner les paramètres financiers ci-dessous et cliquer sur <strong>« Valider »</strong> afin de notifier la direction financière pour le déblocage immédiat de vos fonds.
+                    </div>
+
+                    <div className="grid grid-cols-2 sm:grid-cols-3 gap-3 p-4 rounded-2xl bg-slate-50 dark:bg-slate-800/60 border border-slate-200 dark:border-slate-700/60 font-mono">
+                      <div>
+                        <span className="text-[10px] text-slate-400 block font-sans uppercase font-bold">Type de Projet</span>
+                        <span className="font-bold text-slate-900 dark:text-white">{selectedLoanForParams.project_type}</span>
+                      </div>
+                      <div>
+                        <span className="text-[10px] text-slate-400 block font-sans uppercase font-bold">Montant Emprunté</span>
+                        <span className="font-bold text-base text-amber-600 dark:text-amber-400">
+                          {formatCurrency(selectedLoanForParams.amount, selectedLoanForParams.currency)}
+                        </span>
+                      </div>
+                      <div>
+                        <span className="text-[10px] text-slate-400 block font-sans uppercase font-bold">Taux Annuel (TAEG)</span>
+                        <span className="font-bold text-slate-900 dark:text-white">{selectedLoanForParams.rate_percent}%</span>
+                      </div>
+                      <div>
+                        <span className="text-[10px] text-slate-400 block font-sans uppercase font-bold">Durée Remboursement</span>
+                        <span className="font-bold text-slate-900 dark:text-white">{selectedLoanForParams.duration_months} mois</span>
+                      </div>
+                      <div>
+                        <span className="text-[10px] text-slate-400 block font-sans uppercase font-bold">Mensualité Estimée</span>
+                        <span className="font-bold text-slate-900 dark:text-white">
+                          {formatCurrency(selectedLoanForParams.monthly_payment, selectedLoanForParams.currency)}
+                        </span>
+                      </div>
+                      <div>
+                        <span className="text-[10px] text-slate-400 block font-sans uppercase font-bold">Coût Total Estimé</span>
+                        <span className="font-bold text-slate-900 dark:text-white">
+                          {formatCurrency(selectedLoanForParams.total_cost, selectedLoanForParams.currency)}
+                        </span>
+                      </div>
+                    </div>
+
+                    <div className="space-y-2 p-3.5 rounded-xl bg-slate-50 dark:bg-slate-800/40 border border-slate-200 dark:border-slate-800 text-[11px] leading-relaxed">
+                      <strong className="block text-slate-900 dark:text-white font-semibold">Conditions de déblocage :</strong>
+                      <p>
+                        En validant ces paramètres, vous confirmez votre accord irrévocable sur les modalités de remboursement mensuel prélevées sur votre compte principal #{account.account_number}.
+                      </p>
+                      <p>
+                        Une notification sera transmise en temps réel au service d'administration afin d'exécuter l'ordre de déblocage des liquidités sur votre solde.
+                      </p>
+                    </div>
+                  </div>
+
+                  <div className="flex items-center justify-between pt-3 border-t border-slate-200 dark:border-slate-800 gap-3">
+                    <button
+                      type="button"
                       onClick={() =>
                         generateLoanTermsPdf(
-                          loanProject,
-                          loanAmount,
-                          account.currency,
-                          loanDuration,
-                          currentLoanRate,
+                          selectedLoanForParams.project_type,
+                          selectedLoanForParams.amount,
+                          selectedLoanForParams.currency,
+                          selectedLoanForParams.duration_months,
+                          selectedLoanForParams.rate_percent,
                           user,
                           settings
                         )
                       }
-                      className="px-4 py-2 rounded-xl border border-slate-300 dark:border-slate-700 text-xs font-medium cursor-pointer"
+                      className="px-4 py-2.5 rounded-xl border border-slate-300 dark:border-slate-700 text-xs font-semibold hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors flex items-center gap-1.5 cursor-pointer text-slate-700 dark:text-slate-300"
                     >
-                      Download Terms PDF
+                      <Download className="w-3.5 h-3.5 text-amber-500" />
+                      <span>Télécharger en PDF</span>
                     </button>
+
+                    <div className="flex items-center gap-2">
+                      <button
+                        type="button"
+                        onClick={() => setSelectedLoanForParams(null)}
+                        className="px-4 py-2.5 rounded-xl border border-slate-200 dark:border-slate-700 text-xs font-semibold cursor-pointer text-slate-600 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-800"
+                      >
+                        Fermer
+                      </button>
+                      <button
+                        type="button"
+                        disabled={loading || selectedLoanForParams.credit_parameters_agreed}
+                        onClick={() => handleAgreeParameters(selectedLoanForParams.id)}
+                        className={`px-6 py-2.5 rounded-xl font-bold text-xs transition-colors shadow-md ${
+                          selectedLoanForParams.credit_parameters_agreed
+                            ? 'bg-slate-800 text-slate-400 cursor-not-allowed'
+                            : 'bg-emerald-600 hover:bg-emerald-500 text-white cursor-pointer shadow-emerald-600/20'
+                        }`}
+                      >
+                        {selectedLoanForParams.credit_parameters_agreed ? 'Déjà Validé' : 'Valider'}
+                      </button>
+                    </div>
                   </div>
                 </div>
               </div>
@@ -2975,6 +3390,371 @@ export const ClientDashboard: React.FC<ClientDashboardProps> = ({
                 >
                   <Printer className="w-3.5 h-3.5" />
                   <span>Imprimer le RIB</span>
+                </button>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* MODAL: DEMANDE DE NOUVELLE CARTE BANCAIRE (2 ÉTAPES) */}
+        {showRequestCardModal && (
+          <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-950/75 backdrop-blur-sm animate-in fade-in duration-200">
+            <div className="w-full max-w-lg rounded-3xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 p-6 sm:p-7 space-y-5 shadow-2xl">
+              <div className="flex items-center justify-between border-b border-slate-100 dark:border-slate-800 pb-3">
+                <div className="flex items-center gap-2.5">
+                  <div className="p-2.5 rounded-xl bg-amber-500/10 text-amber-600 dark:text-amber-400">
+                    <CreditCard className="w-5 h-5" />
+                  </div>
+                  <div>
+                    <h3 className="font-bold text-base text-slate-900 dark:text-white">
+                      Demande de nouvelle carte bancaire
+                    </h3>
+                    <p className="text-xs text-slate-500">
+                      {cardRequestStep === 1
+                        ? 'Étape 1/2 : Choisissez votre réseau de paiement'
+                        : 'Étape 2/2 : Choisissez la gamme de carte'}
+                    </p>
+                  </div>
+                </div>
+                <button
+                  type="button"
+                  onClick={() => setShowRequestCardModal(false)}
+                  className="p-1 text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 cursor-pointer"
+                >
+                  ✕
+                </button>
+              </div>
+
+              {/* ÉTAPE 1 : CHOIX DU RÉSEAU (VISA OU MASTERCARD) AVEC DEUX GROS BOUTONS DISTINCTS */}
+              {cardRequestStep === 1 && (
+                <div className="space-y-4">
+                  <div className="text-xs text-slate-600 dark:text-slate-300">
+                    Sélectionnez le réseau international pour votre nouvelle carte bancaire :
+                  </div>
+
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                    {/* BOUTON 1 : VISA */}
+                    <button
+                      type="button"
+                      onClick={() => setNewCardNetwork('visa')}
+                      className={`p-5 rounded-2xl border-2 text-left cursor-pointer transition-all relative overflow-hidden flex flex-col justify-between min-h-[140px] ${
+                        newCardNetwork === 'visa'
+                          ? 'border-blue-500 bg-gradient-to-br from-blue-950 via-slate-900 to-slate-950 text-white shadow-lg ring-2 ring-blue-500/30'
+                          : 'border-slate-200 dark:border-slate-800 hover:border-slate-300 dark:hover:border-slate-700 bg-slate-50 dark:bg-slate-800/40 text-slate-700 dark:text-slate-300'
+                      }`}
+                    >
+                      <div className="flex items-center justify-between">
+                        <div className="font-sans font-black italic tracking-tighter text-2xl text-blue-400 bg-white/10 px-3 py-1 rounded-lg border border-white/20">
+                          VISA
+                        </div>
+                        {newCardNetwork === 'visa' && (
+                          <div className="w-6 h-6 rounded-full bg-blue-500 text-white flex items-center justify-center text-xs font-bold shadow-sm">
+                            ✓
+                          </div>
+                        )}
+                      </div>
+
+                      <div className="mt-4">
+                        <div className="font-bold text-sm text-slate-900 dark:text-white">Réseau Visa International</div>
+                        <div className="text-[11px] text-slate-500 dark:text-slate-400 mt-0.5">
+                          Acceptée mondialement · Débit immédiat & paiements sans contact
+                        </div>
+                      </div>
+                    </button>
+
+                    {/* BOUTON 2 : MASTERCARD */}
+                    <button
+                      type="button"
+                      onClick={() => setNewCardNetwork('mastercard')}
+                      className={`p-5 rounded-2xl border-2 text-left cursor-pointer transition-all relative overflow-hidden flex flex-col justify-between min-h-[140px] ${
+                        newCardNetwork === 'mastercard'
+                          ? 'border-amber-500 bg-gradient-to-br from-amber-950 via-slate-900 to-slate-950 text-white shadow-lg ring-2 ring-amber-500/30'
+                          : 'border-slate-200 dark:border-slate-800 hover:border-slate-300 dark:hover:border-slate-700 bg-slate-50 dark:bg-slate-800/40 text-slate-700 dark:text-slate-300'
+                      }`}
+                    >
+                      <div className="flex items-center justify-between">
+                        <div className="flex items-center -space-x-3">
+                          <div className="w-8 h-8 rounded-full bg-rose-600/90 shadow-md" />
+                          <div className="w-8 h-8 rounded-full bg-amber-500/90 shadow-md" />
+                        </div>
+                        {newCardNetwork === 'mastercard' && (
+                          <div className="w-6 h-6 rounded-full bg-amber-500 text-slate-950 flex items-center justify-center text-xs font-bold shadow-sm">
+                            ✓
+                          </div>
+                        )}
+                      </div>
+
+                      <div className="mt-4">
+                        <div className="font-bold text-sm text-slate-900 dark:text-white">Mastercard World</div>
+                        <div className="text-[11px] text-slate-500 dark:text-slate-400 mt-0.5">
+                          Protection 3D Secure · Plafonds élevés & conciergerie
+                        </div>
+                      </div>
+                    </button>
+                  </div>
+
+                  <div className="flex items-center justify-end gap-3 pt-3 border-t border-slate-100 dark:border-slate-800">
+                    <button
+                      type="button"
+                      onClick={() => setShowRequestCardModal(false)}
+                      className="px-4 py-2.5 rounded-xl border border-slate-200 dark:border-slate-700 text-xs font-semibold text-slate-600 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-800 cursor-pointer"
+                    >
+                      Annuler
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => setCardRequestStep(2)}
+                      className="px-5 py-2.5 rounded-xl bg-amber-600 hover:bg-amber-500 text-white text-xs font-bold cursor-pointer shadow-md transition-all flex items-center gap-1.5"
+                    >
+                      <span>Continuer vers le choix de la gamme</span>
+                      <ChevronRight className="w-4 h-4" />
+                    </button>
+                  </div>
+                </div>
+              )}
+
+              {/* ÉTAPE 2 : CHOIX DE LA GAMME (STANDARD, GOLD, PREMIUM) */}
+              {cardRequestStep === 2 && (
+                <div className="space-y-4">
+                  <div className="flex items-center justify-between text-xs">
+                    <span className="text-slate-600 dark:text-slate-400">Réseau sélectionné :</span>
+                    <span className="font-bold uppercase px-2.5 py-0.5 rounded bg-amber-500/10 text-amber-600 dark:text-amber-400 border border-amber-500/20">
+                      {newCardNetwork}
+                    </span>
+                  </div>
+
+                  <div className="space-y-3">
+                    {[
+                      {
+                        id: 'premium' as CardTier,
+                        name: 'Carte Premium Infinite Metal',
+                        dailyLimit: 50000,
+                        monthlyLimit: 100000,
+                        desc: 'Haute capacité financière — Conciergerie privée 24/7 & fabrication carte métal gravée au laser.',
+                        badge: 'Exclusif'
+                      },
+                      {
+                        id: 'gold' as CardTier,
+                        name: 'Carte Gold Prestige',
+                        dailyLimit: 20000,
+                        monthlyLimit: 25000,
+                        desc: 'Plafonds étendus — Assurances voyages complètes & assistance bancaire prioritaire.',
+                        badge: 'Recommandé'
+                      },
+                      {
+                        id: 'standard' as CardTier,
+                        name: 'Carte Standard Digital',
+                        dailyLimit: 5000,
+                        monthlyLimit: 10000,
+                        desc: 'Plafonds de base — Gestion courante, paiements en ligne et retraits sécurisés.',
+                        badge: 'Standard'
+                      }
+                    ].map((tier) => (
+                      <div
+                        key={tier.id}
+                        onClick={() => setNewCardTier(tier.id)}
+                        className={`p-4 rounded-2xl border-2 cursor-pointer transition-all flex flex-col sm:flex-row sm:items-center justify-between gap-3 ${
+                          newCardTier === tier.id
+                            ? 'border-amber-500 bg-amber-500/10 dark:bg-amber-500/15 ring-2 ring-amber-500/20'
+                            : 'border-slate-200 dark:border-slate-800 hover:border-slate-300 dark:hover:border-slate-700 bg-slate-50/50 dark:bg-slate-800/30'
+                        }`}
+                      >
+                        <div>
+                          <div className="flex items-center gap-2">
+                            <span className="font-bold text-xs text-slate-900 dark:text-white">
+                              {tier.name}
+                            </span>
+                            <span className="text-[10px] font-semibold px-2 py-0.5 rounded-full bg-slate-200 dark:bg-slate-700 text-slate-700 dark:text-slate-300">
+                              {tier.badge}
+                            </span>
+                          </div>
+                          <p className="text-[11px] text-slate-500 dark:text-slate-400 mt-1 max-w-sm">
+                            {tier.desc}
+                          </p>
+                        </div>
+                        <div className="flex sm:flex-col items-center sm:items-end justify-between border-t sm:border-t-0 pt-2 sm:pt-0 border-slate-200 dark:border-slate-700/60 shrink-0 text-right">
+                          <div className="text-left sm:text-right">
+                            <span className="text-[10px] text-slate-400 uppercase font-semibold block">Limite journalière</span>
+                            <span className="text-xs font-mono font-bold text-slate-800 dark:text-slate-200">
+                              {formatCurrency(tier.dailyLimit, account.currency)} / jour
+                            </span>
+                          </div>
+                          <div className="text-right mt-1">
+                            <span className="text-[10px] text-slate-400 uppercase font-semibold block">Limite mensuelle</span>
+                            <span className="text-xs font-mono font-bold text-amber-600 dark:text-amber-400">
+                              {formatCurrency(tier.monthlyLimit, account.currency)} / mois
+                            </span>
+                          </div>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+
+                  <div className="flex items-center justify-between gap-3 pt-3 border-t border-slate-100 dark:border-slate-800">
+                    <button
+                      type="button"
+                      onClick={() => setCardRequestStep(1)}
+                      className="px-4 py-2.5 rounded-xl border border-slate-200 dark:border-slate-700 text-xs font-semibold text-slate-600 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-800 cursor-pointer"
+                    >
+                      ← Retour au réseau
+                    </button>
+                    <button
+                      type="button"
+                      disabled={loading}
+                      onClick={submitCardRequest}
+                      className="px-5 py-2.5 rounded-xl bg-amber-600 hover:bg-amber-500 text-white text-xs font-bold cursor-pointer shadow-md transition-all flex items-center gap-1.5"
+                    >
+                      <PlusCircle className="w-4 h-4" />
+                      <span>{loading ? 'Envoi...' : 'Envoyer ma demande'}</span>
+                    </button>
+                  </div>
+                </div>
+              )}
+            </div>
+          </div>
+        )}
+
+        {/* MODAL POPUP : SUCCÈS DEMANDE DE CARTE */}
+        {cardRequestSuccessModal && (
+          <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-950/80 backdrop-blur-sm animate-in fade-in duration-200">
+            <div className="w-full max-w-md rounded-3xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 p-6 sm:p-7 space-y-4 shadow-2xl text-center">
+              <div className="w-14 h-14 rounded-2xl bg-emerald-500/10 text-emerald-500 mx-auto flex items-center justify-center">
+                <CheckCircle2 className="w-8 h-8" />
+              </div>
+              <div>
+                <h4 className="font-bold text-lg text-slate-900 dark:text-white">
+                  {cardRequestSuccessModal.title}
+                </h4>
+                <p className="text-xs text-slate-600 dark:text-slate-300 mt-2 leading-relaxed">
+                  {cardRequestSuccessModal.message}
+                </p>
+              </div>
+              <div className="pt-2">
+                <button
+                  type="button"
+                  onClick={() => setCardRequestSuccessModal(null)}
+                  className="w-full py-2.5 rounded-xl bg-amber-600 hover:bg-amber-500 text-white text-xs font-bold cursor-pointer shadow-md transition-colors"
+                >
+                  Compris
+                </button>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* MODAL POPUP : SUCCÈS TRANSFERT DEPUIS SOLDE PRINCIPAL (Transfert effectué) */}
+        {transferSuccessModal && (
+          <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-950/80 backdrop-blur-sm animate-in fade-in duration-200">
+            <div className="w-full max-w-md rounded-3xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 p-6 sm:p-7 space-y-4 shadow-2xl text-center">
+              <div className="w-14 h-14 rounded-2xl bg-emerald-500/10 text-emerald-500 mx-auto flex items-center justify-center">
+                <CheckCircle2 className="w-8 h-8" />
+              </div>
+              <div>
+                <h4 className="font-bold text-lg text-slate-900 dark:text-white">
+                  {transferSuccessModal.title}
+                </h4>
+                <p className="text-xs text-slate-600 dark:text-slate-300 mt-2 leading-relaxed">
+                  {transferSuccessModal.message}
+                </p>
+              </div>
+              <div className="pt-2">
+                <button
+                  type="button"
+                  onClick={() => setTransferSuccessModal(null)}
+                  className="w-full py-2.5 rounded-xl bg-emerald-600 hover:bg-emerald-500 text-white text-xs font-bold cursor-pointer shadow-md transition-colors"
+                >
+                  Compris
+                </button>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* MODAL POPUP : ACTION SUR CARTE (INACTIVE, EN COURS, TRANSFERT BLOQUÉ) */}
+        {cardActionModal && (
+          <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-950/80 backdrop-blur-sm animate-in fade-in duration-200">
+            <div className="w-full max-w-md rounded-3xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 p-6 sm:p-7 space-y-4 shadow-2xl text-center">
+              <div className="w-14 h-14 rounded-2xl bg-amber-500/10 text-amber-500 mx-auto flex items-center justify-center">
+                <AlertCircle className="w-8 h-8" />
+              </div>
+              <div>
+                <h4 className="font-bold text-lg text-slate-900 dark:text-white">
+                  {cardActionModal.title}
+                </h4>
+                <p className="text-xs text-slate-600 dark:text-slate-300 mt-2 leading-relaxed">
+                  {cardActionModal.message}
+                </p>
+              </div>
+              <div className="pt-2 space-y-2">
+                <a
+                  href={`mailto:${settings?.support_email || 'support@movafi-groupes.com'}?subject=Assistance%20Carte%20Client%20${account.client_id}`}
+                  className="w-full py-2.5 rounded-xl bg-amber-500 hover:bg-amber-400 text-slate-950 text-xs font-bold flex items-center justify-center gap-1.5 shadow-md transition-colors"
+                >
+                  <Headphones className="w-4 h-4" />
+                  <span>Contacter le service client</span>
+                </a>
+                <button
+                  type="button"
+                  onClick={() => setCardActionModal(null)}
+                  className="w-full py-2 rounded-xl border border-slate-200 dark:border-slate-700 text-xs font-semibold text-slate-600 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-800 cursor-pointer"
+                >
+                  Fermer
+                </button>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* MODAL POPUP : SOUMISSION DE PRÊT SUCCÈS */}
+        {loanSubmissionSuccessModal && (
+          <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-950/80 backdrop-blur-sm animate-in fade-in duration-200">
+            <div className="w-full max-w-md rounded-3xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 p-6 sm:p-7 space-y-4 shadow-2xl text-center">
+              <div className="w-14 h-14 rounded-2xl bg-emerald-500/10 text-emerald-500 mx-auto flex items-center justify-center">
+                <CheckCircle2 className="w-8 h-8" />
+              </div>
+              <div>
+                <h4 className="font-bold text-lg text-slate-900 dark:text-white">
+                  {loanSubmissionSuccessModal.title}
+                </h4>
+                <p className="text-xs text-slate-600 dark:text-slate-300 mt-2 leading-relaxed">
+                  {loanSubmissionSuccessModal.message}
+                </p>
+              </div>
+              <div className="pt-2">
+                <button
+                  type="button"
+                  onClick={() => setLoanSubmissionSuccessModal(null)}
+                  className="w-full py-2.5 rounded-xl bg-amber-600 hover:bg-amber-500 text-white text-xs font-bold cursor-pointer shadow-md transition-colors"
+                >
+                  Compris
+                </button>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* MODAL POPUP : VALIDATION PARAMÈTRES DE CRÉDIT SUCCÈS */}
+        {loanParamsSuccessModal && (
+          <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-950/80 backdrop-blur-sm animate-in fade-in duration-200">
+            <div className="w-full max-w-md rounded-3xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 p-6 sm:p-7 space-y-4 shadow-2xl text-center">
+              <div className="w-14 h-14 rounded-2xl bg-emerald-500/10 text-emerald-500 mx-auto flex items-center justify-center">
+                <CheckCircle2 className="w-8 h-8" />
+              </div>
+              <div>
+                <h4 className="font-bold text-lg text-slate-900 dark:text-white">
+                  {loanParamsSuccessModal.title}
+                </h4>
+                <p className="text-xs text-slate-600 dark:text-slate-300 mt-2 leading-relaxed">
+                  {loanParamsSuccessModal.message}
+                </p>
+              </div>
+              <div className="pt-2">
+                <button
+                  type="button"
+                  onClick={() => setLoanParamsSuccessModal(null)}
+                  className="w-full py-2.5 rounded-xl bg-emerald-600 hover:bg-emerald-500 text-white text-xs font-bold cursor-pointer shadow-md transition-colors"
+                >
+                  Fermer
                 </button>
               </div>
             </div>

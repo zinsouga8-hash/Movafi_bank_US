@@ -7,6 +7,7 @@ import {
   Transaction,
   TransactionRequest,
   BankCard,
+  CardTier,
   LoanApplication,
   PaymentMethod,
   ReferralRecord,
@@ -2367,7 +2368,6 @@ apiRouter.post('/admin/loans/:id/release-funds', requireAdmin, async (req: Reque
     account: account.account_number
   });
 
-  const profile = state.profiles.find((p) => p.id === account.profile_id);
   if (profile) {
     await sendEmail({
       to: profile.email,
