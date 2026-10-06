@@ -55,6 +55,17 @@ export const OnboardingModal: React.FC<OnboardingModalProps> = ({
     setIsHelpExpanded(false);
   }, [step]);
 
+  // Prevent underlying home page from scrolling while onboarding modal is open
+  useEffect(() => {
+    if (isOpen) {
+      const prevOverflow = document.body.style.overflow;
+      document.body.style.overflow = 'hidden';
+      return () => {
+        document.body.style.overflow = prevOverflow;
+      };
+    }
+  }, [isOpen]);
+
   // Step 1: Security Credentials
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
@@ -571,6 +582,7 @@ export const OnboardingModal: React.FC<OnboardingModalProps> = ({
         residence_country: countryName,
         city: city.trim(),
         preferred_currency: currency,
+        preferred_language: currentLang || 'es',
         account_type: accountType,
         occupation: occupation.trim(),
         monthly_income: calculatedMonthlyIncome,
@@ -1140,32 +1152,31 @@ export const OnboardingModal: React.FC<OnboardingModalProps> = ({
                 </div>
               </div>
 
-              {/* Currency Selector (Rule 15: USD, EUR, CAD, TND, JPY, SAR, AED, BHD, MXN) */}
+              {/* Currency Selector (USD, EUR, CAD, MXN in 4th position, JPY, AED, SAR, BHD) */}
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                 <div>
                   <label className="block text-xs font-semibold text-slate-700 dark:text-slate-300 mb-1">
-                    {currentLang === 'fr' ? 'Devise principale du compte *' : 'Primary Account Currency *'}
+                    {currentLang === 'es' ? 'Moneda principal de la cuenta *' : currentLang === 'fr' ? 'Devise principale du compte *' : 'Primary Account Currency *'}
                   </label>
                   <select
                     value={currency}
                     onChange={(e) => setCurrency(e.target.value as SupportedCurrency)}
                     className="w-full px-3 py-2 rounded-xl border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800 text-xs font-medium focus:ring-2 focus:ring-amber-500"
                   >
-                    <option value="USD">USD — Dollar ($ / USD)</option>
-                    <option value="EUR">EUR — Euro (€ / EUR)</option>
-                    <option value="CAD">CAD — Dollar Canadien (C$ / CAD)</option>
-                    <option value="TND">TND — Dinar Tunisien (TND)</option>
-                    <option value="JPY">JPY — Yen Japonais (¥ / JPY)</option>
-                    <option value="AED">AED — Dirham des Émirats (AED)</option>
-                    <option value="SAR">SAR — Riyal Saoudien (SAR)</option>
-                    <option value="BHD">BHD — Dinar de Bahreïn (BHD)</option>
-                    <option value="MXN">MXN — Peso Mexicain ($ / MXN)</option>
+                    <option value="USD">{currentLang === 'es' ? 'USD — Dólar estadounidense ($ / USD)' : currentLang === 'fr' ? 'USD — Dollar ($ / USD)' : 'USD — US Dollar ($ / USD)'}</option>
+                    <option value="EUR">{currentLang === 'es' ? 'EUR — Euro (€ / EUR)' : currentLang === 'fr' ? 'EUR — Euro (€ / EUR)' : 'EUR — Euro (€ / EUR)'}</option>
+                    <option value="CAD">{currentLang === 'es' ? 'CAD — Dólar Canadiense (C$ / CAD)' : currentLang === 'fr' ? 'CAD — Dollar Canadien (C$ / CAD)' : 'CAD — Canadian Dollar (C$ / CAD)'}</option>
+                    <option value="MXN">{currentLang === 'es' ? 'MXN — Peso Mexicano ($ / MXN)' : currentLang === 'fr' ? 'MXN — Peso Mexicain ($ / MXN)' : 'MXN — Mexican Peso ($ / MXN)'}</option>
+                    <option value="JPY">{currentLang === 'es' ? 'JPY — Yen Japonés (¥ / JPY)' : currentLang === 'fr' ? 'JPY — Yen Japonais (¥ / JPY)' : 'JPY — Japanese Yen (¥ / JPY)'}</option>
+                    <option value="AED">{currentLang === 'es' ? 'AED — Dírham de los EAU (AED)' : currentLang === 'fr' ? 'AED — Dirham des Émirats (AED)' : 'AED — UAE Dirham (AED)'}</option>
+                    <option value="SAR">{currentLang === 'es' ? 'SAR — Riyal Saudí (SAR)' : currentLang === 'fr' ? 'SAR — Riyal Saoudien (SAR)' : 'SAR — Saudi Riyal (SAR)'}</option>
+                    <option value="BHD">{currentLang === 'es' ? 'BHD — Dinar de Bahréin (BHD)' : currentLang === 'fr' ? 'BHD — Dinar de Bahreïn (BHD)' : 'BHD — Bahraini Dinar (BHD)'}</option>
                   </select>
                 </div>
 
                 <div>
                   <label className="block text-xs font-semibold text-slate-700 dark:text-slate-300 mb-1">
-                    {currentLang === 'fr' ? 'Structure du compte *' : 'Account Structure *'}
+                    {currentLang === 'es' ? 'Estructura de la cuenta *' : currentLang === 'fr' ? 'Structure du compte *' : 'Account Structure *'}
                   </label>
                   <select
                     value={accountType}
@@ -1173,10 +1184,10 @@ export const OnboardingModal: React.FC<OnboardingModalProps> = ({
                     className="w-full px-3 py-2 rounded-xl border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800 text-xs font-medium focus:ring-2 focus:ring-amber-500"
                   >
                     <option value="Personal">
-                      {currentLang === 'fr' ? 'Compte Privé (Private Wealth)' : 'Private Wealth (Personal)'}
+                      {currentLang === 'es' ? 'Personal (Banca Privada)' : currentLang === 'fr' ? 'Compte Privé (Private Wealth)' : 'Private Wealth (Personal)'}
                     </option>
                     <option value="Business">
-                      {currentLang === 'fr' ? 'Trésorerie d’Entreprise (Corporate)' : 'Corporate Treasury (Business)'}
+                      {currentLang === 'es' ? 'Corporativa (Tesorería Institucional)' : currentLang === 'fr' ? 'Trésorerie d’Entreprise (Corporate)' : 'Corporate Treasury (Business)'}
                     </option>
                   </select>
                 </div>

@@ -339,10 +339,20 @@ export const AdminPortal: React.FC<AdminPortalProps> = ({ currentUser, onExit })
 
       if (res.success) {
         setSaveSuccessPopup(true);
-        setTimeout(() => setSaveSuccessPopup(false), 5000);
-        notify('Modification enregistrée');
-        await openBankingFile(selectedFileAccountId);
-        await loadAccounts();
+        setTimeout(() => setSaveSuccessPopup(false), 4000);
+        notify('Modifications appliquées et enregistrées avec succès');
+        if (res.account && res.profile) {
+          setFileDetail((prev: any) => (prev ? { ...prev, account: res.account, profile: res.profile } : prev));
+          setAccountsList((prev) =>
+            prev.map((item) =>
+              item.account.id === selectedFileAccountId
+                ? { account: res.account, profile: res.profile }
+                : item
+            )
+          );
+        }
+        // Background sync without blocking UI
+        loadAccounts().catch(() => {});
       } else {
         notify(res.message || 'Erreur lors de l\'enregistrement des modifications.', 'error');
       }
@@ -1424,7 +1434,9 @@ export const AdminPortal: React.FC<AdminPortalProps> = ({ currentUser, onExit })
                                 type="button"
                                 onClick={() => {
                                   setDraftApplicationStatus('approved');
-                                  setDraftAccountStatus('active');
+                                  if (draftAccountStatus !== 'active') {
+                                    setDraftAccountStatus('inactive');
+                                  }
                                 }}
                                 className={`py-1.5 px-2 rounded-lg text-xs font-semibold cursor-pointer transition-colors ${
                                   draftApplicationStatus === 'approved'

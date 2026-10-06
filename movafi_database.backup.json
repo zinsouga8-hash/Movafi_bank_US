@@ -25,19 +25,19 @@
       "application_status": "approved"
     },
     {
-      "id": "prof_musd03542fsk",
-      "email": "testclient@example.com",
-      "first_name": "Jean",
-      "last_name": "Dupont",
-      "phone": "+33 6 12 34 56 78",
-      "nationality": "France",
-      "residence_country": "France",
-      "city": "Paris",
-      "preferred_currency": "EUR",
+      "id": "prof_muwfb3xej04f",
+      "email": "carlos.mendoza@gmail.com",
+      "first_name": "Carlos",
+      "last_name": "Mendoza",
+      "phone": "+1 (555) 000-0000",
+      "nationality": "United States",
+      "residence_country": "United States",
+      "city": "New York",
+      "preferred_currency": "MXN",
       "preferred_language": "en",
       "account_type": "Personal",
-      "occupation": "Ingénieur",
-      "monthly_income": 5000,
+      "occupation": "Executive",
+      "monthly_income": 25000,
       "activity_duration": "5 years",
       "is_admin": false,
       "admin_role": null,
@@ -45,59 +45,8 @@
       "pin_hash": "8d969eef6ecad3c29a3a629280e686cf0c3f5d5a86aff3ca12020c923adc6c92",
       "portal_password": "Password123!",
       "portal_pin": "123456",
-      "application_status": "approved",
-      "created_at": "2026-10-03T12:19:32.200Z",
-      "updated_at": "2026-10-03T12:19:38.986Z"
-    },
-    {
-      "id": "prof_mutq9zidk1xx",
-      "email": "client.test99@example.com",
-      "first_name": "Marc",
-      "last_name": "Laurent",
-      "phone": "+33 6 99 88 77 66",
-      "nationality": "France",
-      "residence_country": "France",
-      "city": "Lyon",
-      "preferred_currency": "EUR",
-      "preferred_language": "en",
-      "account_type": "Personal",
-      "occupation": "Cadre",
-      "monthly_income": 6000,
-      "activity_duration": "5 years",
-      "is_admin": false,
-      "admin_role": null,
-      "password_hash": "f54e9dfb67ce9a78b9f503e312c4b0c0f6701363a9970f608f7a77891ce983ba",
-      "pin_hash": "481f6cc0511143ccdd7e2d1b1b94faf0a700a8b49cd13922a70b5ae28acaa8c5",
-      "portal_password": "Password99!",
-      "portal_pin": "654321",
-      "application_status": "approved",
-      "created_at": "2026-10-04T11:18:55.237Z",
-      "updated_at": "2026-10-04T11:19:05.449Z"
-    },
-    {
-      "id": "prof_mutqf71vkqrq",
-      "email": "sarah.connor@example.com",
-      "first_name": "Sarah",
-      "last_name": "Connor",
-      "phone": "+1 (555) 234-5678",
-      "nationality": "United States",
-      "residence_country": "United States",
-      "city": "Los Angeles",
-      "preferred_currency": "USD",
-      "preferred_language": "en",
-      "account_type": "Personal",
-      "occupation": "Director",
-      "monthly_income": 12000,
-      "activity_duration": "5 years",
-      "is_admin": false,
-      "admin_role": null,
-      "password_hash": "4956557268ccae97276cb9081ceef6a3d87fe57c8762d8d8112a9f4a2a6e6d29",
-      "pin_hash": "2a8610aefdd0028c6bf074dd18721c0ef8bc43241cc7a653d7aedf2036bdf6b3",
-      "portal_password": "PasswordSafe2026!",
-      "portal_pin": "987654",
-      "application_status": "approved",
-      "created_at": "2026-10-04T11:22:58.291Z",
-      "updated_at": "2026-10-04T11:23:03.523Z"
+      "application_status": "pending",
+      "created_at": "2026-10-06T08:35:10.370Z"
     }
   ],
   "accounts": [
@@ -118,55 +67,20 @@
       "application_status": "approved"
     },
     {
-      "id": "acc_musd0354",
-      "profile_id": "prof_musd03542fsk",
-      "client_id": "CL-71160",
-      "account_number": "9840508810201",
-      "iban": "US94MOVA0210000219840508810201",
+      "id": "acc_muwfb3xe",
+      "profile_id": "prof_muwfb3xej04f",
+      "client_id": "CL-89409",
+      "account_number": "9840454101201",
+      "iban": "US94MOVA0210000219840454101201",
       "bic_swift": "MOVAFUS33XXX",
-      "currency": "EUR",
-      "balance": 5000,
+      "currency": "MXN",
+      "balance": 0,
       "account_status": "inactive",
-      "application_status": "approved",
-      "cat_code": "CAT-863731",
-      "cot_code": "COT-714907",
+      "application_status": "pending",
+      "cat_code": "CAT-595293",
+      "cot_code": "COT-481401",
       "is_balance_visible": true,
-      "created_at": "2026-10-03T12:19:32.201Z",
-      "updated_at": "2026-10-03T12:19:38.986Z"
-    },
-    {
-      "id": "acc_mutq9zid",
-      "profile_id": "prof_mutq9zidk1xx",
-      "client_id": "CL-83852",
-      "account_number": "9840752322201",
-      "iban": "US94MOVA0210000219840752322201",
-      "bic_swift": "MOVAFUS33XXX",
-      "currency": "EUR",
-      "balance": 1500,
-      "account_status": "active",
-      "application_status": "approved",
-      "cat_code": "CAT-545514",
-      "cot_code": "COT-789688",
-      "is_balance_visible": true,
-      "created_at": "2026-10-04T11:18:55.237Z",
-      "updated_at": "2026-10-04T11:19:05.449Z"
-    },
-    {
-      "id": "acc_mutqf71v",
-      "profile_id": "prof_mutqf71vkqrq",
-      "client_id": "CL-15570",
-      "account_number": "9840849953201",
-      "iban": "US94MOVA0210000219840849953201",
-      "bic_swift": "MOVAFUS33XXX",
-      "currency": "USD",
-      "balance": 10000,
-      "account_status": "active",
-      "application_status": "approved",
-      "cat_code": "CAT-608857",
-      "cot_code": "COT-283822",
-      "is_balance_visible": true,
-      "created_at": "2026-10-04T11:22:58.291Z",
-      "updated_at": "2026-10-04T11:23:03.523Z"
+      "created_at": "2026-10-06T08:35:10.370Z"
     }
   ],
   "transactions": [],
@@ -194,23 +108,57 @@
     },
     {
       "id": "pm_003",
-      "name": "Passerelle Actifs Numériques & Stablecoins",
+      "name": "Bitcoin (BTC) - Dépôt Sécurisé",
       "category": "Digital Assets",
-      "description": "Dépôt institutionnel en stablecoins sécurisés (USDC / USDT).",
-      "account_info": "Réseau ERC-20 / TRC-20 vérifié",
-      "instructions": "Génération de l'adresse de dépôt dédiée sur confirmation de conformité.",
+      "description": "Dépôt direct de Bitcoin sécurisé sur le cold storage de la trésorerie Movafi.",
+      "account_info": "bc1qar0srrr7xfkvy5l643lydnw9re59gtzzwf5mdq",
+      "wallet_address": "bc1qar0srrr7xfkvy5l643lydnw9re59gtzzwf5mdq",
+      "crypto_network": "Bitcoin Mainnet",
+      "instructions": "Envoyez uniquement des BTC sur cette adresse. Le crédit sera effectif après 2 confirmations du réseau.",
       "is_active": true,
       "display_order": 3
     },
     {
       "id": "pm_004",
-      "name": "Service Conciergerie Privée & Dépôt Agence",
-      "category": "Cash / Agency",
-      "description": "Prise en charge personnalisée et dépôt haute sécurité en agence privée.",
-      "account_info": "Desk Privé: 540 Madison Avenue, New York, NY 10022",
-      "instructions": "Prenez contact avec votre banquier privé dédié pour planifier votre dépôt.",
+      "name": "USDT (Tether USD - TRC-20)",
+      "category": "Digital Assets",
+      "description": "Dépôt direct de stablecoins Tether (USDT) avec frais de réseau réduits.",
+      "account_info": "TX7n9QZkMvd8L7bY8P92U9dK3Z4aM1qW8x",
+      "wallet_address": "TX7n9QZkMvd8L7bY8P92U9dK3Z4aM1qW8x",
+      "crypto_network": "TRC-20 (Tron Network)",
+      "instructions": "Veillez à sélectionner impérativement le réseau TRC-20 (Tron) lors du transfert pour éviter toute perte de fonds.",
       "is_active": true,
       "display_order": 4
+    },
+    {
+      "id": "pm_005",
+      "name": "PayPal International",
+      "category": "Fintech",
+      "description": "Règlement instantané via solde PayPal vérifié ou carte liée.",
+      "account_info": "paypal-treasury@movafi-groupes.com",
+      "instructions": "Transférez le montant à notre compte trésorerie PayPal en indiquant votre Identifiant Client (Client ID) dans la note.",
+      "is_active": true,
+      "display_order": 5
+    },
+    {
+      "id": "pm_006",
+      "name": "MoneyGram International",
+      "category": "Cash / Agency",
+      "description": "Transfert international d'espèces ou en ligne via le réseau MoneyGram.",
+      "account_info": "Bénéficiaire : MOVAFI BANK TREASURY DESK / Agent Code : MG-994021",
+      "instructions": "Rendez-vous dans une agence MoneyGram ou sur le portail en ligne. Indiquez le code référence de la transaction après envoi.",
+      "is_active": true,
+      "display_order": 6
+    },
+    {
+      "id": "pm_007",
+      "name": "Western Union International",
+      "category": "Cash / Agency",
+      "description": "Envoi d'argent rapide et sécurisé via le réseau Western Union mondial.",
+      "account_info": "Bénéficiaire : MOVAFI TREASURY SERVICES / MTCN Tracking Required",
+      "instructions": "Après transmission des fonds, déclarez le numéro de contrôle MTCN à 10 chiffres dans le formulaire de déclaration.",
+      "is_active": true,
+      "display_order": 7
     }
   ],
   "cards": [],
@@ -283,91 +231,23 @@
   "loan_applications": [],
   "notifications": [
     {
-      "id": "notif_mutqfb37",
-      "profile_id": "prof_mutqf71vkqrq",
-      "is_for_admin": false,
-      "title": "Compte Movafi Bank activé & approuvé",
-      "message": "Votre dossier a été validé et votre compte bancaire est désormais actif.",
-      "type": "success",
-      "is_read": false,
-      "created_at": "2026-10-04T11:23:03.523Z"
-    },
-    {
-      "id": "notif_admin_mutqf71w",
+      "id": "notif_admin_muwfb3xf",
       "is_for_admin": true,
       "title": "Nouvelle Demande d’Ouverture Client",
-      "message": "Sarah Connor a soumis un dossier d’ouverture (sarah.connor@example.com). Statut : Inactif en attente d’examen administratif.",
+      "message": "Carlos Mendoza a soumis un dossier d’ouverture (carlos.mendoza@gmail.com). Statut : Inactif en attente d’examen administratif.",
       "type": "info",
       "is_read": false,
-      "created_at": "2026-10-04T11:22:58.292Z"
+      "created_at": "2026-10-06T08:35:10.371Z"
     },
     {
-      "id": "notif_mutqf71w",
-      "profile_id": "prof_mutqf71vkqrq",
+      "id": "notif_muwfb3xf",
+      "profile_id": "prof_muwfb3xej04f",
       "is_for_admin": false,
       "title": "Dossier d’ouverture en attente d’activation",
       "message": "Votre demande d’ouverture de compte a été envoyée. Un administrateur va examiner votre dossier et traiter votre demande. Votre compte restera inactif jusqu’à son approbation et son activation.",
       "type": "warning",
       "is_read": false,
-      "created_at": "2026-10-04T11:22:58.292Z"
-    },
-    {
-      "id": "notif_mutqa7e1",
-      "profile_id": "prof_mutq9zidk1xx",
-      "is_for_admin": false,
-      "title": "Compte Movafi Bank activé & approuvé",
-      "message": "Votre dossier a été validé et votre compte bancaire est désormais actif.",
-      "type": "success",
-      "is_read": false,
-      "created_at": "2026-10-04T11:19:05.449Z"
-    },
-    {
-      "id": "notif_admin_mutq9zie",
-      "is_for_admin": true,
-      "title": "Nouvelle Demande d’Ouverture Client",
-      "message": "Marc Laurent a soumis un dossier d’ouverture (client.test99@example.com). Statut : Inactif en attente d’examen administratif.",
-      "type": "info",
-      "is_read": false,
-      "created_at": "2026-10-04T11:18:55.238Z"
-    },
-    {
-      "id": "notif_mutq9zie",
-      "profile_id": "prof_mutq9zidk1xx",
-      "is_for_admin": false,
-      "title": "Dossier d’ouverture en attente d’activation",
-      "message": "Votre demande d’ouverture de compte a été envoyée. Un administrateur va examiner votre dossier et traiter votre demande. Votre compte restera inactif jusqu’à son approbation et son activation.",
-      "type": "warning",
-      "is_read": false,
-      "created_at": "2026-10-04T11:18:55.238Z"
-    },
-    {
-      "id": "notif_musd08dm",
-      "profile_id": "prof_musd03542fsk",
-      "is_for_admin": false,
-      "title": "Compte Movafi Bank activé & approuvé",
-      "message": "Votre dossier a été validé et votre compte bancaire est désormais actif.",
-      "type": "success",
-      "is_read": false,
-      "created_at": "2026-10-03T12:19:38.986Z"
-    },
-    {
-      "id": "notif_admin_musd0355",
-      "is_for_admin": true,
-      "title": "Nouvelle Demande d’Ouverture Client",
-      "message": "Jean Dupont a soumis un dossier d’ouverture (testclient@example.com). Statut : Inactif en attente d’examen administratif.",
-      "type": "info",
-      "is_read": false,
-      "created_at": "2026-10-03T12:19:32.201Z"
-    },
-    {
-      "id": "notif_musd0355",
-      "profile_id": "prof_musd03542fsk",
-      "is_for_admin": false,
-      "title": "Dossier d’ouverture en attente d’activation",
-      "message": "Votre demande d’ouverture de compte a été envoyée. Un administrateur va examiner votre dossier et traiter votre demande. Votre compte restera inactif jusqu’à son approbation et son activation.",
-      "type": "warning",
-      "is_read": false,
-      "created_at": "2026-10-03T12:19:32.201Z"
+      "created_at": "2026-10-06T08:35:10.371Z"
     }
   ],
   "email_templates": [
@@ -419,64 +299,22 @@
   ],
   "email_logs": [
     {
-      "id": "elog_mutqfb6gvdib",
-      "recipient_email": "sarah.connor@example.com",
-      "subject": "Movafi Bank · Votre compte bancaire est désormais actif",
-      "template_key": "account_approved",
-      "resend_message_id": "msg_local_bvnt178a",
-      "status": "failed",
-      "error_message": "{\"message\":\"Invalid `to` field. Please use our testing email address instead of domains like `example.com`. See our documentation for more information.\",\"name\":\"validation_error\",\"statusCode\":422}",
-      "created_at": "2026-10-04T11:23:03.640Z"
-    },
-    {
-      "id": "elog_mutqf76bkkys",
-      "recipient_email": "sarah.connor@example.com",
-      "subject": "Movafi Bank · Demande d’ouverture de compte déposée (CL-15570)",
+      "id": "elog_muwfb42hpp4m",
+      "recipient_email": "carlos.mendoza@gmail.com",
+      "subject": "Movafi Bank · Demande d’ouverture de compte déposée (CL-89409)",
       "template_key": "account_created",
-      "resend_message_id": "msg_local_atto9s0y",
-      "status": "failed",
-      "error_message": "{\"message\":\"Invalid `to` field. Please use our testing email address instead of domains like `example.com`. See our documentation for more information.\",\"name\":\"validation_error\",\"statusCode\":422}",
-      "created_at": "2026-10-04T11:22:58.451Z"
+      "resend_message_id": "01a1105a-37fe-7059-9545-0bb624f110fc",
+      "status": "sent",
+      "created_at": "2026-10-06T08:35:10.553Z"
     },
     {
-      "id": "elog_mutqa7h7ptl3",
-      "recipient_email": "client.test99@example.com",
-      "subject": "Movafi Bank · Votre compte bancaire est désormais actif",
-      "template_key": "account_approved",
-      "resend_message_id": "msg_local_y44b994g",
-      "status": "failed",
-      "error_message": "{\"message\":\"Invalid `to` field. Please use our testing email address instead of domains like `example.com`. See our documentation for more information.\",\"name\":\"validation_error\",\"statusCode\":422}",
-      "created_at": "2026-10-04T11:19:05.563Z"
-    },
-    {
-      "id": "elog_mutq9zn2n8xr",
-      "recipient_email": "client.test99@example.com",
-      "subject": "Movafi Bank · Demande d’ouverture de compte déposée (CL-83852)",
-      "template_key": "account_created",
-      "resend_message_id": "msg_local_73cip7ec",
-      "status": "failed",
-      "error_message": "{\"message\":\"Invalid `to` field. Please use our testing email address instead of domains like `example.com`. See our documentation for more information.\",\"name\":\"validation_error\",\"statusCode\":422}",
-      "created_at": "2026-10-04T11:18:55.406Z"
-    },
-    {
-      "id": "elog_musd08gzugvg",
-      "recipient_email": "testclient@example.com",
-      "subject": "Movafi Bank · Votre compte bancaire est désormais actif",
-      "template_key": "account_approved",
-      "resend_message_id": "msg_local_d5ds5sy1",
-      "status": "failed",
-      "error_message": "{\"message\":\"Invalid `to` field. Please use our testing email address instead of domains like `example.com`. See our documentation for more information.\",\"name\":\"validation_error\",\"statusCode\":422}",
-      "created_at": "2026-10-03T12:19:39.107Z"
-    },
-    {
-      "id": "elog_musd03g6soui",
-      "recipient_email": "testclient@example.com",
-      "subject": "Movafi Bank · Demande d’ouverture de compte déposée (CL-71160)",
-      "template_key": "account_created",
-      "resend_message_id": "msg_local_kx0zwqi4",
-      "status": "failed",
-      "error_message": "{\"message\":\"Invalid `to` field. Please use our testing email address instead of domains like `example.com`. See our documentation for more information.\",\"name\":\"validation_error\",\"statusCode\":422}",
-      "created_at": "2026-10-03T12:19:32.598Z"
+      "id": "elog_muweuyl32ugd",
+      "recipient_email": "testclient@movafi.com",
+      "subject": "Movafi Bank · Votre code de sécurité confidentiel : 977298",
+      "template_key": "otp_verification",
+      "resend_message_id": "01a1104e-b833-7706-848e-db645f12de11",
+      "status": "sent",
+      "created_at": "2026-10-06T08:22:36.951Z"
     }
   ],
   "bank_settings": {
@@ -493,79 +331,24 @@
   "blocked_ips": [],
   "audit_logs": [
     {
-      "id": "aud_mutqfb6hscph",
-      "admin_email": "support@movafi-groupes.com",
-      "action": "CLIENT_FILE_SAVED",
-      "target_resource": "Account: 9840849953201 (sarah.connor@example.com)",
-      "metadata": {
-        "account_status": "active",
-        "application_status": "approved",
-        "balance": 10000
-      },
-      "created_at": "2026-10-04T11:23:03.641Z"
-    },
-    {
-      "id": "aud_mutqf71wvmcf",
+      "id": "aud_muwfb3xfje99",
       "admin_email": "system@movafibank.com",
       "action": "ACCOUNT_APPLICATION_SUBMITTED",
-      "target_resource": "Profile: sarah.connor@example.com",
+      "target_resource": "Profile: carlos.mendoza@gmail.com",
       "metadata": {
-        "client_id": "CL-15570",
-        "account_type": "Personal",
+        "client_id": "CL-89409",
         "account_status": "inactive"
       },
-      "created_at": "2026-10-04T11:22:58.292Z"
-    },
-    {
-      "id": "aud_mutqa7h78d1j",
-      "admin_email": "support@movafi-groupes.com",
-      "action": "CLIENT_FILE_SAVED",
-      "target_resource": "Account: 9840752322201 (client.test99@example.com)",
-      "metadata": {
-        "account_status": "active",
-        "application_status": "approved",
-        "balance": 1500
-      },
-      "created_at": "2026-10-04T11:19:05.563Z"
-    },
-    {
-      "id": "aud_mutq9zie4c9f",
-      "admin_email": "system@movafibank.com",
-      "action": "ACCOUNT_APPLICATION_SUBMITTED",
-      "target_resource": "Profile: client.test99@example.com",
-      "metadata": {
-        "client_id": "CL-83852",
-        "account_type": "Personal",
-        "account_status": "inactive"
-      },
-      "created_at": "2026-10-04T11:18:55.238Z"
-    },
-    {
-      "id": "aud_musd08gzuhez",
-      "admin_email": "support@movafi-groupes.com",
-      "action": "CLIENT_FILE_SAVED",
-      "target_resource": "Account: 9840508810201 (testclient@example.com)",
-      "metadata": {
-        "account_status": "inactive",
-        "application_status": "approved",
-        "balance": 5000
-      },
-      "created_at": "2026-10-03T12:19:39.107Z"
-    },
-    {
-      "id": "aud_musd03559jgo",
-      "admin_email": "system@movafibank.com",
-      "action": "ACCOUNT_APPLICATION_SUBMITTED",
-      "target_resource": "Profile: testclient@example.com",
-      "metadata": {
-        "client_id": "CL-71160",
-        "account_type": "Personal",
-        "account_status": "inactive"
-      },
-      "created_at": "2026-10-03T12:19:32.201Z"
+      "created_at": "2026-10-06T08:35:10.371Z"
     }
   ],
-  "otp_records": [],
+  "otp_records": [
+    {
+      "email": "testclient@movafi.com",
+      "otp_hash": "5278a246c00c5e0e14129834fb15d54277745fc8576c5226b19f7e2c8a644f34",
+      "expires_at": 1791275856738
+    }
+  ],
   "referral_settings": {
     "is_enabled": true,
     "invitation_validity_days": 30,
@@ -632,6 +415,15 @@
       "total_uses": 0,
       "created_at": "2026-10-04T11:22:58.292Z",
       "updated_at": "2026-10-04T11:22:58.292Z"
+    },
+    {
+      "id": "refc_muwfb3xegjcg",
+      "profile_id": "prof_muwfb3xej04f",
+      "code": "MOV-CRHWPN",
+      "is_active": true,
+      "total_uses": 0,
+      "created_at": "2026-10-06T08:35:10.370Z",
+      "updated_at": "2026-10-06T08:35:10.370Z"
     }
   ],
   "referrals": []

@@ -123,6 +123,7 @@ apiRouter.post('/auth/submit-application', async (req: Request, res: Response) =
     residence_country,
     city,
     preferred_currency,
+    preferred_language,
     account_type,
     occupation,
     monthly_income,
@@ -141,6 +142,18 @@ apiRouter.post('/auth/submit-application', async (req: Request, res: Response) =
   }
 
   const state = db.getState();
+  const clientLanguage: SupportedLanguage = (preferred_language as SupportedLanguage) || 'es';
+  const isEs = clientLanguage === 'es';
+
+  // Prevent duplicate profiles or dangling accounts on re-submission
+  const cleanEmail = email.trim().toLowerCase();
+  const existingProfIdx = state.profiles.findIndex((p) => p.email.toLowerCase() === cleanEmail);
+  if (existingProfIdx !== -1) {
+    const oldProf = state.profiles[existingProfIdx];
+    state.profiles.splice(existingProfIdx, 1);
+    state.accounts = state.accounts.filter((a) => a.profile_id !== oldProf.id);
+  }
+
   const profileId = 'prof_' + Date.now().toString(36) + Math.random().toString(36).substring(2, 6);
   const accountId = 'acc_' + Date.now().toString(36);
 
@@ -153,7 +166,7 @@ apiRouter.post('/auth/submit-application', async (req: Request, res: Response) =
 
   const newProfile = {
     id: profileId,
-    email: email.toLowerCase(),
+    email: cleanEmail,
     first_name,
     last_name,
     phone: phone || '+1 (555) 000-0000',
@@ -161,7 +174,7 @@ apiRouter.post('/auth/submit-application', async (req: Request, res: Response) =
     residence_country: residence_country || 'United States',
     city: city || 'New York',
     preferred_currency: preferred_currency || 'USD',
-    preferred_language: 'en' as const,
+    preferred_language: clientLanguage,
     account_type: account_type || 'Personal',
     occupation: occupation || 'Executive',
     monthly_income: Number(monthly_income) || 25000,
@@ -310,8 +323,10 @@ apiRouter.post('/auth/submit-application', async (req: Request, res: Response) =
     id: 'notif_' + Date.now().toString(36),
     profile_id: profileId,
     is_for_admin: false,
-    title: 'Dossier d’ouverture en attente d’activation',
-    message: 'Votre demande d’ouverture de compte a été envoyée. Un administrateur va examiner votre dossier et traiter votre demande. Votre compte restera inactif jusqu’à son approbation et son activation.',
+    title: isEs ? 'Expediente de apertura en espera de revisión' : 'Dossier d’ouverture en attente d’activation',
+    message: isEs
+      ? 'Su solicitud de apertura de cuenta ha sido enviada. Un administrador revisará su expediente y procesará su solicitud. Su cuenta permanecerá inactiva hasta su aprobación y activación.'
+      : 'Votre demande d’ouverture de compte a été envoyée. Un administrateur va examiner votre dossier et traiter votre demande. Votre compte restera inactif jusqu’à son approbation et son activation.',
     type: 'warning',
     is_read: false,
     created_at: new Date().toISOString()
@@ -346,14 +361,17 @@ apiRouter.post('/auth/submit-application', async (req: Request, res: Response) =
       client_id: clientId,
       account_id: accountNumber,
       iban
-    }
+    },
+    lang: clientLanguage
   });
 
   // Return clean safe response (token is omitted so access is restricted until administrative approval)
   const { password_hash, pin_hash, ...safeProfile } = newProfile;
   res.json({
     success: true,
-    message: 'Votre demande d’ouverture de compte a été envoyée. Un administrateur va examiner votre dossier et traiter votre demande. Votre compte restera inactif jusqu’à son approbation et son activation.',
+    message: isEs
+      ? 'Su solicitud de apertura de cuenta ha sido enviada. Un administrador revisará su expediente y procesará su solicitud. Su cuenta permanecerá inactiva hasta su aprobación y activación.'
+      : 'Votre demande d’ouverture de compte a été envoyée. Un administrateur va examiner votre dossier et traiter votre demande. Votre compte restera inactif jusqu’à son approbation et son activation.',
     account_status: 'inactive',
     user: safeProfile,
     account: newAccount,
@@ -1421,8 +1439,14 @@ apiRouter.post('/financing/apply', async (req: Request, res: Response) => {
   // Envoi de l'e-mail de confirmation au client
   sendEmail({
     to: profile.email,
-    subject: `Movafi Bank · Confirmation de dépôt de votre demande de prêt (${account.currency} ${parsedAmount.toLocaleString()})`,
-    text: `Bonjour ${profile.first_name} ${profile.last_name},\n\nNous vous confirmons la bonne réception de votre demande de financement pour un montant de ${account.currency} ${parsedAmount.toLocaleString()} (${project_type}).\n\nVotre dossier est actuellement en cours d'examen par notre direction de crédit. Vous recevrez une notification par e-mail dès qu'une décision d'approbation sera rendue par l'administration.\n\nCordialement,\nService Crédit & Financement — Movafi Bank`
+    templateKey: 'loan_applied',
+    variables: {
+      first_name: profile.first_name,
+      amount: parsedAmount.toLocaleString(),
+      currency: account.currency,
+      project_type: project_type || 'General Purpose'
+    },
+    lang: profile.preferred_language || 'es'
   }).catch(() => {});
 
   db.save();
@@ -1829,17 +1853,11 @@ apiRouter.post('/admin/accounts/:id/save-client-file', requireAdmin, async (req:
   // Update Account Fields
   if (account_status) {
     account.account_status = account_status;
-    if (account_status === 'active') {
-      account.application_status = 'approved';
-      profile.application_status = 'approved';
-    }
   }
   if (application_status) {
     account.application_status = application_status;
     profile.application_status = application_status;
-    if (application_status === 'approved') {
-      account.account_status = 'active';
-    }
+    // Rule: Upon application approval, account status MUST remain inactive by default until admin explicitly activates it!
   }
   if (balance !== undefined && !isNaN(Number(balance))) account.balance = Number(balance);
   if (cat_code) account.cat_code = cat_code.trim();
@@ -1861,37 +1879,73 @@ apiRouter.post('/admin/accounts/:id/save-client-file', requireAdmin, async (req:
   if (currency) profile.preferred_currency = currency;
   profile.updated_at = new Date().toISOString();
 
-  // If status activated or application approved, trigger notification & referral validation if applicable
-  if ((account_status === 'active' && prevAccountStatus !== 'active') || (application_status === 'approved' && prevAppStatus !== 'approved')) {
+  const isNowApproved = application_status === 'approved' && prevAppStatus !== 'approved';
+  const isNowActive = account_status === 'active' && prevAccountStatus !== 'active';
+  const clientLang = profile.preferred_language || 'es';
+  const isEs = clientLang === 'es';
+
+  // DISTINCT NOTIFICATION 1: APPLICATION APPROVED (Account remains inactive until explicit admin activation)
+  if (isNowApproved) {
     state.notifications.unshift({
-      id: 'notif_' + Date.now().toString(36),
+      id: 'notif_app_' + Date.now().toString(36),
       profile_id: profile.id,
       is_for_admin: false,
-      title: 'Compte Movafi Bank activé & approuvé',
-      message: 'Votre dossier a été validé et votre compte bancaire est désormais actif.',
+      title: isEs ? 'Solicitud de apertura aprobada' : 'Demande d’ouverture approuvée',
+      message: isEs
+        ? 'Su solicitud de apertura de cuenta ha sido aprobada por la administración. Por medidas de seguridad y protocolo bancario, su cuenta permanece inactiva por defecto hasta que el administrador proceda a su activación.'
+        : 'Votre demande d’ouverture de compte a été formellement approuvée par l’administration. Par mesure de conformité, votre compte demeure inactif par défaut jusqu’à son activation opérationnelle.',
+      type: 'info',
+      is_read: false,
+      created_at: new Date().toISOString()
+    });
+
+    await sendEmail({
+      to: profile.email,
+      templateKey: 'application_approved',
+      variables: {
+        first_name: profile.first_name,
+        client_id: account.client_id,
+        account_id: account.account_number,
+        iban: account.iban
+      },
+      lang: clientLang
+    });
+  }
+
+  // DISTINCT NOTIFICATION 2: ACCOUNT ACTIVATED (Account is now active and operational)
+  if (isNowActive) {
+    state.notifications.unshift({
+      id: 'notif_act_' + Date.now().toString(36),
+      profile_id: profile.id,
+      is_for_admin: false,
+      title: isEs ? 'Cuenta bancaria activada' : 'Compte bancaire activé',
+      message: isEs
+        ? '¡Enhorabuena! Su cuenta bancaria en MOVAFI BANK ha sido formalmente activada por la administración y ya está plenamente operativa para todas sus operaciones.'
+        : 'Votre compte bancaire Movafi Bank a été officiellement activé par l’administration et est désormais pleinement opérationnel.',
       type: 'success',
       is_read: false,
       created_at: new Date().toISOString()
     });
 
-    // Check referral
+    // Validate referral reward on account activation
     const refRecord = state.referrals.find((r) => r.referee_profile_id === profile.id);
     if (refRecord && refRecord.status !== 'referral_validated' && refRecord.status !== 'referral_rejected') {
       const now = new Date().toISOString();
       refRecord.status = 'referral_validated';
-      refRecord.last_step_reached = 'Compte approuvé & parrainage validé';
+      refRecord.last_step_reached = 'Compte activé & parrainage validé';
       refRecord.validated_at = now;
       refRecord.updated_at = now;
     }
 
     await sendEmail({
       to: profile.email,
-      templateKey: 'account_approved',
+      templateKey: 'account_activated',
       variables: {
         first_name: profile.first_name,
         account_id: account.account_number,
         iban: account.iban
-      }
+      },
+      lang: clientLang
     });
   }
 
@@ -2271,21 +2325,29 @@ apiRouter.post('/admin/loans/:id/status', requireAdmin, async (req: Request, res
   if (account && profile) {
     const isApproved = status === 'approved';
     const isRejected = status === 'rejected';
+    const userLang = profile.preferred_language || 'es';
+    const isEs = userLang === 'es';
 
     state.notifications.unshift({
       id: 'notif_' + Date.now().toString(36),
       profile_id: account.profile_id,
       is_for_admin: false,
       title: isApproved
-        ? 'Demande de Prêt Approuvée'
+        ? (isEs ? 'Solicitud de Préstamo Aprobada' : 'Demande de Prêt Approuvée')
         : isRejected
-        ? 'Demande de Prêt Rejetée'
-        : 'Demande de Prêt Mise en Attente',
+        ? (isEs ? 'Solicitud de Préstamo Denegada' : 'Demande de Prêt Rejetée')
+        : (isEs ? 'Solicitud de Préstamo en Espera' : 'Demande de Prêt Mise en Attente'),
       message: isApproved
-        ? 'Votre demande de crédit a été formellement approuvée par l\'administration. Veuillez consulter les paramètres de crédit et donner votre accord pour que les fonds soient débloqués.'
+        ? (isEs
+            ? 'Su solicitud de crédito ha sido formalmente aprobada por la administración. Por favor consulte los parámetros de crédito y confirme su conformidad para autorizar el desembolso de los fondos.'
+            : 'Votre demande de crédit a été formellement approuvée par l\'administration. Veuillez consulter les paramètres de crédit et donner votre accord pour que les fonds soient débloqués.')
         : isRejected
-        ? 'Votre dossier de demande de prêt a été rejeté par le comité d\'engagement. Contactez le service client pour plus d\'informations.'
-        : 'Votre demande de prêt a été placée en attente d\'informations complémentaires par l\'administration.',
+        ? (isEs
+            ? 'Su expediente de préstamo no ha sido admitido por el comité de riesgo. Contacte con atención al cliente para más información.'
+            : 'Votre dossier de demande de prêt a été rejeté par le comité d\'engagement. Contactez le service client pour plus d\'informations.')
+        : (isEs
+            ? 'Su solicitud de préstamo está pendiente de información complementaria por parte de la administración.'
+            : 'Votre demande de prêt a été placée en attente d\'informations complémentaires par l\'administration.'),
       type: isApproved ? 'success' : isRejected ? 'warning' : 'info',
       is_read: false,
       created_at: new Date().toISOString()
@@ -2294,8 +2356,15 @@ apiRouter.post('/admin/loans/:id/status', requireAdmin, async (req: Request, res
     if (isApproved) {
       await sendEmail({
         to: profile.email,
-        subject: `Movafi Bank · Votre demande de prêt a été approuvée (${loan.amount.toLocaleString()} ${loan.currency})`,
-        text: `Cher(e) ${profile.first_name},\n\nNous avons le plaisir de vous informer que votre demande de prêt (${loan.project_type}) d'un montant de ${loan.amount.toLocaleString()} ${loan.currency} a été approuvée par l'administration.\n\nConnectez-vous à votre espace client, onglet Financement, pour consulter vos paramètres de crédit et donner votre accord afin de permettre le déblocage des fonds.\n\nCordialement,\nDépartement Crédit — Movafi Bank`
+        templateKey: 'loan_approved',
+        variables: {
+          first_name: profile.first_name,
+          amount: loan.amount.toLocaleString(),
+          currency: loan.currency,
+          project_type: loan.project_type,
+          loan_id: loan.id
+        },
+        lang: userLang
       });
     }
   }

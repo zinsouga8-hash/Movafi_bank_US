@@ -24,11 +24,11 @@ export default function App() {
 
   const isDark = theme !== 'light';
 
-  // Language state
+  // Language state: Default to Spanish ('es')
   const [currentLang, setCurrentLang] = useState<SupportedLanguage>(() => {
     const saved = localStorage.getItem('movafi_lang');
     if (saved === 'fr' || saved === 'es' || saved === 'en' || saved === 'ar') return saved as SupportedLanguage;
-    return 'en';
+    return 'es';
   });
 
   // Settings

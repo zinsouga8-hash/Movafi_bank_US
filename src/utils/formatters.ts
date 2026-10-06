@@ -14,7 +14,6 @@ export function formatCurrency(
       SAR: 'ar-SA',
       AED: 'ar-AE',
       BHD: 'ar-BH',
-      TND: 'ar-TN',
       USD: 'ar-US',
       EUR: 'ar-FR',
       CAD: 'ar-CA',

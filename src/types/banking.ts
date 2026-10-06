@@ -1,4 +1,4 @@
-export type SupportedCurrency = 'USD' | 'CAD' | 'EUR' | 'SAR' | 'AED' | 'BHD' | 'MXN' | 'TND' | 'JPY';
+export type SupportedCurrency = 'USD' | 'EUR' | 'CAD' | 'MXN' | 'SAR' | 'AED' | 'BHD' | 'JPY';
 export type SupportedLanguage = 'en' | 'fr' | 'es' | 'ar';
 
 export type ReferralStatus =

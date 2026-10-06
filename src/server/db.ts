@@ -514,14 +514,19 @@ class DatabaseService {
     this.state = data;
     try {
       const jsonStr = JSON.stringify(data, null, 2);
-      // Direct reliable write to main file
-      fs.writeFileSync(DB_FILE_PATH, jsonStr, 'utf-8');
+      const tempPath = `${DB_FILE_PATH}.tmp.${Date.now()}`;
+      // Write to temp file first
+      fs.writeFileSync(tempPath, jsonStr, 'utf-8');
+      // Atomic rename to primary DB file
+      fs.renameSync(tempPath, DB_FILE_PATH);
       // Redundant backup copy
       fs.writeFileSync(DB_BACKUP_PATH, jsonStr, 'utf-8');
     } catch (err) {
-      console.error('[DB] Primary save error, attempting fallback write:', err);
+      console.error('[DB] Primary atomic save error, attempting direct write:', err);
       try {
-        fs.writeFileSync(DB_FILE_PATH, JSON.stringify(data, null, 2), 'utf-8');
+        const jsonStr = JSON.stringify(data, null, 2);
+        fs.writeFileSync(DB_FILE_PATH, jsonStr, 'utf-8');
+        fs.writeFileSync(DB_BACKUP_PATH, jsonStr, 'utf-8');
       } catch (fallbackErr) {
         console.error('[DB] Critical fallback write failed:', fallbackErr);
       }

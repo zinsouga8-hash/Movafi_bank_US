@@ -31,6 +31,38 @@ export const COUNTRIES: CountryInfo[] = [
     cities: ['Toronto', 'Montréal', 'Vancouver', 'Calgary', 'Ottawa', 'Edmonton', 'Québec City']
   },
   {
+    code: 'MX',
+    nameEn: 'Mexico',
+    nameFr: 'Mexique',
+    nameEs: 'México',
+    nameAr: 'المكسيك',
+    flag: '🇲🇽',
+    dialCode: '+52',
+    cities: [
+      'Mexico City (CDMX)',
+      'Guadalajara',
+      'Monterrey',
+      'Puebla',
+      'Tijuana',
+      'León',
+      'Cancún',
+      'Ciudad Juárez',
+      'Zapopan',
+      'Mérida',
+      'Querétaro',
+      'Toluca',
+      'Aguascalientes',
+      'San Luis Potosí',
+      'Hermosillo',
+      'Mexicali',
+      'Culiacán',
+      'Acapulco',
+      'Cuernavaca',
+      'Veracruz',
+      'Playa del Carmen'
+    ]
+  },
+  {
     code: 'FR',
     nameEn: 'France',
     nameFr: 'France',
@@ -329,38 +361,6 @@ export const COUNTRIES: CountryInfo[] = [
     flag: '🇧🇷',
     dialCode: '+55',
     cities: ['São Paulo', 'Rio de Janeiro', 'Brasília', 'Salvador', 'Belo Horizonte']
-  },
-  {
-    code: 'MX',
-    nameEn: 'Mexico',
-    nameFr: 'Mexique',
-    nameEs: 'México',
-    nameAr: 'المكسيك',
-    flag: '🇲🇽',
-    dialCode: '+52',
-    cities: [
-      'Mexico City (CDMX)',
-      'Guadalajara',
-      'Monterrey',
-      'Puebla',
-      'Tijuana',
-      'León',
-      'Cancún',
-      'Ciudad Juárez',
-      'Zapopan',
-      'Mérida',
-      'Querétaro',
-      'Toluca',
-      'Aguascalientes',
-      'San Luis Potosí',
-      'Hermosillo',
-      'Mexicali',
-      'Culiacán',
-      'Acapulco',
-      'Cuernavaca',
-      'Veracruz',
-      'Playa del Carmen'
-    ]
   }
 ];
 
