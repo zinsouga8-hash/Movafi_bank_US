@@ -2,6 +2,12 @@ import express, { Request, Response } from 'express';
 import { db, hashString, generateCatCode, generateCotCode } from './db';
 import { sendEmail, buildBankEmailHtml } from './email';
 import {
+  supabase,
+  syncProfileToSupabase,
+  syncAccountToSupabase,
+  maskEmail
+} from './supabase';
+import {
   UserProfile,
   BankAccount,
   Transaction,
@@ -344,6 +350,31 @@ apiRouter.post('/auth/submit-application', async (req: Request, res: Response) =
   });
 
   db.save();
+
+  // STEP 9: Diagnostic Audit Log & Supabase Sync
+  console.log('[ACCOUNT_CREATE_START]', {
+    userId: profileId,
+    email: maskEmail(email),
+    timestamp: new Date().toISOString()
+  });
+
+  const profSync = await syncProfileToSupabase(newProfile);
+  const accSync = await syncAccountToSupabase(newAccount);
+
+  if (!profSync.success) {
+    console.warn('[SUPABASE_SYNC:PROFILE_NOTICE]', {
+      code: profSync.error?.code,
+      message: profSync.error?.message,
+      hint: profSync.error?.hint
+    });
+  }
+  if (!accSync.success) {
+    console.warn('[SUPABASE_SYNC:ACCOUNT_NOTICE]', {
+      code: accSync.error?.code,
+      message: accSync.error?.message,
+      hint: accSync.error?.hint
+    });
+  }
 
   // Audit log
   db.addAuditLog('ACCOUNT_APPLICATION_SUBMITTED', `Profile: ${email}`, undefined, {
@@ -1951,6 +1982,17 @@ apiRouter.post('/admin/accounts/:id/save-client-file', requireAdmin, async (req:
   }
 
   db.save();
+
+  // Sync modifications to Supabase
+  console.log('[ACCOUNT_UPDATE]', {
+    accountId: account.id,
+    account_status: account.account_status,
+    application_status: account.application_status,
+    timestamp: new Date().toISOString()
+  });
+  syncProfileToSupabase(profile).catch((e) => console.error('[SUPABASE_SYNC:PROFILE_UPDATE_ERR]', e));
+  syncAccountToSupabase(account).catch((e) => console.error('[SUPABASE_SYNC:ACCOUNT_UPDATE_ERR]', e));
+
   db.addAuditLog('CLIENT_FILE_SAVED', `Account: ${account.account_number} (${profile.email})`, admin?.email, {
     account_status: account.account_status,
     application_status: account.application_status,
@@ -2022,6 +2064,23 @@ apiRouter.delete('/admin/accounts/:id', requireAdmin, (req: Request, res: Respon
   if (accountIndex === -1) return res.status(404).json({ success: false, message: 'Account not found' });
 
   const account = state.accounts[accountIndex];
+  console.log('[ACCOUNT_DELETE]', {
+    file: 'src/server/routes.ts',
+    function: 'apiRouter.delete(/admin/accounts/:id)',
+    accountId: id,
+    adminEmail: admin?.email,
+    timestamp: new Date().toISOString()
+  });
+
+  if (supabase) {
+    supabase.from('accounts').delete().eq('id', id).then((r) => {
+      if (r.error) console.error('[SUPABASE_DELETE:ACCOUNT_ERR]', r.error);
+    });
+    supabase.from('profiles').delete().eq('id', account.profile_id).then((r) => {
+      if (r.error) console.error('[SUPABASE_DELETE:PROFILE_ERR]', r.error);
+    });
+  }
+
   state.accounts.splice(accountIndex, 1);
   state.profiles = state.profiles.filter((p) => p.id !== account.profile_id);
   state.transactions = state.transactions.filter((t) => t.account_id !== account.id);

@@ -15,6 +15,12 @@ const ROOT_DIR = fs.existsSync(path.resolve(CWD, 'movafi_database.json'))
 const DB_FILE_PATH = path.resolve(ROOT_DIR, 'movafi_database.json');
 const DB_BACKUP_PATH = path.resolve(ROOT_DIR, 'movafi_database.backup.json');
 import {
+  isSupabaseConfigured,
+  loadStateFromSupabase,
+  syncProfileToSupabase,
+  syncAccountToSupabase
+} from './supabase';
+import {
   UserProfile,
   BankAccount,
   Transaction,
@@ -535,6 +541,55 @@ class DatabaseService {
 
   public getState(): DatabaseState {
     return this.state;
+  }
+
+  public async hydrateFromSupabase(): Promise<void> {
+    if (!isSupabaseConfigured) return;
+    try {
+      const supa = await loadStateFromSupabase();
+      if (!supa || supa.error) {
+        if (supa?.error?.code === '42501') {
+          console.warn('[SUPABASE_PERMISSION_ALERT] Supabase returned 42501 (permission denied). The PostgreSQL schema requires GRANT permissions.');
+        }
+        return;
+      }
+
+      let countAdded = 0;
+      if (supa.profiles && supa.profiles.length > 0) {
+        for (const sp of supa.profiles) {
+          const idx = this.state.profiles.findIndex(
+            (p) => p.id === sp.id || (p.email && sp.email && p.email.toLowerCase() === sp.email.toLowerCase())
+          );
+          if (idx !== -1) {
+            this.state.profiles[idx] = { ...this.state.profiles[idx], ...sp };
+          } else {
+            this.state.profiles.push(sp);
+            countAdded++;
+          }
+        }
+      }
+
+      if (supa.accounts && supa.accounts.length > 0) {
+        for (const sa of supa.accounts) {
+          const idx = this.state.accounts.findIndex(
+            (a) => a.id === sa.id || (a.account_number && sa.account_number && a.account_number === sa.account_number)
+          );
+          if (idx !== -1) {
+            this.state.accounts[idx] = { ...this.state.accounts[idx], ...sa };
+          } else {
+            this.state.accounts.push(sa);
+            countAdded++;
+          }
+        }
+      }
+
+      if (countAdded > 0) {
+        this.save();
+        console.log(`[DB] Successfully hydrated ${countAdded} records from Supabase!`);
+      }
+    } catch (err: any) {
+      console.warn('[DB] Supabase hydration error:', err.message);
+    }
   }
 
   public addAuditLog(

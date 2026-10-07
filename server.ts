@@ -3,6 +3,7 @@ import { createServer as createViteServer } from 'vite';
 import path from 'path';
 import dotenv from 'dotenv';
 import { apiRouter } from './src/server/routes';
+import { db } from './src/server/db';
 
 dotenv.config();
 
@@ -51,6 +52,7 @@ async function startServer() {
 
   app.listen(PORT, '0.0.0.0', () => {
     console.log(`[MOVAFI BANK] Core Banking & Web Engine active on http://0.0.0.0:${PORT}`);
+    db.hydrateFromSupabase().catch((err) => console.warn('[SUPABASE] Hydration error:', err));
   });
 }
 

@@ -72,6 +72,30 @@
       "application_status": "approved",
       "created_at": "2026-10-07T07:36:19.273Z",
       "updated_at": "2026-10-07T07:36:47.846Z"
+    },
+    {
+      "id": "prof_muy5pxjye1p0",
+      "email": "alejandro.torres@gmail.com",
+      "first_name": "Alejandro",
+      "last_name": "Torres",
+      "phone": "+52 55 9876 5432",
+      "nationality": "Mexico",
+      "residence_country": "Mexico",
+      "city": "Guadalajara",
+      "preferred_currency": "MXN",
+      "preferred_language": "es",
+      "account_type": "Personal",
+      "occupation": "Arquitecto",
+      "monthly_income": 60000,
+      "activity_duration": "Plus de 3 ans",
+      "is_admin": false,
+      "admin_role": null,
+      "password_hash": "a109e36947ad56de1dca1cc49f0ef8ac9ad9a7b1aa0df41fb3c4cb73c1ff01ea",
+      "pin_hash": "e0bc60c82713f64ef8a57c0c40d02ce24fd0141d5cc3086259c19b1e62a62bea",
+      "portal_password": "Password123!",
+      "portal_pin": "112233",
+      "application_status": "pending",
+      "created_at": "2026-10-07T13:42:18.142Z"
     }
   ],
   "accounts": [
@@ -123,6 +147,22 @@
       "is_balance_visible": true,
       "created_at": "2026-10-07T07:36:19.273Z",
       "updated_at": "2026-10-07T07:36:47.846Z"
+    },
+    {
+      "id": "acc_muy5pxjy",
+      "profile_id": "prof_muy5pxjye1p0",
+      "client_id": "CL-93451",
+      "account_number": "9840302902201",
+      "iban": "US94MOVA0210000219840302902201",
+      "bic_swift": "MOVAFUS33XXX",
+      "currency": "MXN",
+      "balance": 0,
+      "account_status": "inactive",
+      "application_status": "pending",
+      "cat_code": "CAT-590802",
+      "cot_code": "COT-618577",
+      "is_balance_visible": true,
+      "created_at": "2026-10-07T13:42:18.143Z"
     }
   ],
   "transactions": [],
@@ -273,6 +313,25 @@
   "loan_applications": [],
   "notifications": [
     {
+      "id": "notif_admin_muy5pxjz",
+      "is_for_admin": true,
+      "title": "Nouvelle Demande d’Ouverture Client",
+      "message": "Alejandro Torres a soumis un dossier d’ouverture (alejandro.torres@gmail.com). Statut : Inactif en attente d’examen administratif.",
+      "type": "info",
+      "is_read": false,
+      "created_at": "2026-10-07T13:42:18.143Z"
+    },
+    {
+      "id": "notif_muy5pxjz",
+      "profile_id": "prof_muy5pxjye1p0",
+      "is_for_admin": false,
+      "title": "Expediente de apertura en espera de revisión",
+      "message": "Su solicitud de apertura de cuenta ha sido enviada. Un administrador revisará su expediente y procesará su solicitud. Su cuenta permanecerá inactiva hasta su aprobación y activación.",
+      "type": "warning",
+      "is_read": false,
+      "created_at": "2026-10-07T13:42:18.143Z"
+    },
+    {
       "id": "notif_act_muxsnw12",
       "profile_id": "prof_muxsn9zcrbhc",
       "is_for_admin": false,
@@ -380,6 +439,15 @@
   ],
   "email_logs": [
     {
+      "id": "elog_muy5pys92nv0",
+      "recipient_email": "alejandro.torres@gmail.com",
+      "subject": "MOVAFI BANK · Solicitud de apertura de cuenta registrada (CL-93451)",
+      "template_key": "account_created",
+      "resend_message_id": "01a11699-c8fc-7256-b768-3b7acbfda214",
+      "status": "sent",
+      "created_at": "2026-10-07T13:42:19.737Z"
+    },
+    {
       "id": "elog_muxsnw563859",
       "recipient_email": "sofia.navarro@gmail.com",
       "subject": "MOVAFI BANK · Su cuenta bancaria ya está ACTIVA",
@@ -438,6 +506,18 @@
   },
   "blocked_ips": [],
   "audit_logs": [
+    {
+      "id": "aud_muy5pxo1h77a",
+      "admin_email": "system@movafibank.com",
+      "action": "ACCOUNT_APPLICATION_SUBMITTED",
+      "target_resource": "Profile: alejandro.torres@gmail.com",
+      "metadata": {
+        "client_id": "CL-93451",
+        "account_type": "Personal",
+        "account_status": "inactive"
+      },
+      "created_at": "2026-10-07T13:42:18.289Z"
+    },
     {
       "id": "aud_muxsnw57e663",
       "admin_email": "support@movafi-groupes.com",
@@ -577,6 +657,15 @@
       "total_uses": 0,
       "created_at": "2026-10-07T07:36:19.273Z",
       "updated_at": "2026-10-07T07:36:19.273Z"
+    },
+    {
+      "id": "refc_muy5pxjzog1g",
+      "profile_id": "prof_muy5pxjye1p0",
+      "code": "MOV-5NFZA7",
+      "is_active": true,
+      "total_uses": 0,
+      "created_at": "2026-10-07T13:42:18.143Z",
+      "updated_at": "2026-10-07T13:42:18.143Z"
     }
   ],
   "referrals": []
