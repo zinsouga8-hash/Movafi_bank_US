@@ -42,7 +42,7 @@ export function formatCurrency(
   if (currency === 'EUR') return `€${numFormatted}`;
   if (currency === 'CAD') return `CA$${numFormatted}`;
 
-  // For AED, TND, JPY, SAR, BHD, MXN, etc., use international code: "1,250.00 AED", "5,000.00 TND"
+  // For AED, JPY, SAR, BHD, MXN, etc., use international code: "1,250.00 AED", "5,000.00 MXN"
   return `${numFormatted} ${currency}`;
 }
 

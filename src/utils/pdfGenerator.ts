@@ -191,7 +191,8 @@ export function generateLoanTermsPdf(
   profile?: UserProfile,
   settings?: BankSettings,
   loanId?: string,
-  createdAt?: string
+  createdAt?: string,
+  lang?: string
 ): void {
   const doc = new jsPDF({
     orientation: 'portrait',
@@ -199,15 +200,18 @@ export function generateLoanTermsPdf(
     format: 'a4'
   });
 
-  const borrowerName = profile ? `${profile.first_name} ${profile.last_name}` : 'Christiane Leu';
-  const borrowerCountry = profile?.nationality || profile?.residence_country || 'France';
+  const targetLang = (lang || profile?.preferred_language || (typeof document !== 'undefined' ? document.documentElement.lang : 'es') || 'es') as string;
+  const isEs = targetLang === 'es';
+
+  const borrowerName = profile ? `${profile.first_name} ${profile.last_name}` : (isEs ? 'Carlos Mendoza' : 'Christiane Leu');
+  const borrowerCountry = profile?.nationality || profile?.residence_country || (isEs ? 'México' : 'France');
   const borrowerEmail = profile?.email || 'client@movafi-groupes.com';
 
   const loanCalc = calculateLoanDetails(amount, rate, months, createdAt);
 
   const docDate = createdAt
-    ? new Date(createdAt).toLocaleDateString('fr-FR', { day: '2-digit', month: '2-digit', year: 'numeric' })
-    : new Date().toLocaleDateString('fr-FR', { day: '2-digit', month: '2-digit', year: 'numeric' });
+    ? new Date(createdAt).toLocaleDateString(isEs ? 'es-ES' : 'fr-FR', { day: '2-digit', month: '2-digit', year: 'numeric' })
+    : new Date().toLocaleDateString(isEs ? 'es-ES' : 'fr-FR', { day: '2-digit', month: '2-digit', year: 'numeric' });
 
   const refCode = loanId
     ? `LS-${loanId.replace(/\D/g, '').slice(-3) || '380'}-2026`
@@ -219,26 +223,26 @@ export function generateLoanTermsPdf(
   // PAGE 1 : Header, Banner, Section 1 & 2.1
   // ==========================================
   drawDocumentHeader(doc);
-  drawBlueBanner(doc, 'CONDITIONS DE PRÊT', 38);
+  drawBlueBanner(doc, isEs ? 'CONDICIONES DEL PRÉSTAMO' : 'CONDITIONS DE PRÊT', 38);
 
   let y = 57;
   doc.setFont('helvetica', 'bold');
   doc.setFontSize(9);
   doc.setTextColor(15, 23, 42);
-  doc.text(`Date du document: ${docDate}`, 20, y);
+  doc.text(isEs ? `Fecha del documento: ${docDate}` : `Date du document: ${docDate}`, 20, y);
   y += 6;
-  doc.text(`Numéro de référence: ${refCode}`, 20, y);
+  doc.text(isEs ? `Número de referencia: ${refCode}` : `Numéro de référence: ${refCode}`, 20, y);
 
   y += 12;
   // 1. CONDITIONS GÉNÉRALES
   doc.setFont('helvetica', 'bold');
   doc.setFontSize(11);
   doc.setTextColor(COLOR_PRIMARY_BLUE[0], COLOR_PRIMARY_BLUE[1], COLOR_PRIMARY_BLUE[2]);
-  doc.text('1. CONDITIONS GÉNÉRALES', 20, y);
+  doc.text(isEs ? '1. CONDICIONES GENERALES' : '1. CONDITIONS GÉNÉRALES', 20, y);
 
   y += 8;
   doc.setFontSize(9.5);
-  doc.text('1.1 Parties', 20, y);
+  doc.text(isEs ? '1.1 Partes contratantes' : '1.1 Parties', 20, y);
 
   y += 4;
   // Parties Table
@@ -251,14 +255,14 @@ export function generateLoanTermsPdf(
   doc.setFont('helvetica', 'normal');
   doc.setFontSize(8);
   doc.setTextColor(100, 116, 139);
-  doc.text('Prêteur:', 24, y + 5.5);
+  doc.text(isEs ? 'Prestamista:' : 'Prêteur:', 24, y + 5.5);
   doc.setFont('helvetica', 'bold');
   doc.setTextColor(15, 23, 42);
-  doc.text('MOVAFI BANK - TVA: US88492011', 70, y + 5.5);
+  doc.text('MOVAFI BANK - TVA/NIF: US88492011', 70, y + 5.5);
 
   doc.setFont('helvetica', 'normal');
   doc.setTextColor(100, 116, 139);
-  doc.text('Emprunteur:', 24, y + 13);
+  doc.text(isEs ? 'Prestatario:' : 'Emprunteur:', 24, y + 13);
   doc.setFont('helvetica', 'bold');
   doc.setTextColor(15, 23, 42);
   doc.text(borrowerName, 70, y + 13);
@@ -272,16 +276,16 @@ export function generateLoanTermsPdf(
   doc.setFont('helvetica', 'bold');
   doc.setFontSize(9.5);
   doc.setTextColor(COLOR_PRIMARY_BLUE[0], COLOR_PRIMARY_BLUE[1], COLOR_PRIMARY_BLUE[2]);
-  doc.text('1.2 Détails du prêt', 20, y);
+  doc.text(isEs ? '1.2 Detalles del préstamo' : '1.2 Détails du prêt', 20, y);
 
   y += 4;
   const detailsRows = [
-    ['Montant du prêt:', `${amount.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })} ${currency}`],
-    ['Durée:', `${months} mois (${Math.round(months / 12)} ans)`],
-    ["Taux d'intérêt annuel:", `${rate.toFixed(2)}%`],
-    ['Mensualité:', `${loanCalc.monthlyPayment.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })} ${currency}`],
-    ['Date du premier paiement:', loanCalc.firstPaymentDate],
-    ['Montant total à rembourser:', `${loanCalc.totalCost.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })} ${currency}`]
+    [isEs ? 'Monto del préstamo:' : 'Montant du prêt:', `${amount.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })} ${currency}`],
+    [isEs ? 'Plazo:' : 'Durée:', isEs ? `${months} meses (${Math.round(months / 12)} años)` : `${months} mois (${Math.round(months / 12)} ans)`],
+    [isEs ? 'Tasa de interés anual:' : "Taux d'intérêt annuel:", `${rate.toFixed(2)}%`],
+    [isEs ? 'Mensualidad:' : 'Mensualité:', `${loanCalc.monthlyPayment.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })} ${currency}`],
+    [isEs ? 'Fecha del primer pago:' : 'Date du premier paiement:', loanCalc.firstPaymentDate],
+    [isEs ? 'Monto total a reembolsar:' : 'Montant total à rembourser:', `${loanCalc.totalCost.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })} ${currency}`]
   ];
 
   const tableH = detailsRows.length * 7;
@@ -307,17 +311,23 @@ export function generateLoanTermsPdf(
   doc.setFont('helvetica', 'bold');
   doc.setFontSize(11);
   doc.setTextColor(COLOR_PRIMARY_BLUE[0], COLOR_PRIMARY_BLUE[1], COLOR_PRIMARY_BLUE[2]);
-  doc.text("2. TAUX D'INTÉRÊT ET FRAIS", 20, y);
+  doc.text(isEs ? '2. TASA DE INTERÉS Y GASTOS' : "2. TAUX D'INTÉRÊT ET FRAIS", 20, y);
 
   y += 8;
   doc.setFontSize(9.5);
-  doc.text("2.1 Taux d'intérêt", 20, y);
+  doc.text(isEs ? '2.1 Tasa de interés fija' : "2.1 Taux d'intérêt", 20, y);
 
   y += 6;
   doc.setFont('helvetica', 'normal');
   doc.setFontSize(8.5);
   doc.setTextColor(51, 65, 85);
-  doc.text(`Le taux d'intérêt annuel appliqué à ce prêt est fixé à ${rate.toFixed(2)}% pour toute la durée du contrat.`, 20, y);
+  doc.text(
+    isEs
+      ? `La tasa de interés anual aplicada a este préstamo se fija en ${rate.toFixed(2)}% durante toda la vigencia del contrato.`
+      : `Le taux d'intérêt annuel appliqué à ce prêt est fixé à ${rate.toFixed(2)}% pour toute la durée du contrat.`,
+    20,
+    y
+  );
 
   drawDocumentFooter(doc, 1, totalPages);
 
@@ -337,31 +347,35 @@ export function generateLoanTermsPdf(
   doc.setFont('helvetica', 'bold');
   doc.setFontSize(9);
   doc.setTextColor(COLOR_GREEN_TEXT[0], COLOR_GREEN_TEXT[1], COLOR_GREEN_TEXT[2]);
-  doc.text('🗎 Facilitation de Crédit & Subvention MOVAFI BANK', 25, y + 6);
+  doc.text(isEs ? '🗎 Facilitación de Crédito y Subvención MOVAFI BANK' : '🗎 Facilitation de Crédit & Subvention MOVAFI BANK', 25, y + 6);
 
   doc.setFont('helvetica', 'normal');
   doc.setFontSize(8);
   doc.setTextColor(51, 65, 85);
   doc.text(
-    'MOVAFI BANK agit en tant que facilitateur de crédit et fournit une subvention de 2% sur le taux d\'intérêt pour rendre le financement plus abordable et accessible.',
+    isEs
+      ? 'MOVAFI BANK actúa como facilitador de crédito y proporciona una subvención del 2% sobre la tasa de interés para que la financiación sea accesible y asequible.'
+      : 'MOVAFI BANK agit en tant que facilitateur de crédit et fournit une subvention de 2% sur le taux d\'intérêt pour rendre le financement plus abordable et accessible.',
     25,
     y + 12,
     { maxWidth: 160 }
   );
 
-  doc.text("Taux d'intérêt bancaire d'origine:", 25, y + 20);
+  doc.text(isEs ? 'Tasa de interés bancaria original:' : "Taux d'intérêt bancaire d'origine:", 25, y + 20);
   doc.text(`${loanCalc.baseRatePercent.toFixed(2)}%`, 180, y + 20, { align: 'right' });
 
-  doc.text('Taux de subvention MOVAFI BANK:', 25, y + 24);
+  doc.text(isEs ? 'Tasa de subvención MOVAFI BANK:' : 'Taux de subvention MOVAFI BANK:', 25, y + 24);
   doc.text('-2.00%', 180, y + 24, { align: 'right' });
 
   doc.setFont('helvetica', 'bold');
-  doc.text('Taux final appliqué à votre prêt:', 25, y + 28);
+  doc.text(isEs ? 'Tasa final aplicada a su préstamo:' : 'Taux final appliqué à votre prêt:', 25, y + 28);
   doc.text(`${rate.toFixed(2)}%`, 180, y + 28, { align: 'right' });
 
   doc.setTextColor(COLOR_GREEN_TEXT[0], COLOR_GREEN_TEXT[1], COLOR_GREEN_TEXT[2]);
   doc.text(
-    `Vous économisez ${loanCalc.totalSavings.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })} ${currency} sur toute la durée du prêt grâce à la subvention MOVAFI BANK.`,
+    isEs
+      ? `Usted ahorra ${loanCalc.totalSavings.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })} ${currency} durante la duración del préstamo gracias a la subvención MOVAFI BANK.`
+      : `Vous économisez ${loanCalc.totalSavings.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })} ${currency} sur toute la durée du prêt grâce à la subvention MOVAFI BANK.`,
     25,
     y + 33
   );
@@ -371,35 +385,37 @@ export function generateLoanTermsPdf(
   doc.setFont('helvetica', 'bold');
   doc.setFontSize(9.5);
   doc.setTextColor(COLOR_PRIMARY_BLUE[0], COLOR_PRIMARY_BLUE[1], COLOR_PRIMARY_BLUE[2]);
-  doc.text('2.2 Frais supplémentaires', 20, y);
+  doc.text(isEs ? '2.2 Gastos y comisiones adicionales' : '2.2 Frais supplémentaires', 20, y);
 
   y += 6;
   doc.setFont('helvetica', 'normal');
   doc.setFontSize(8);
   doc.setTextColor(51, 65, 85);
-  doc.text('•  Frais de traitement de la demande: Aucun', 25, y);
+  doc.text(isEs ? '•  Gastos de tramitación de la solicitud: Ninguno' : '•  Frais de traitement de la demande: Aucun', 25, y);
   y += 5;
-  doc.text('•  Frais de gestion mensuelle: Aucun', 25, y);
+  doc.text(isEs ? '•  Gastos de administración mensual: Ninguno' : '•  Frais de gestion mensuelle: Aucun', 25, y);
   y += 5;
-  doc.text('•  Frais de remboursement anticipé: Voir section 4.1', 25, y);
+  doc.text(isEs ? '•  Gastos de reembolso anticipado: Véase sección 4.1' : '•  Frais de remboursement anticipé: Voir section 4.1', 25, y);
 
   y += 12;
   // 3. CONDITIONS DE PAIEMENT
   doc.setFont('helvetica', 'bold');
   doc.setFontSize(11);
   doc.setTextColor(COLOR_PRIMARY_BLUE[0], COLOR_PRIMARY_BLUE[1], COLOR_PRIMARY_BLUE[2]);
-  doc.text('3. CONDITIONS DE PAIEMENT', 20, y);
+  doc.text(isEs ? '3. CONDICIONES DE PAGO' : '3. CONDITIONS DE PAIEMENT', 20, y);
 
   y += 8;
   doc.setFontSize(9.5);
-  doc.text('3.1 Échéancier de paiement', 20, y);
+  doc.text(isEs ? '3.1 Calendario de pagos' : '3.1 Échéancier de paiement', 20, y);
 
   y += 6;
   doc.setFont('helvetica', 'normal');
   doc.setFontSize(8.5);
   doc.setTextColor(51, 65, 85);
   doc.text(
-    `L'emprunteur s'engage à effectuer des paiements mensuels de ${loanCalc.monthlyPayment.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })} ${currency} à partir du ${loanCalc.firstPaymentDate}.`,
+    isEs
+      ? `El prestatario se compromete a realizar pagos mensuales de ${loanCalc.monthlyPayment.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })} ${currency} a partir del ${loanCalc.firstPaymentDate}.`
+      : `L'emprunteur s'engage à effectuer des paiements mensuels de ${loanCalc.monthlyPayment.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })} ${currency} à partir du ${loanCalc.firstPaymentDate}.`,
     20,
     y
   );
@@ -408,14 +424,16 @@ export function generateLoanTermsPdf(
   doc.setFont('helvetica', 'bold');
   doc.setFontSize(9.5);
   doc.setTextColor(COLOR_PRIMARY_BLUE[0], COLOR_PRIMARY_BLUE[1], COLOR_PRIMARY_BLUE[2]);
-  doc.text('3.2 Mode de paiement', 20, y);
+  doc.text(isEs ? '3.2 Modalidad de pago' : '3.2 Mode de paiement', 20, y);
 
   y += 6;
   doc.setFont('helvetica', 'normal');
   doc.setFontSize(8.5);
   doc.setTextColor(51, 65, 85);
   doc.text(
-    'Les paiements doivent être effectués par virement bancaire sur les coordonnées bancaires fournies par MOVAFI BANK.',
+    isEs
+      ? 'Los pagos deben realizarse por transferencia bancaria a los datos bancarios facilitados por MOVAFI BANK.'
+      : 'Les paiements doivent être effectués par virement bancaire sur les coordonnées bancaires fournies par MOVAFI BANK.',
     20,
     y,
     { maxWidth: 170 }
@@ -425,7 +443,7 @@ export function generateLoanTermsPdf(
   doc.setFont('helvetica', 'bold');
   doc.setFontSize(9.5);
   doc.setTextColor(COLOR_PRIMARY_BLUE[0], COLOR_PRIMARY_BLUE[1], COLOR_PRIMARY_BLUE[2]);
-  doc.text('3.3 Retard de paiement', 20, y);
+  doc.text(isEs ? '3.3 Retraso en el pago' : '3.3 Retard de paiement', 20, y);
 
   y += 5;
   // Amber Box Retard
@@ -437,7 +455,9 @@ export function generateLoanTermsPdf(
   doc.setFontSize(8);
   doc.setTextColor(COLOR_AMBER_TEXT[0], COLOR_AMBER_TEXT[1], COLOR_AMBER_TEXT[2]);
   doc.text(
-    'En cas de retard de paiement, des intérêts de pénalité de 1,5% par mois seront appliqués sur le montant impayé.',
+    isEs
+      ? 'En caso de retraso en el pago, se aplicarán intereses de demora del 1,5% mensual sobre el importe pendiente.'
+      : 'En cas de retard de paiement, des intérêts de pénalité de 1,5% par mois seront appliqués sur le montant impayé.',
     25,
     y + 6,
     { maxWidth: 160 }
@@ -448,7 +468,9 @@ export function generateLoanTermsPdf(
   doc.setFontSize(8.5);
   doc.setTextColor(51, 65, 85);
   doc.text(
-    "Après 30 jours de non-paiement, le prêteur se réserve le droit d'exiger le remboursement immédiat de l'intégralité du solde restant.",
+    isEs
+      ? 'Tras 30 días de impago, el prestamista se reserva el derecho de exigir el reembolso inmediato de la totalidad del saldo pendiente.'
+      : "Après 30 jours de non-paiement, le prêteur se réserve le droit d'exiger le remboursement immédiat de l'intégralité du solde restant.",
     20,
     y,
     { maxWidth: 170 }
@@ -459,7 +481,7 @@ export function generateLoanTermsPdf(
   doc.setFont('helvetica', 'bold');
   doc.setFontSize(11);
   doc.setTextColor(COLOR_PRIMARY_BLUE[0], COLOR_PRIMARY_BLUE[1], COLOR_PRIMARY_BLUE[2]);
-  doc.text('4. REMBOURSEMENT ANTICIPÉ', 20, y);
+  doc.text(isEs ? '4. REEMBOLSO ANTICIPADO' : '4. REMBOURSEMENT ANTICIPÉ', 20, y);
 
   drawDocumentFooter(doc, 2, totalPages);
 
@@ -473,34 +495,38 @@ export function generateLoanTermsPdf(
   doc.setFont('helvetica', 'bold');
   doc.setFontSize(9.5);
   doc.setTextColor(COLOR_PRIMARY_BLUE[0], COLOR_PRIMARY_BLUE[1], COLOR_PRIMARY_BLUE[2]);
-  doc.text('4.1 Conditions de remboursement anticipé', 20, y);
+  doc.text(isEs ? '4.1 Condiciones de amortización anticipada' : '4.1 Conditions de remboursement anticipé', 20, y);
 
   y += 6;
   doc.setFont('helvetica', 'normal');
   doc.setFontSize(8.5);
   doc.setTextColor(51, 65, 85);
   doc.text(
-    "L'emprunteur peut rembourser le prêt par anticipation, en totalité ou en partie, à tout moment sans pénalité si :",
+    isEs
+      ? 'El prestatario puede amortizar el préstamo anticipadamente, en su totalidad o en parte, en cualquier momento sin penalización si:'
+      : "L'emprunteur peut rembourser le prêt par anticipation, en totalité ou en partie, à tout moment sans pénalité si :",
     20,
     y
   );
   y += 6;
-  doc.text('•  Un préavis écrit est donné au moins 30 jours à l\'avance', 25, y);
+  doc.text(isEs ? '•  Se da notificación escrita con al menos 30 días de antelación' : '•  Un préavis écrit est donné au moins 30 jours à l\'avance', 25, y);
   y += 5;
-  doc.text('•  Au moins 6 paiements mensuels ont été effectués', 25, y);
+  doc.text(isEs ? '•  Se han realizado al menos 6 pagos mensuales' : '•  Au moins 6 paiements mensuels ont été effectués', 25, y);
 
   y += 10;
   doc.setFont('helvetica', 'bold');
   doc.setFontSize(9.5);
   doc.setTextColor(COLOR_PRIMARY_BLUE[0], COLOR_PRIMARY_BLUE[1], COLOR_PRIMARY_BLUE[2]);
-  doc.text('4.2 Frais de remboursement anticipé', 20, y);
+  doc.text(isEs ? '4.2 Gastos de reembolso anticipado' : '4.2 Frais de remboursement anticipé', 20, y);
 
   y += 6;
   doc.setFont('helvetica', 'normal');
   doc.setFontSize(8.5);
   doc.setTextColor(51, 65, 85);
   doc.text(
-    'Pour un remboursement anticipé dans les 6 premiers mois, des frais de 1% du capital restant seront appliqués.',
+    isEs
+      ? 'Para un reembolso anticipado en los primeros 6 meses, se aplicará una comisión del 1% del capital restante.'
+      : 'Pour un remboursement anticipé dans les 6 premiers mois, des frais de 1% du capital restant seront appliqués.',
     20,
     y
   );
@@ -510,14 +536,20 @@ export function generateLoanTermsPdf(
   doc.setFont('helvetica', 'bold');
   doc.setFontSize(11);
   doc.setTextColor(COLOR_PRIMARY_BLUE[0], COLOR_PRIMARY_BLUE[1], COLOR_PRIMARY_BLUE[2]);
-  doc.text("5. OBLIGATIONS DE L'EMPRUNTEUR", 20, y);
+  doc.text(isEs ? "5. OBLIGACIONES DEL PRESTATARIO" : "5. OBLIGATIONS DE L'EMPRUNTEUR", 20, y);
 
   y += 8;
   doc.setFont('helvetica', 'normal');
   doc.setFontSize(8.5);
-  doc.text("L'emprunteur s'engage à :", 20, y);
+  doc.text(isEs ? "El prestatario se compromete a:" : "L'emprunteur s'engage à :", 20, y);
 
-  const obligations = [
+  const obligations = isEs ? [
+    'Realizar todos los pagos a tiempo según el calendario acordado',
+    'Informar a MOVAFI BANK de cualquier cambio de situación personal o financiera',
+    'Notificar cualquier cambio de domicilio o datos de contacto en un plazo de 15 días',
+    'Mantener una cobertura de seguro adecuada si fuera necesario',
+    'No utilizar los fondos del préstamo para fines ilícitos'
+  ] : [
     'Effectuer tous les paiements à temps selon l\'échéancier convenu',
     'Informer MOVAFI BANK de tout changement de situation personnelle ou financière',
     'Notifier tout changement d\'adresse ou de coordonnées dans les 15 jours',
@@ -535,14 +567,19 @@ export function generateLoanTermsPdf(
   doc.setFont('helvetica', 'bold');
   doc.setFontSize(11);
   doc.setTextColor(COLOR_PRIMARY_BLUE[0], COLOR_PRIMARY_BLUE[1], COLOR_PRIMARY_BLUE[2]);
-  doc.text('6. DROITS DU PRÊTEUR', 20, y);
+  doc.text(isEs ? '6. DERECHOS DEL PRESTAMISTA' : '6. DROITS DU PRÊTEUR', 20, y);
 
   y += 8;
   doc.setFont('helvetica', 'normal');
   doc.setFontSize(8.5);
-  doc.text('MOVAFI BANK se réserve le droit de :', 20, y);
+  doc.text(isEs ? 'MOVAFI BANK se reserva el derecho de:' : 'MOVAFI BANK se réserve le droit de :', 20, y);
 
-  const rights = [
+  const rights = isEs ? [
+    'Solicitar justificantes de ingresos o de situación financiera en cualquier momento',
+    'Modificar la tasa en caso de cambio significativo del mercado (previo aviso de 60 días)',
+    'Rescindir el contrato en caso de fraude o falsedad en las declaraciones',
+    'Iniciar acciones legales para recuperar los importes debidos e impagados'
+  ] : [
     'Demander une preuve de revenus ou de situation financière à tout moment',
     'Modifier le taux d\'intérêt en cas de changement significatif des conditions du marché (avec un préavis de 60 jours)',
     'Résilier le contrat en cas de fraude ou de fausse déclaration',
@@ -559,18 +596,18 @@ export function generateLoanTermsPdf(
   doc.setFont('helvetica', 'bold');
   doc.setFontSize(11);
   doc.setTextColor(COLOR_PRIMARY_BLUE[0], COLOR_PRIMARY_BLUE[1], COLOR_PRIMARY_BLUE[2]);
-  doc.text('7. DÉFAUT ET CONSÉQUENCES', 20, y);
+  doc.text(isEs ? '7. INCUMPLIMIENTO Y CONSECUENCIAS' : '7. DÉFAUT ET CONSÉQUENCES', 20, y);
 
   y += 8;
   doc.setFontSize(9.5);
-  doc.text('7.1 Événements de défaut', 20, y);
+  doc.text(isEs ? '7.1 Supuestos de incumplimiento' : '7.1 Événements de défaut', 20, y);
 
   y += 6;
   doc.setFont('helvetica', 'normal');
   doc.setFontSize(8.5);
-  doc.text('Le prêt sera considéré en défaut si :', 20, y);
+  doc.text(isEs ? 'El préstamo se considerará en incumplimiento si:' : 'Le prêt sera considéré en défaut si :', 20, y);
   y += 5.5;
-  doc.text('•  Le paiement a plus de 30 jours de retard', 25, y);
+  doc.text(isEs ? '•  El pago tiene más de 30 días de retraso' : '•  Le paiement a plus de 30 jours de retard', 25, y);
 
   drawDocumentFooter(doc, 3, totalPages);
 
@@ -584,15 +621,15 @@ export function generateLoanTermsPdf(
   doc.setFont('helvetica', 'normal');
   doc.setFontSize(8.5);
   doc.setTextColor(51, 65, 85);
-  doc.text('•  L\'emprunteur déclare faillite', 25, y);
+  doc.text(isEs ? '•  El prestatario se declara en quiebra o concurso' : '•  L\'emprunteur déclare faillite', 25, y);
   y += 5.5;
-  doc.text('•  De fausses informations ont été fournies dans la demande', 25, y);
+  doc.text(isEs ? '•  Se proporcionaron datos falsos en la solicitud' : '•  De fausses informations ont été fournies dans la demande', 25, y);
 
   y += 10;
   doc.setFont('helvetica', 'bold');
   doc.setFontSize(9.5);
   doc.setTextColor(COLOR_PRIMARY_BLUE[0], COLOR_PRIMARY_BLUE[1], COLOR_PRIMARY_BLUE[2]);
-  doc.text('7.2 Conséquences du défaut', 20, y);
+  doc.text(isEs ? '7.2 Consecuencias del incumplimiento' : '7.2 Conséquences du défaut', 20, y);
 
   y += 5;
   // Amber Box Conséquences défaut
@@ -604,7 +641,9 @@ export function generateLoanTermsPdf(
   doc.setFontSize(8);
   doc.setTextColor(COLOR_AMBER_TEXT[0], COLOR_AMBER_TEXT[1], COLOR_AMBER_TEXT[2]);
   doc.text(
-    'En cas de défaut, le prêteur peut exiger le remboursement immédiat de tous les montants impayés, plus les pénalités et frais juridiques.',
+    isEs
+      ? 'En caso de incumplimiento, el prestamista puede exigir el reembolso inmediato de todas las cantidades impagadas, más las penalizaciones y costas judiciales.'
+      : 'En cas de défaut, le prêteur peut exiger le remboursement immédiat de tous les montants impayés, plus les pénalités et frais juridiques.',
     25,
     y + 6.5,
     { maxWidth: 160 }
@@ -615,14 +654,16 @@ export function generateLoanTermsPdf(
   doc.setFont('helvetica', 'bold');
   doc.setFontSize(11);
   doc.setTextColor(COLOR_PRIMARY_BLUE[0], COLOR_PRIMARY_BLUE[1], COLOR_PRIMARY_BLUE[2]);
-  doc.text('8. CONFIDENTIALITÉ ET PROTECTION DES DONNÉES', 20, y);
+  doc.text(isEs ? '8. CONFIDENCIALIDAD Y PROTECCIÓN DE DATOS' : '8. CONFIDENTIALITÉ ET PROTECTION DES DONNÉES', 20, y);
 
   y += 7;
   doc.setFont('helvetica', 'normal');
   doc.setFontSize(8.5);
   doc.setTextColor(51, 65, 85);
   doc.text(
-    'MOVAFI BANK s\'engage à protéger les données personnelles des emprunteurs conformément au RGPD. Les informations personnelles ne seront utilisées qu\'à des fins de gestion de prêt et ne seront pas partagées avec des tiers sans consentement, sauf si la loi l\'exige.',
+    isEs
+      ? 'MOVAFI BANK se compromete a proteger los datos personales de los prestatarios conforme al RGPD y normativas internacionales. La información solo se utilizará para la gestión del préstamo y no se compartirá con terceros sin consentimiento, salvo imperativo legal.'
+      : 'MOVAFI BANK s\'engage à protéger les données personnelles des emprunteurs conformément au RGPD. Les informations personnelles ne seront utilisées qu\'à des fins de gestion de prêt et ne seront pas partagées avec des tiers sans consentement, sauf si la loi l\'exige.',
     20,
     y,
     { maxWidth: 170 }
@@ -633,21 +674,25 @@ export function generateLoanTermsPdf(
   doc.setFont('helvetica', 'bold');
   doc.setFontSize(11);
   doc.setTextColor(COLOR_PRIMARY_BLUE[0], COLOR_PRIMARY_BLUE[1], COLOR_PRIMARY_BLUE[2]);
-  doc.text('9. RÈGLEMENT DES LITIGES', 20, y);
+  doc.text(isEs ? '9. RESOLUCIÓN DE CONFLICTOS' : '9. RÈGLEMENT DES LITIGES', 20, y);
 
   y += 7;
   doc.setFont('helvetica', 'normal');
   doc.setFontSize(8.5);
   doc.setTextColor(51, 65, 85);
   doc.text(
-    'Tout litige découlant de cet accord de prêt sera soumis à la juridiction compétente des tribunaux de New York, United States.',
+    isEs
+      ? 'Cualquier litigio derivado de este acuerdo de préstamo se someterá a la jurisdicción competente de los tribunales de Nueva York, Estados Unidos.'
+      : 'Tout litige découlant de cet accord de prêt sera soumis à la juridiction compétente des tribunaux de New York, United States.',
     20,
     y,
     { maxWidth: 170 }
   );
   y += 6;
   doc.text(
-    'Les parties s\'engagent à tenter d\'abord de résoudre tout litige par médiation avant de recourir à une action en justice.',
+    isEs
+      ? 'Las partes se comprometen a intentar primero resolver cualquier conflicto mediante mediación antes de recurrir a la vía judicial.'
+      : 'Les parties s\'engagent à tenter d\'abord de résoudre tout litige par médiation avant de recourir à une action en justice.',
     20,
     y,
     { maxWidth: 170 }
@@ -658,7 +703,7 @@ export function generateLoanTermsPdf(
   doc.setFont('helvetica', 'bold');
   doc.setFontSize(11);
   doc.setTextColor(COLOR_PRIMARY_BLUE[0], COLOR_PRIMARY_BLUE[1], COLOR_PRIMARY_BLUE[2]);
-  doc.text('10. ACCEPTATION ET ACCORD EN LIGNE', 20, y);
+  doc.text(isEs ? '10. ACEPTACIÓN Y ACUERDO EN LÍNEA' : '10. ACCEPTATION ET ACCORD EN LIGNE', 20, y);
 
   y += 6;
   // Blue Box Acceptation
@@ -670,7 +715,9 @@ export function generateLoanTermsPdf(
   doc.setFontSize(8);
   doc.setTextColor(29, 78, 216);
   doc.text(
-    'En validant ce document en ligne, l\'emprunteur reconnaît avoir lu, compris et accepté l\'ensemble des conditions énoncées dans cet accord de prêt. Aucune signature manuscrite n\'est requise : la validation électronique certifiée fait foi.',
+    isEs
+      ? 'Al validar este documento en línea, el prestatario reconoce haber leído, comprendido y aceptado la totalidad de las condiciones establecidas en este acuerdo de préstamo. No se requiere firma manuscrita: la validación electrónica certificada da plena fe.'
+      : 'En validant ce document en ligne, l\'emprunteur reconnaît avoir lu, compris et accepté l\'ensemble des conditions énoncées dans cet accord de prêt. Aucune signature manuscrite n\'est requise : la validation électronique certifiée fait foi.',
     25,
     y + 6,
     { maxWidth: 160 }
@@ -685,12 +732,19 @@ export function generateLoanTermsPdf(
   doc.setFont('helvetica', 'bold');
   doc.setFontSize(8.5);
   doc.setTextColor(15, 23, 42);
-  doc.text('Certification et Enregistrement Central MOVAFI BANK', 105, y + 6, { align: 'center' });
+  doc.text(isEs ? 'Certificación y Registro Central MOVAFI BANK' : 'Certification et Enregistrement Central MOVAFI BANK', 105, y + 6, { align: 'center' });
 
   doc.setFont('helvetica', 'normal');
   doc.setFontSize(7.5);
   doc.setTextColor(100, 116, 139);
-  doc.text('Dossier validé par consentement numérique certifié. Archivé sous sceau bancaire sans signature physique.', 105, y + 11.5, { align: 'center' });
+  doc.text(
+    isEs
+      ? 'Expediente validado por consentimiento digital certificado. Archivado bajo sello bancario sin firma física.'
+      : 'Dossier validé par consentement numérique certifié. Archivé sous sceau bancaire sans signature physique.',
+    105,
+    y + 11.5,
+    { align: 'center' }
+  );
 
   y += 24;
   // Confidential Stamp centered
@@ -698,7 +752,7 @@ export function generateLoanTermsPdf(
 
   drawDocumentFooter(doc, 4, totalPages);
 
-  doc.save(`Movafi_Conditions_Pret_${refCode}.pdf`);
+  doc.save(isEs ? `Movafi_Condiciones_Prestamo_${refCode}.pdf` : `Movafi_Conditions_Pret_${refCode}.pdf`);
 }
 
 // -------------------------------------------------------------
@@ -713,7 +767,8 @@ export function generateLoanParametersPdf(
   profile?: UserProfile,
   settings?: BankSettings,
   loanId?: string,
-  createdAt?: string
+  createdAt?: string,
+  lang?: string
 ): void {
   const doc = new jsPDF({
     orientation: 'portrait',
@@ -721,7 +776,10 @@ export function generateLoanParametersPdf(
     format: 'a4'
   });
 
-  const borrowerName = profile ? `${profile.first_name} ${profile.last_name}` : 'Christiane Leu';
+  const targetLang = (lang || profile?.preferred_language || (typeof document !== 'undefined' ? document.documentElement.lang : 'es') || 'es') as string;
+  const isEs = targetLang === 'es';
+
+  const borrowerName = profile ? `${profile.first_name} ${profile.last_name}` : (isEs ? 'Carlos Mendoza' : 'Christiane Leu');
   const loanCalc = calculateLoanDetails(amount, rate, months, createdAt);
 
   const refCode = loanId
@@ -729,9 +787,6 @@ export function generateLoanParametersPdf(
     : `LS-380-2026`;
 
   // Calculate pages required
-  // Page 1: Header, Details Table, Subsidy Box, Legal Note, and first rows (about 5-10 rows)
-  // Subsequent pages: about 35 rows per page
-  // Final page: remaining rows + signatures + confidential stamp
   const rowsPerPage = 32;
   const firstPageRowsCount = 1;
   const remainingRows = loanCalc.schedule.slice(firstPageRowsCount);
@@ -742,22 +797,22 @@ export function generateLoanParametersPdf(
   // PAGE 1 : Header, Blue Banner, Loan Details, Subsidy Box, Legal Notice
   // ==========================================
   drawDocumentHeader(doc);
-  drawBlueBanner(doc, 'PARAMÈTRES DE PRÊT', 38);
+  drawBlueBanner(doc, isEs ? 'PARÁMETROS DEL PRÉSTAMO' : 'PARAMÈTRES DE PRÊT', 38);
 
   let y = 57;
   doc.setFont('helvetica', 'bold');
   doc.setFontSize(11);
   doc.setTextColor(COLOR_PRIMARY_BLUE[0], COLOR_PRIMARY_BLUE[1], COLOR_PRIMARY_BLUE[2]);
-  doc.text('Détails du prêt', 20, y);
+  doc.text(isEs ? 'Detalles del préstamo' : 'Détails du prêt', 20, y);
 
   y += 4;
   const loanParamRows = [
-    ['Montant du prêt:', `${amount.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })} ${currency}`],
-    ['Mensualité:', `${loanCalc.monthlyPayment.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })} ${currency}`],
-    ['Durée du prêt:', `${months} mois`],
-    ['Intérêts payés:', `${loanCalc.totalInterest.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })} ${currency}`],
-    ["Taux d'intérêt:", `${rate.toFixed(2)}% / année`],
-    ['Coût total du prêt:', `${loanCalc.totalCost.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })} ${currency}`]
+    [isEs ? 'Monto del préstamo:' : 'Montant du prêt:', `${amount.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })} ${currency}`],
+    [isEs ? 'Mensualidad:' : 'Mensualité:', `${loanCalc.monthlyPayment.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })} ${currency}`],
+    [isEs ? 'Plazo del préstamo:' : 'Durée du prêt:', `${months} ${isEs ? 'meses' : 'mois'}`],
+    [isEs ? 'Intereses pagados:' : 'Intérêts payés:', `${loanCalc.totalInterest.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })} ${currency}`],
+    [isEs ? 'Tasa de interés:' : "Taux d'intérêt:", `${rate.toFixed(2)}% / ${isEs ? 'año' : 'année'}`],
+    [isEs ? 'Coste total del préstamo:' : 'Coût total du prêt:', `${loanCalc.totalCost.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })} ${currency}`]
   ];
 
   const tableH = loanParamRows.length * 7;
@@ -790,31 +845,35 @@ export function generateLoanParametersPdf(
   doc.setFont('helvetica', 'bold');
   doc.setFontSize(9);
   doc.setTextColor(COLOR_GREEN_TEXT[0], COLOR_GREEN_TEXT[1], COLOR_GREEN_TEXT[2]);
-  doc.text('🗎 PROGRAMME DE SUBVENTION MOVAFI BANK', 25, y + 6);
+  doc.text(isEs ? '🗎 PROGRAMA DE SUBVENCIÓN MOVAFI BANK' : '🗎 PROGRAMME DE SUBVENTION MOVAFI BANK', 25, y + 6);
 
   doc.setFont('helvetica', 'normal');
   doc.setFontSize(8);
   doc.setTextColor(51, 65, 85);
   doc.text(
-    'MOVAFI BANK agit en tant que facilitateur de crédit et subventionne 2% du taux d\'intérêt pour vous aider à accéder à un financement abordable.',
+    isEs
+      ? 'MOVAFI BANK actúa como facilitador de crédito y subvenciona el 2% de la tasa de interés para brindarle un financiamiento accesible y asequible.'
+      : 'MOVAFI BANK agit en tant que facilitateur de crédit et subventionne 2% du taux d\'intérêt pour vous aider à accéder à un financement abordable.',
     25,
     y + 12,
     { maxWidth: 160 }
   );
 
-  doc.text("Taux d'intérêt initial de la banque:", 25, y + 20);
+  doc.text(isEs ? "Tasa de interés inicial del banco:" : "Taux d'intérêt initial de la banque:", 25, y + 20);
   doc.text(`${loanCalc.baseRatePercent.toFixed(2)}%`, 180, y + 20, { align: 'right' });
 
-  doc.text('Subvention MOVAFI BANK:', 25, y + 24);
+  doc.text(isEs ? 'Subvención MOVAFI BANK:' : 'Subvention MOVAFI BANK:', 25, y + 24);
   doc.text('-2.00%', 180, y + 24, { align: 'right' });
 
   doc.setFont('helvetica', 'bold');
-  doc.text('Votre taux d\'intérêt réduit:', 25, y + 28);
+  doc.text(isEs ? 'Su tasa de interés reducida:' : 'Votre taux d\'intérêt réduit:', 25, y + 28);
   doc.text(`${rate.toFixed(2)}%`, 180, y + 28, { align: 'right' });
 
   doc.setTextColor(COLOR_GREEN_TEXT[0], COLOR_GREEN_TEXT[1], COLOR_GREEN_TEXT[2]);
   doc.text(
-    `Économie totale sur la durée du prêt : ${loanCalc.totalSavings.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })} ${currency}`,
+    isEs
+      ? `Ahorro total durante la duración del préstamo: ${loanCalc.totalSavings.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })} ${currency}`
+      : `Économie totale sur la durée du prêt : ${loanCalc.totalSavings.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })} ${currency}`,
     25,
     y + 33
   );
@@ -829,7 +888,9 @@ export function generateLoanParametersPdf(
   doc.setFontSize(7.5);
   doc.setTextColor(71, 85, 105);
   doc.text(
-    'Ce document ne fournit pas le détail du remboursement anticipé du dossier. En cas de report de paiement, le capital restant indiqué dans ce tableau ne tient pas compte des paiements différés. Il est donc nécessaire d\'ajouter tout paiement différé au capital restant indiqué.',
+    isEs
+      ? 'Este documento no detalla el reembolso anticipado del expediente. En caso de aplazamiento de pago, el capital pendiente de este cuadro no tiene en cuenta pagos diferidos. Es preciso añadir cualquier pago diferido al capital pendiente indicado.'
+      : 'Ce document ne fournit pas le détail du remboursement anticipé du dossier. En cas de report de paiement, le capital restant indiqué dans ce tableau ne tient pas compte des paiements différés. Il est donc nécessaire d\'ajouter tout paiement différé au capital restant indiqué.',
     24,
     y + 6,
     { maxWidth: 162 }
@@ -840,7 +901,7 @@ export function generateLoanParametersPdf(
   doc.setFont('helvetica', 'bold');
   doc.setFontSize(11);
   doc.setTextColor(COLOR_PRIMARY_BLUE[0], COLOR_PRIMARY_BLUE[1], COLOR_PRIMARY_BLUE[2]);
-  doc.text("Échéancier d'amortissement", 20, y);
+  doc.text(isEs ? "Calendario de amortización" : "Échéancier d'amortissement", 20, y);
 
   y += 5;
   // Table Header
@@ -851,12 +912,12 @@ export function generateLoanParametersPdf(
     doc.setFont('helvetica', 'bold');
     doc.setFontSize(7.5);
     doc.setTextColor(255, 255, 255);
-    doc.text('N°', 24, currentY + 5);
-    doc.text('Date de paiement', 45, currentY + 5);
-    doc.text('Mensualité', 80, currentY + 5);
-    doc.text('Intérêts payés', 115, currentY + 5);
-    doc.text('Capital remboursé', 148, currentY + 5);
-    doc.text('Solde restant', 188, currentY + 5, { align: 'right' });
+    doc.text(isEs ? 'Nº' : 'N°', 24, currentY + 5);
+    doc.text(isEs ? 'Fecha de pago' : 'Date de paiement', 45, currentY + 5);
+    doc.text(isEs ? 'Cuota mensual' : 'Mensualité', 80, currentY + 5);
+    doc.text(isEs ? 'Intereses pagados' : 'Intérêts payés', 115, currentY + 5);
+    doc.text(isEs ? 'Capital amortizado' : 'Capital remboursé', 148, currentY + 5);
+    doc.text(isEs ? 'Saldo restante' : 'Solde restant', 188, currentY + 5, { align: 'right' });
   }
 
   drawAmortTableHeader(y);
@@ -943,7 +1004,9 @@ export function generateLoanParametersPdf(
   doc.setFontSize(9.5);
   doc.setTextColor(COLOR_PRIMARY_BLUE[0], COLOR_PRIMARY_BLUE[1], COLOR_PRIMARY_BLUE[2]);
   doc.text(
-    'Validation et Approbation Électronique des Paramètres de Crédit',
+    isEs
+      ? 'Validación y Aprobación Electrónica de los Parámetros de Crédito'
+      : 'Validation et Approbation Électronique des Paramètres de Crédit',
     105,
     y + 7,
     { align: 'center' }
@@ -953,13 +1016,17 @@ export function generateLoanParametersPdf(
   doc.setFontSize(8);
   doc.setTextColor(51, 65, 85);
   doc.text(
-    'L\'emprunteur a validé électroniquement les paramètres financiers et l\'échéancier d\'amortissement en ligne.',
+    isEs
+      ? 'El prestatario ha validado electrónicamente los parámetros financieros y el calendario de amortización en línea.'
+      : 'L\'emprunteur a validé électroniquement les paramètres financiers et l\'échéancier d\'amortissement en ligne.',
     105,
     y + 13,
     { align: 'center' }
   );
   doc.text(
-    'Aucune signature manuscrite n\'est requise. Ce document certifié fait foi pour le déblocage immédiat des liquidités.',
+    isEs
+      ? 'No se requiere firma manuscrita. Este documento certificado da fe para el desembolso de los fondos.'
+      : 'Aucune signature manuscrite n\'est requise. Ce document certifié fait foi pour le déblocage immédiat des liquidités.',
     105,
     y + 18,
     { align: 'center' }
@@ -971,7 +1038,7 @@ export function generateLoanParametersPdf(
 
   drawDocumentFooter(doc, totalPages, totalPages);
 
-  doc.save(`Movafi_Parametres_Pret_${refCode}.pdf`);
+  doc.save(isEs ? `Movafi_Parametros_Pret_${refCode}.pdf` : `Movafi_Parametres_Pret_${refCode}.pdf`);
 }
 
 // Backward-compatible alias

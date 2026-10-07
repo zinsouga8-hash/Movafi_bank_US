@@ -12,7 +12,8 @@ import {
   PaymentMethod,
   ReferralRecord,
   ReferralStatus,
-  ReferralRewardType
+  ReferralRewardType,
+  SupportedLanguage
 } from '../types/banking';
 
 export const apiRouter = express.Router();

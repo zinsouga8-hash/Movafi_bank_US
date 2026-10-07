@@ -47,6 +47,31 @@
       "portal_pin": "123456",
       "application_status": "pending",
       "created_at": "2026-10-06T08:35:10.370Z"
+    },
+    {
+      "id": "prof_muxsn9zcrbhc",
+      "email": "sofia.navarro@gmail.com",
+      "first_name": "Sofia",
+      "last_name": "Navarro",
+      "phone": "+52 55 1234 5678",
+      "nationality": "Mexico",
+      "residence_country": "Mexico",
+      "city": "Mexico City (CDMX)",
+      "preferred_currency": "MXN",
+      "preferred_language": "es",
+      "account_type": "Personal",
+      "occupation": "Ingeniera de Software",
+      "monthly_income": 45000,
+      "activity_duration": "Plus de 3 ans",
+      "is_admin": false,
+      "admin_role": null,
+      "password_hash": "a109e36947ad56de1dca1cc49f0ef8ac9ad9a7b1aa0df41fb3c4cb73c1ff01ea",
+      "pin_hash": "481f6cc0511143ccdd7e2d1b1b94faf0a700a8b49cd13922a70b5ae28acaa8c5",
+      "portal_password": "Password123!",
+      "portal_pin": "654321",
+      "application_status": "approved",
+      "created_at": "2026-10-07T07:36:19.273Z",
+      "updated_at": "2026-10-07T07:36:47.846Z"
     }
   ],
   "accounts": [
@@ -81,6 +106,23 @@
       "cot_code": "COT-481401",
       "is_balance_visible": true,
       "created_at": "2026-10-06T08:35:10.370Z"
+    },
+    {
+      "id": "acc_muxsn9zc",
+      "profile_id": "prof_muxsn9zcrbhc",
+      "client_id": "CL-49741",
+      "account_number": "9840256949201",
+      "iban": "US94MOVA0210000219840256949201",
+      "bic_swift": "MOVAFUS33XXX",
+      "currency": "MXN",
+      "balance": 250000,
+      "account_status": "active",
+      "application_status": "approved",
+      "cat_code": "CAT-712396",
+      "cot_code": "COT-549862",
+      "is_balance_visible": true,
+      "created_at": "2026-10-07T07:36:19.273Z",
+      "updated_at": "2026-10-07T07:36:47.846Z"
     }
   ],
   "transactions": [],
@@ -231,6 +273,45 @@
   "loan_applications": [],
   "notifications": [
     {
+      "id": "notif_act_muxsnw12",
+      "profile_id": "prof_muxsn9zcrbhc",
+      "is_for_admin": false,
+      "title": "Cuenta bancaria activada",
+      "message": "¡Enhorabuena! Su cuenta bancaria en MOVAFI BANK ha sido formalmente activada por la administración y ya está plenamente operativa para todas sus operaciones.",
+      "type": "success",
+      "is_read": false,
+      "created_at": "2026-10-07T07:36:47.846Z"
+    },
+    {
+      "id": "notif_app_muxsnszw",
+      "profile_id": "prof_muxsn9zcrbhc",
+      "is_for_admin": false,
+      "title": "Solicitud de apertura aprobada",
+      "message": "Su solicitud de apertura de cuenta ha sido aprobada por la administración. Por medidas de seguridad y protocolo bancario, su cuenta permanece inactiva por defecto hasta que el administrador proceda a su activación.",
+      "type": "info",
+      "is_read": false,
+      "created_at": "2026-10-07T07:36:43.916Z"
+    },
+    {
+      "id": "notif_admin_muxsn9ze",
+      "is_for_admin": true,
+      "title": "Nouvelle Demande d’Ouverture Client",
+      "message": "Sofia Navarro a soumis un dossier d’ouverture (sofia.navarro@gmail.com). Statut : Inactif en attente d’examen administratif.",
+      "type": "info",
+      "is_read": false,
+      "created_at": "2026-10-07T07:36:19.274Z"
+    },
+    {
+      "id": "notif_muxsn9ze",
+      "profile_id": "prof_muxsn9zcrbhc",
+      "is_for_admin": false,
+      "title": "Expediente de apertura en espera de revisión",
+      "message": "Su solicitud de apertura de cuenta ha sido enviada. Un administrador revisará su expediente y procesará su solicitud. Su cuenta permanecerá inactiva hasta su aprobación y activación.",
+      "type": "warning",
+      "is_read": false,
+      "created_at": "2026-10-07T07:36:19.274Z"
+    },
+    {
       "id": "notif_admin_muwfb3xf",
       "is_for_admin": true,
       "title": "Nouvelle Demande d’Ouverture Client",
@@ -299,6 +380,33 @@
   ],
   "email_logs": [
     {
+      "id": "elog_muxsnw563859",
+      "recipient_email": "sofia.navarro@gmail.com",
+      "subject": "MOVAFI BANK · Su cuenta bancaria ya está ACTIVA",
+      "template_key": "account_activated",
+      "resend_message_id": "01a1154b-2220-7596-8e65-9095167384f3",
+      "status": "sent",
+      "created_at": "2026-10-07T07:36:47.994Z"
+    },
+    {
+      "id": "elog_muxsntcscp7r",
+      "recipient_email": "sofia.navarro@gmail.com",
+      "subject": "MOVAFI BANK · Solicitud de apertura de cuenta aprobada",
+      "template_key": "application_approved",
+      "resend_message_id": "01a1154b-13d7-748f-98db-ce7efa52490d",
+      "status": "sent",
+      "created_at": "2026-10-07T07:36:44.380Z"
+    },
+    {
+      "id": "elog_muxsna5il6q0",
+      "recipient_email": "sofia.navarro@gmail.com",
+      "subject": "MOVAFI BANK · Solicitud de apertura de cuenta registrada (CL-49741)",
+      "template_key": "account_created",
+      "resend_message_id": "01a1154a-b2c1-7927-927d-28886bbf4e74",
+      "status": "sent",
+      "created_at": "2026-10-07T07:36:19.494Z"
+    },
+    {
       "id": "elog_muwfb42hpp4m",
       "recipient_email": "carlos.mendoza@gmail.com",
       "subject": "Movafi Bank · Demande d’ouverture de compte déposée (CL-89409)",
@@ -330,6 +438,42 @@
   },
   "blocked_ips": [],
   "audit_logs": [
+    {
+      "id": "aud_muxsnw57e663",
+      "admin_email": "support@movafi-groupes.com",
+      "action": "CLIENT_FILE_SAVED",
+      "target_resource": "Account: 9840256949201 (sofia.navarro@gmail.com)",
+      "metadata": {
+        "account_status": "active",
+        "application_status": "approved",
+        "balance": 250000
+      },
+      "created_at": "2026-10-07T07:36:47.995Z"
+    },
+    {
+      "id": "aud_muxsntcts1xn",
+      "admin_email": "support@movafi-groupes.com",
+      "action": "CLIENT_FILE_SAVED",
+      "target_resource": "Account: 9840256949201 (sofia.navarro@gmail.com)",
+      "metadata": {
+        "account_status": "inactive",
+        "application_status": "approved",
+        "balance": 250000
+      },
+      "created_at": "2026-10-07T07:36:44.381Z"
+    },
+    {
+      "id": "aud_muxsn9zecgtn",
+      "admin_email": "system@movafibank.com",
+      "action": "ACCOUNT_APPLICATION_SUBMITTED",
+      "target_resource": "Profile: sofia.navarro@gmail.com",
+      "metadata": {
+        "client_id": "CL-49741",
+        "account_type": "Personal",
+        "account_status": "inactive"
+      },
+      "created_at": "2026-10-07T07:36:19.274Z"
+    },
     {
       "id": "aud_muwfb3xfje99",
       "admin_email": "system@movafibank.com",
@@ -424,6 +568,15 @@
       "total_uses": 0,
       "created_at": "2026-10-06T08:35:10.370Z",
       "updated_at": "2026-10-06T08:35:10.370Z"
+    },
+    {
+      "id": "refc_muxsn9zd2rg7",
+      "profile_id": "prof_muxsn9zcrbhc",
+      "code": "MOV-GBTE9H",
+      "is_active": true,
+      "total_uses": 0,
+      "created_at": "2026-10-07T07:36:19.273Z",
+      "updated_at": "2026-10-07T07:36:19.273Z"
     }
   ],
   "referrals": []

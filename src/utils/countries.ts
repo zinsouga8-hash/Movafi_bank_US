@@ -233,16 +233,6 @@ export const COUNTRIES: CountryInfo[] = [
     cities: ['Algiers', 'Oran', 'Constantine', 'Annaba', 'Setif', 'Batna']
   },
   {
-    code: 'TN',
-    nameEn: 'Tunisia',
-    nameFr: 'Tunisie',
-    nameEs: 'Túnez',
-    nameAr: 'تونس',
-    flag: '🇹🇳',
-    dialCode: '+216',
-    cities: ['Tunis', 'Sfax', 'Sousse', 'Bizerte', 'Kairouan', 'Hammamet']
-  },
-  {
     code: 'EG',
     nameEn: 'Egypt',
     nameFr: 'Égypte',
