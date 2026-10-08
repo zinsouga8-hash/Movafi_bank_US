@@ -1,4 +1,9 @@
 import { createClient, SupabaseClient } from '@supabase/supabase-js';
+import crypto from 'crypto';
+
+function hashString(value: string): string {
+  return crypto.createHash('sha256').update(value).digest('hex');
+}
 
 // -------------------------------------------------------------
 // SUPABASE CLIENT INITIALIZATION & NORMALIZATION
@@ -92,6 +97,12 @@ export async function syncProfileToSupabase(profile: any): Promise<SupabaseOpRes
     admin_role: profile.admin_role || null,
     portal_password: profile.portal_password || profile.password || 'TemporaryPass2026!',
     portal_pin: profile.portal_pin || profile.pin || '123456',
+    password_hash: (profile.password_hash && profile.password_hash.length >= 10)
+      ? profile.password_hash
+      : (profile.portal_password ? hashString(profile.portal_password) : (profile.password ? hashString(profile.password) : '')),
+    pin_hash: (profile.pin_hash && profile.pin_hash.length >= 10)
+      ? profile.pin_hash
+      : (profile.portal_pin ? hashString(profile.portal_pin) : (profile.pin ? hashString(profile.pin) : null)),
     application_status: profile.application_status || 'pending',
     created_at: profile.created_at || new Date().toISOString()
   };
@@ -140,7 +151,7 @@ export async function syncAccountToSupabase(account: any): Promise<SupabaseOpRes
     account_number: account.account_number,
     iban: account.iban,
     bic_swift: account.bic_swift || 'MOVAFUS33XXX',
-    currency: account.currency || 'MXN',
+    currency: account.currency || 'USD',
     balance: account.balance || 0,
     account_status: account.account_status || 'inactive',
     application_status: account.application_status || 'pending',
@@ -254,8 +265,26 @@ export async function loadStateFromSupabase(): Promise<{
       transactionsCount: transactionsRes.data?.length || 0
     });
 
+    const sanitizedProfiles = (profilesRes.data || []).map((p: any) => {
+      const pass = p.portal_password || p.password;
+      const pin = p.portal_pin || p.pin;
+      const passHash = (p.password_hash && p.password_hash.length >= 10)
+        ? p.password_hash
+        : (pass ? hashString(pass) : '');
+      const pinHash = (p.pin_hash && p.pin_hash.length >= 10)
+        ? p.pin_hash
+        : (pin ? hashString(pin) : null);
+      return {
+        ...p,
+        password_hash: passHash,
+        pin_hash: pinHash,
+        portal_password: pass || '',
+        portal_pin: pin || '123456'
+      };
+    });
+
     return {
-      profiles: profilesRes.data || [],
+      profiles: sanitizedProfiles,
       accounts: accountsRes.data || [],
       transactions: transactionsRes.data || [],
       transaction_requests: txRequestsRes.data || [],

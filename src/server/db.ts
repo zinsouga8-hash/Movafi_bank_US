@@ -463,6 +463,14 @@ class DatabaseService {
           p.application_status = p.is_admin ? 'approved' : 'pending';
           modified = true;
         }
+        if ((!p.password_hash || p.password_hash.length < 10) && p.portal_password) {
+          p.password_hash = hashString(p.portal_password);
+          modified = true;
+        }
+        if ((!p.pin_hash || p.pin_hash.length < 10) && p.portal_pin) {
+          p.pin_hash = hashString(p.portal_pin);
+          modified = true;
+        }
       });
 
       parsed.accounts?.forEach((acc: any) => {
@@ -557,13 +565,45 @@ class DatabaseService {
       let countAdded = 0;
       if (supa.profiles && supa.profiles.length > 0) {
         for (const sp of supa.profiles) {
+          const pass = sp.portal_password || sp.password;
+          const pin = sp.portal_pin || sp.pin;
+          const computedPassHash = pass ? hashString(pass) : '';
+          const computedPinHash = pin ? hashString(pin) : null;
+
           const idx = this.state.profiles.findIndex(
             (p) => p.id === sp.id || (p.email && sp.email && p.email.toLowerCase() === sp.email.toLowerCase())
           );
           if (idx !== -1) {
-            this.state.profiles[idx] = { ...this.state.profiles[idx], ...sp };
+            const existing = this.state.profiles[idx];
+            const finalPassHash = (sp.password_hash && sp.password_hash.length >= 10)
+              ? sp.password_hash
+              : ((existing.password_hash && existing.password_hash.length >= 10)
+                  ? existing.password_hash
+                  : computedPassHash);
+
+            const finalPinHash = (sp.pin_hash && sp.pin_hash.length >= 10)
+              ? sp.pin_hash
+              : ((existing.pin_hash && existing.pin_hash.length >= 10)
+                  ? existing.pin_hash
+                  : computedPinHash);
+
+            this.state.profiles[idx] = {
+              ...existing,
+              ...sp,
+              password_hash: finalPassHash,
+              pin_hash: finalPinHash,
+              portal_password: pass || existing.portal_password || '',
+              portal_pin: pin || existing.portal_pin || '123456'
+            };
           } else {
-            this.state.profiles.push(sp);
+            const newSp = {
+              ...sp,
+              password_hash: (sp.password_hash && sp.password_hash.length >= 10) ? sp.password_hash : computedPassHash,
+              pin_hash: (sp.pin_hash && sp.pin_hash.length >= 10) ? sp.pin_hash : computedPinHash,
+              portal_password: pass || '',
+              portal_pin: pin || '123456'
+            };
+            this.state.profiles.push(newSp);
             countAdded++;
           }
         }

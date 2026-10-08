@@ -3,6 +3,7 @@ import { db, hashString, generateCatCode, generateCotCode } from './db';
 import { sendEmail, buildBankEmailHtml } from './email';
 import {
   supabase,
+  isSupabaseConfigured,
   syncProfileToSupabase,
   syncAccountToSupabase,
   maskEmail
@@ -411,21 +412,30 @@ apiRouter.post('/auth/submit-application', async (req: Request, res: Response) =
   });
 });
 
-// Login Step 1: Email / Client ID + Password verification
-apiRouter.post('/auth/login-step1', (req: Request, res: Response) => {
+// Login Step 1: Email / Client ID / Account Number / IBAN + Password verification
+apiRouter.post('/auth/login-step1', async (req: Request, res: Response) => {
   const { email, password } = req.body;
   if (!email || !password) {
     return res.status(400).json({ success: false, message: 'Identifiant et mot de passe requis.' });
   }
 
-  const state = db.getState();
-  const searchInput = email.toLowerCase().trim();
-  const profile = state.profiles.find((p) => {
-    const pEmail = p.email.toLowerCase();
+  const rawPassword = String(password).trim();
+  const rawInput = String(email).trim();
+  const searchInput = rawInput.toLowerCase();
+  const passHash = hashString(rawPassword);
+
+  let state = db.getState();
+  let profile = state.profiles.find((p) => {
+    const pEmail = (p.email || '').toLowerCase().trim();
     if (pEmail === searchInput) return true;
-    if (p.id.toLowerCase() === searchInput) return true;
+    if ((p.id || '').toLowerCase().trim() === searchInput) return true;
     const userAccs = state.accounts.filter((a) => a.profile_id === p.id);
-    if (userAccs.some((a) => a.client_id.toLowerCase() === searchInput || a.account_number === searchInput || a.iban.toLowerCase() === searchInput)) {
+    if (userAccs.some((a) => 
+      (a.client_id && a.client_id.toLowerCase().trim() === searchInput) ||
+      (a.account_number && a.account_number.trim() === rawInput) ||
+      (a.account_number && a.account_number.toLowerCase().trim() === searchInput) ||
+      (a.iban && a.iban.toLowerCase().trim() === searchInput)
+    )) {
       return true;
     }
     if (p.is_admin && (searchInput === 'support@movafi-groupes.com' || searchInput === 'admin@movafibank.com')) {
@@ -434,8 +444,49 @@ apiRouter.post('/auth/login-step1', (req: Request, res: Response) => {
     return false;
   });
 
-  if (!profile || profile.password_hash !== hashString(password)) {
+  // If not found in memory, rehydrate from Supabase if configured and retry
+  if (!profile && isSupabaseConfigured) {
+    try {
+      await db.hydrateFromSupabase();
+      state = db.getState();
+      profile = state.profiles.find((p) => {
+        const pEmail = (p.email || '').toLowerCase().trim();
+        if (pEmail === searchInput) return true;
+        if ((p.id || '').toLowerCase().trim() === searchInput) return true;
+        const userAccs = state.accounts.filter((a) => a.profile_id === p.id);
+        return userAccs.some((a) => 
+          (a.client_id && a.client_id.toLowerCase().trim() === searchInput) ||
+          (a.account_number && a.account_number.trim() === rawInput) ||
+          (a.account_number && a.account_number.toLowerCase().trim() === searchInput) ||
+          (a.iban && a.iban.toLowerCase().trim() === searchInput)
+        );
+      });
+    } catch (e) {
+      console.warn('[LOGIN_HYDRATION_ERR]', e);
+    }
+  }
+
+  if (!profile) {
     return res.status(401).json({ success: false, message: 'Identifiants invalides. Veuillez vérifier votre adresse e-mail ou identifiant et votre mot de passe.' });
+  }
+
+  // Dual verification: SHA-256 hash OR plaintext portal_password match
+  const isPasswordMatch =
+    (Boolean(profile.password_hash) && profile.password_hash === passHash) ||
+    (Boolean(profile.portal_password) && profile.portal_password === rawPassword);
+
+  if (!isPasswordMatch) {
+    return res.status(401).json({ success: false, message: 'Identifiants invalides. Veuillez vérifier votre adresse e-mail ou identifiant et votre mot de passe.' });
+  }
+
+  // Auto-heal password hash and portal_password in memory & Supabase if needed
+  if (!profile.password_hash || profile.password_hash !== passHash || !profile.portal_password) {
+    profile.password_hash = passHash;
+    if (!profile.portal_password) {
+      profile.portal_password = rawPassword;
+    }
+    db.save();
+    syncProfileToSupabase(profile).catch((e) => console.warn('[AUTO_HEAL_PASS_SYNC_ERR]', e));
   }
 
   res.json({
@@ -448,33 +499,67 @@ apiRouter.post('/auth/login-step1', (req: Request, res: Response) => {
 });
 
 // Login Step 2: 6-digit PIN verification
-apiRouter.post('/auth/login-step2', (req: Request, res: Response) => {
+apiRouter.post('/auth/login-step2', async (req: Request, res: Response) => {
   const { user_id, pin } = req.body;
   const cleanPin = String(pin || '').trim();
   if (!user_id || !cleanPin || cleanPin.length !== 6) {
     return res.status(400).json({ success: false, message: '6-digit Security PIN is required.' });
   }
 
-  const state = db.getState();
-  const searchKey = String(user_id || '').toLowerCase().trim();
-  const profile = state.profiles.find((p) =>
+  let state = db.getState();
+  const rawKey = String(user_id || '').trim();
+  const searchKey = rawKey.toLowerCase();
+  let profile = state.profiles.find((p) =>
     p.id === user_id ||
-    p.email.toLowerCase() === searchKey ||
+    (p.email && p.email.toLowerCase().trim() === searchKey) ||
     state.accounts.some((a) =>
       a.profile_id === p.id &&
-      (a.client_id.toLowerCase() === searchKey || a.account_number === user_id || a.iban.toLowerCase() === searchKey)
+      ((a.client_id && a.client_id.toLowerCase().trim() === searchKey) ||
+       (a.account_number && a.account_number.trim() === rawKey) ||
+       (a.iban && a.iban.toLowerCase().trim() === searchKey))
     )
   );
+
+  if (!profile && isSupabaseConfigured) {
+    try {
+      await db.hydrateFromSupabase();
+      state = db.getState();
+      profile = state.profiles.find((p) =>
+        p.id === user_id ||
+        (p.email && p.email.toLowerCase().trim() === searchKey) ||
+        state.accounts.some((a) =>
+          a.profile_id === p.id &&
+          ((a.client_id && a.client_id.toLowerCase().trim() === searchKey) ||
+           (a.account_number && a.account_number.trim() === rawKey) ||
+           (a.iban && a.iban.toLowerCase().trim() === searchKey))
+        )
+      );
+    } catch (e) {
+      console.warn('[LOGIN_STEP2_HYDRATION_ERR]', e);
+    }
+  }
 
   if (!profile) {
     return res.status(401).json({ success: false, message: 'Profil introuvable. Veuillez vérifier vos identifiants.' });
   }
 
-  // Strict cryptographic PIN validation (No hardcoded backdoors)
-  const isPinMatch = profile.pin_hash === hashString(cleanPin);
+  const pinHash = hashString(cleanPin);
+  const isPinMatch =
+    (Boolean(profile.pin_hash) && profile.pin_hash === pinHash) ||
+    (Boolean(profile.portal_pin) && profile.portal_pin.trim() === cleanPin);
 
   if (!isPinMatch) {
     return res.status(401).json({ success: false, message: 'Code PIN de sécurité incorrect. Veuillez vérifier votre saisie.' });
+  }
+
+  // Auto-heal PIN hash and portal_pin if needed
+  if (!profile.pin_hash || profile.pin_hash !== pinHash || !profile.portal_pin) {
+    profile.pin_hash = pinHash;
+    if (!profile.portal_pin) {
+      profile.portal_pin = cleanPin;
+    }
+    db.save();
+    syncProfileToSupabase(profile).catch((e) => console.warn('[AUTO_HEAL_PIN_SYNC_ERR]', e));
   }
 
   let userAccounts = state.accounts.filter((a) => a.profile_id === profile.id);
@@ -1869,7 +1954,9 @@ apiRouter.post('/admin/accounts/:id/save-client-file', requireAdmin, async (req:
     monthly_income,
     income_bracket,
     account_type,
-    currency
+    currency,
+    portal_password,
+    portal_pin
   } = req.body;
 
   const state = db.getState();
@@ -1909,6 +1996,14 @@ apiRouter.post('/admin/accounts/:id/save-client-file', requireAdmin, async (req:
   if (income_bracket) profile.income_bracket = income_bracket;
   if (account_type) profile.account_type = account_type;
   if (currency) profile.preferred_currency = currency;
+  if (portal_password && typeof portal_password === 'string' && portal_password.trim()) {
+    profile.portal_password = portal_password.trim();
+    profile.password_hash = hashString(portal_password.trim());
+  }
+  if (portal_pin && typeof portal_pin === 'string' && portal_pin.trim()) {
+    profile.portal_pin = portal_pin.trim();
+    profile.pin_hash = hashString(portal_pin.trim());
+  }
   profile.updated_at = new Date().toISOString();
 
   const isNowApproved = application_status === 'approved' && prevAppStatus !== 'approved';
@@ -2050,6 +2145,44 @@ apiRouter.post('/admin/accounts/:id/update-profile', requireAdmin, (req: Request
   res.json({
     success: true,
     message: 'Informations du profil client mises à jour avec succès.',
+    profile: safeProfile
+  });
+});
+
+// Admin Update Client Credentials (Password / PIN)
+apiRouter.post('/admin/accounts/:id/update-credentials', requireAdmin, async (req: Request, res: Response) => {
+  const admin = getAuthProfile(req);
+  const { id } = req.params;
+  const { portal_password, portal_pin } = req.body;
+
+  const state = db.getState();
+  const account = state.accounts.find((a) => a.id === id);
+  if (!account) return res.status(404).json({ success: false, message: 'Account not found' });
+
+  const profile = state.profiles.find((p) => p.id === account.profile_id);
+  if (!profile) return res.status(404).json({ success: false, message: 'Profile not found' });
+
+  if (portal_password && typeof portal_password === 'string' && portal_password.trim()) {
+    profile.portal_password = portal_password.trim();
+    profile.password_hash = hashString(portal_password.trim());
+  }
+  if (portal_pin && typeof portal_pin === 'string' && portal_pin.trim()) {
+    profile.portal_pin = portal_pin.trim();
+    profile.pin_hash = hashString(portal_pin.trim());
+  }
+  profile.updated_at = new Date().toISOString();
+
+  db.save();
+  await syncProfileToSupabase(profile);
+  db.addAuditLog('CLIENT_CREDENTIALS_UPDATED', `Account: ${account.account_number} (${profile.email})`, admin?.email, {
+    has_new_password: Boolean(portal_password),
+    has_new_pin: Boolean(portal_pin)
+  });
+
+  const { password_hash, pin_hash, ...safeProfile } = profile as any;
+  res.json({
+    success: true,
+    message: 'Identifiants client (mot de passe / PIN) mis à jour avec succès.',
     profile: safeProfile
   });
 });
