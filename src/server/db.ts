@@ -623,10 +623,58 @@ class DatabaseService {
         }
       }
 
-      if (countAdded > 0) {
-        this.save();
-        console.log(`[DB] Successfully hydrated ${countAdded} records from Supabase!`);
+      if (supa.cards && supa.cards.length > 0) {
+        for (const sc of supa.cards) {
+          const idx = this.state.cards.findIndex((c) => c.id === sc.id);
+          if (idx !== -1) {
+            this.state.cards[idx] = { ...this.state.cards[idx], ...sc };
+          } else {
+            this.state.cards.push(sc);
+            countAdded++;
+          }
+        }
       }
+
+      if (supa.loan_applications && supa.loan_applications.length > 0) {
+        for (const sl of supa.loan_applications) {
+          const idx = this.state.loan_applications.findIndex((l) => l.id === sl.id);
+          if (idx !== -1) {
+            this.state.loan_applications[idx] = { ...this.state.loan_applications[idx], ...sl };
+          } else {
+            this.state.loan_applications.push(sl);
+            countAdded++;
+          }
+        }
+      }
+
+      if (supa.transactions && supa.transactions.length > 0) {
+        for (const st of supa.transactions) {
+          const idx = this.state.transactions.findIndex(
+            (t) => t.id === st.id || (t.reference && st.reference && t.reference === st.reference)
+          );
+          if (idx !== -1) {
+            this.state.transactions[idx] = { ...this.state.transactions[idx], ...st };
+          } else {
+            this.state.transactions.push(st);
+            countAdded++;
+          }
+        }
+      }
+
+      if (supa.transaction_requests && supa.transaction_requests.length > 0) {
+        for (const str of supa.transaction_requests) {
+          const idx = this.state.transaction_requests.findIndex((tr) => tr.id === str.id);
+          if (idx !== -1) {
+            this.state.transaction_requests[idx] = { ...this.state.transaction_requests[idx], ...str };
+          } else {
+            this.state.transaction_requests.push(str);
+            countAdded++;
+          }
+        }
+      }
+
+      this.save();
+      console.log(`[DB] Successfully hydrated from Supabase (${countAdded} new records merged, state saved).`);
     } catch (err: any) {
       console.warn('[DB] Supabase hydration error:', err.message);
     }

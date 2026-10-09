@@ -25,7 +25,10 @@ import {
   Headphones,
   Sliders,
   DollarSign,
-  Gift
+  Gift,
+  Home,
+  Building2,
+  Car
 } from 'lucide-react';
 import {
   UserProfile,
@@ -177,44 +180,58 @@ export const ClientDashboard: React.FC<ClientDashboardProps> = ({
   // -------------------------------------------------------------
   const [showDormantModal, setShowDormantModal] = useState(false);
 
-  // International transfer methods across countries/currencies of the bank, plus Mexican local methods if MXN account
+  const isMexicoAccount =
+    account.currency === 'MXN' ||
+    Boolean(user.residence_country && user.residence_country.toLowerCase().includes('mexic'));
+
+  // International transfer methods across countries/currencies of the bank, plus Mexican local & international methods
   const getAvailableTransferMethods = () => {
-    const internationalMethods = [
+    const internationalOtherMethods = [
       'Virement Bancaire International SWIFT (Tous pays - Multidevises)',
       'Virement Bancaire International (États-Unis - Fedwire / Wire Transfer)',
       'Virement Bancaire International (Canada - EFT / Interac Wire)',
       'Virement Bancaire International (Suisse - SIC / SWIFT CHF)',
       'Virement Bancaire International SEPA (Espagne / Zone Euro)',
       'Virement Bancaire International (Émirats Arabes Unis / Dubaï - UAEFTS / IPI)',
-      'Virement Bancaire International (Mexique - SPEI International)',
       'PayPal International (Transfert instantané)',
       'MoneyGram (Transfert d’espèces & réseau mondial)',
       'Western Union (Réseau de transfert international)'
     ];
 
-    const isMexicoAccount =
-      account.currency === 'MXN' ||
-      (user.residence_country && user.residence_country.toLowerCase().includes('mexic'));
+    const mexicoMethods = [
+      'Virement Bancaire International (Mexique - SPEI International)',
+      'SPEI Local (Système de Paiement Électronique Interbancaire Mexique)',
+      'OXXO Pay (Paiement & Virement de proximité Mexique)',
+      'Mercado Pago / Mercado Pay (Transfert Local Mexique)'
+    ];
 
     if (isMexicoAccount) {
+      // Put Mexican international and local methods COMPLETELY AT THE TOP
       return [
-        ...internationalMethods,
-        'OXXO Pay (Paiement & Virement de proximité Mexique)',
-        'Mercado Pago / Mercado Pay (Transfert Local Mexique)',
-        'SPEI Local (Système de Paiement Électronique Interbancaire Mexique)'
+        ...mexicoMethods,
+        ...internationalOtherMethods
       ];
     }
 
-    return internationalMethods;
+    return [
+      ...internationalOtherMethods,
+      'Virement Bancaire International (Mexique - SPEI International)'
+    ];
   };
 
-  const [transferMethod, setTransferMethod] = useState<string>(
-    'Virement Bancaire International SWIFT (Tous pays - Multidevises)'
+  const [transferMethod, setTransferMethod] = useState<string>(() =>
+    account.currency === 'MXN' || Boolean(user.residence_country && user.residence_country.toLowerCase().includes('mexic'))
+      ? 'Virement Bancaire International (Mexique - SPEI International)'
+      : 'Virement Bancaire International SWIFT (Tous pays - Multidevises)'
   );
 
   const [transferRecipient, setTransferRecipient] = useState('');
   const [transferAccount, setTransferAccount] = useState('');
   const [transferBank, setTransferBank] = useState('');
+  const [transferRouting, setTransferRouting] = useState('');
+  const [transferPhone, setTransferPhone] = useState('');
+  const [transferCity, setTransferCity] = useState('');
+  const [transferCountry, setTransferCountry] = useState('');
   const [transferCategory, setTransferCategory] = useState('Virement Bancaire SWIFT');
   const [transferAmount, setTransferAmount] = useState('');
   const [transferRef, setTransferRef] = useState('');
@@ -238,7 +255,7 @@ export const ClientDashboard: React.FC<ClientDashboardProps> = ({
       flash(currentLang === 'fr' ? 'Solde principal insuffisant pour exécuter ce virement.' : 'Insufficient available balance.', 'error');
       return;
     }
-    if (!transferPin) setTransferPin('123456');
+    setTransferPin('');
     setShowTransferPinModal(true);
   };
 
@@ -327,7 +344,11 @@ export const ClientDashboard: React.FC<ClientDashboardProps> = ({
   // -------------------------------------------------------------
   const [withdrawAmount, setWithdrawAmount] = useState('');
   const [withdrawCurrency, setWithdrawCurrency] = useState(account.currency);
-  const [withdrawRail, setWithdrawRail] = useState('SEPA / International Wire (IBAN/BIC)');
+  const [withdrawRail, setWithdrawRail] = useState(() =>
+    account.currency === 'MXN' || Boolean(user.residence_country && user.residence_country.toLowerCase().includes('mexic'))
+      ? 'Virement Bancaire International (Mexique - SPEI International)'
+      : 'Virement Bancaire International SWIFT (Tous pays - Multidevises)'
+  );
   const [withdrawBeneficiaryName, setWithdrawBeneficiaryName] = useState(`${user.first_name} ${user.last_name}`);
   const [withdrawBeneficiaryAccount, setWithdrawBeneficiaryAccount] = useState('');
   const [withdrawBeneficiaryBank, setWithdrawBeneficiaryBank] = useState('');
@@ -355,7 +376,7 @@ export const ClientDashboard: React.FC<ClientDashboardProps> = ({
       flash('Beneficiary full name and account/IBAN details are mandatory.', 'error');
       return;
     }
-    if (!withdrawPin) setWithdrawPin('123456');
+    setWithdrawPin('');
     setShowWithdrawPinModal(true);
   };
 
@@ -569,9 +590,20 @@ export const ClientDashboard: React.FC<ClientDashboardProps> = ({
   // -------------------------------------------------------------
   // FINANCING & LOANS LOGIC
   // -------------------------------------------------------------
+  const isMxnAccount = account.currency === 'MXN';
+  const minLoanAmount = isMxnAccount ? 15000 : 2000;
+  const initialLoanAmount = isMxnAccount ? 50000 : 250000;
+
   const [loanProject, setLoanProject] = useState('Real Estate');
-  const [loanAmount, setLoanAmount] = useState(250000);
-  const [loanDuration, setLoanDuration] = useState(120);
+  const [loanAmountInput, setLoanAmountInput] = useState<string>(String(initialLoanAmount));
+  const [loanDurationInput, setLoanDurationInput] = useState<string>('120');
+
+  // Parsed numeric values for calculation and displays
+  const numericLoanAmount = Number(loanAmountInput) || 0;
+  const numericLoanDuration = Number(loanDurationInput) || 0;
+  const loanAmount = numericLoanAmount > 0 ? numericLoanAmount : minLoanAmount;
+  const loanDuration = numericLoanDuration > 0 ? numericLoanDuration : 12;
+
   const [termsAccepted, setTermsAccepted] = useState(false);
   const [termsAgreedInModal, setTermsAgreedInModal] = useState(false);
   const [showAmortizationModal, setShowAmortizationModal] = useState(false);
@@ -593,12 +625,34 @@ export const ClientDashboard: React.FC<ClientDashboardProps> = ({
       return;
     }
 
+    const finalAmount = Number(loanAmountInput);
+    if (!finalAmount || finalAmount < minLoanAmount) {
+      flash(
+        currentLang === 'fr'
+          ? `Le montant minimal pour une demande de prêt en ${account.currency} est de ${formatCurrency(minLoanAmount, account.currency)}.`
+          : `Minimum loan amount for ${account.currency} is ${formatCurrency(minLoanAmount, account.currency)}.`,
+        'error'
+      );
+      return;
+    }
+
+    const finalDuration = Number(loanDurationInput);
+    if (!finalDuration || finalDuration < 3 || finalDuration > 360) {
+      flash(
+        currentLang === 'fr'
+          ? 'La durée de remboursement doit être comprise entre 3 et 360 mois.'
+          : 'Repayment duration must be between 3 and 360 months.',
+        'error'
+      );
+      return;
+    }
+
     setLoading(true);
     try {
       const res = await api.applyForLoan({
         project_type: loanProject,
-        amount: loanAmount,
-        duration_months: loanDuration,
+        amount: finalAmount,
+        duration_months: finalDuration,
         terms_accepted: true
       });
 
@@ -1138,50 +1192,385 @@ export const ClientDashboard: React.FC<ClientDashboardProps> = ({
                   </select>
                 </div>
 
-                {/* 3. Nom du bénéficiaire */}
-                <div>
-                  <label className="block text-xs font-semibold text-slate-700 dark:text-slate-300 mb-1">
-                    {currentLang === 'fr' ? 'Nom complet ou Raison sociale du bénéficiaire *' : 'Beneficiary Full Legal Name *'}
-                  </label>
-                  <input
-                    type="text"
-                    required
-                    value={transferRecipient}
-                    onChange={(e) => setTransferRecipient(e.target.value)}
-                    placeholder="Ex: Meridian Maritime Holdings LLC ou Jean Dupont"
-                    className="w-full px-3.5 py-2.5 rounded-xl border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800 text-xs focus:ring-2 focus:ring-amber-500"
-                  />
-                </div>
+                {/* Champs dynamiques adaptés strictement selon le moyen de transfert sélectionné */}
+                {(() => {
+                  const methodLower = transferMethod.toLowerCase();
+                  const isPayPal = methodLower.includes('paypal');
+                  const isCashRemit = methodLower.includes('western union') || methodLower.includes('moneygram');
+                  const isOxxo = methodLower.includes('oxxo');
+                  const isMercado = methodLower.includes('mercado');
+                  const isSpei = methodLower.includes('spei') || methodLower.includes('mexique');
+                  const isFedwire = methodLower.includes('fedwire') || methodLower.includes('états-unis');
+                  const isCanadaEft = methodLower.includes('canada') || methodLower.includes('interac');
 
-                {/* 4. IBAN et Code BIC/SWIFT */}
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                  <div>
-                    <label className="block text-xs font-semibold text-slate-700 dark:text-slate-300 mb-1">
-                      {currentLang === 'fr' ? 'IBAN du bénéficiaire (Confirmé) *' : 'Beneficiary IBAN (Confirmed) *'}
-                    </label>
-                    <input
-                      type="text"
-                      required
-                      value={transferAccount}
-                      onChange={(e) => setTransferAccount(e.target.value.toUpperCase())}
-                      placeholder="Ex: FR76 3000 6000 0112 3456 7890 189"
-                      className="w-full px-3.5 py-2.5 rounded-xl border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800 text-xs font-mono uppercase focus:ring-2 focus:ring-amber-500"
-                    />
-                  </div>
+                  if (isPayPal) {
+                    return (
+                      <>
+                        <div>
+                          <label className="block text-xs font-semibold text-slate-700 dark:text-slate-300 mb-1">
+                            {currentLang === 'fr' ? 'Nom ou Pseudo du destinataire PayPal *' : 'Recipient Name / Username *'}
+                          </label>
+                          <input
+                            type="text"
+                            required
+                            value={transferRecipient}
+                            onChange={(e) => setTransferRecipient(e.target.value)}
+                            placeholder="Ex: Jean Dupont ou Studio Horizon LLC"
+                            className="w-full px-3.5 py-2.5 rounded-xl border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800 text-xs focus:ring-2 focus:ring-amber-500"
+                          />
+                        </div>
+                        <div>
+                          <label className="block text-xs font-semibold text-slate-700 dark:text-slate-300 mb-1">
+                            {currentLang === 'fr' ? 'Adresse E-mail ou Téléphone lié au compte PayPal *' : 'PayPal Email Address or Mobile *'}
+                          </label>
+                          <input
+                            type="text"
+                            required
+                            value={transferAccount}
+                            onChange={(e) => setTransferAccount(e.target.value)}
+                            placeholder="Ex: destinataire@gmail.com ou @comptepaypal"
+                            className="w-full px-3.5 py-2.5 rounded-xl border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800 text-xs focus:ring-2 focus:ring-amber-500"
+                          />
+                        </div>
+                      </>
+                    );
+                  }
 
-                  <div>
-                    <label className="block text-xs font-semibold text-slate-700 dark:text-slate-300 mb-1">
-                      {currentLang === 'fr' ? 'Code BIC / SWIFT & Banque réceptrice *' : 'BIC / SWIFT & Recipient Bank *'}
-                    </label>
-                    <input
-                      type="text"
-                      value={transferBank}
-                      onChange={(e) => setTransferBank(e.target.value.toUpperCase())}
-                      placeholder="Ex: BNPAFRPPXXX - BNP Paribas"
-                      className="w-full px-3.5 py-2.5 rounded-xl border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800 text-xs font-mono uppercase focus:ring-2 focus:ring-amber-500"
-                    />
-                  </div>
-                </div>
+                  if (isCashRemit) {
+                    const isWU = methodLower.includes('western union');
+                    return (
+                      <>
+                        <div>
+                          <label className="block text-xs font-semibold text-slate-700 dark:text-slate-300 mb-1">
+                            {currentLang === 'fr' ? 'Nom et Prénom légal du bénéficiaire (identique à la pièce d\'identité) *' : 'Beneficiary Full Legal Name (as on Passport/ID) *'}
+                          </label>
+                          <input
+                            type="text"
+                            required
+                            value={transferRecipient}
+                            onChange={(e) => setTransferRecipient(e.target.value)}
+                            placeholder="Ex: Carlos Mendoza Sanchez"
+                            className="w-full px-3.5 py-2.5 rounded-xl border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800 text-xs focus:ring-2 focus:ring-amber-500"
+                          />
+                        </div>
+                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                          <div>
+                            <label className="block text-xs font-semibold text-slate-700 dark:text-slate-300 mb-1">
+                              {currentLang === 'fr' ? 'Téléphone mobile du bénéficiaire *' : 'Recipient Mobile Phone *'}
+                            </label>
+                            <input
+                              type="tel"
+                              required
+                              value={transferPhone}
+                              onChange={(e) => {
+                                setTransferPhone(e.target.value);
+                                setTransferAccount(e.target.value);
+                              }}
+                              placeholder="Ex: +52 55 1234 5678"
+                              className="w-full px-3.5 py-2.5 rounded-xl border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800 text-xs focus:ring-2 focus:ring-amber-500"
+                            />
+                          </div>
+                          <div>
+                            <label className="block text-xs font-semibold text-slate-700 dark:text-slate-300 mb-1">
+                              {currentLang === 'fr' ? 'Pays et Ville de retrait en agence *' : 'Pickup Country & City *'}
+                            </label>
+                            <input
+                              type="text"
+                              required
+                              value={transferCity}
+                              onChange={(e) => {
+                                setTransferCity(e.target.value);
+                                setTransferBank(`${isWU ? 'Western Union Agency' : 'MoneyGram Agency'} - ${e.target.value}`);
+                              }}
+                              placeholder="Ex: Mexico City, Mexique"
+                              className="w-full px-3.5 py-2.5 rounded-xl border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800 text-xs focus:ring-2 focus:ring-amber-500"
+                            />
+                          </div>
+                        </div>
+                      </>
+                    );
+                  }
+
+                  if (isOxxo) {
+                    return (
+                      <>
+                        <div>
+                          <label className="block text-xs font-semibold text-slate-700 dark:text-slate-300 mb-1">
+                            Nom du bénéficiaire OXXO Pay *
+                          </label>
+                          <input
+                            type="text"
+                            required
+                            value={transferRecipient}
+                            onChange={(e) => setTransferRecipient(e.target.value)}
+                            placeholder="Ex: Tienda OXXO / Beneficiario"
+                            className="w-full px-3.5 py-2.5 rounded-xl border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800 text-xs focus:ring-2 focus:ring-amber-500"
+                          />
+                        </div>
+                        <div>
+                          <label className="block text-xs font-semibold text-slate-700 dark:text-slate-300 mb-1">
+                            Référence numérique de paiement OXXO (14 chiffres) *
+                          </label>
+                          <input
+                            type="text"
+                            required
+                            maxLength={16}
+                            value={transferAccount}
+                            onChange={(e) => {
+                              setTransferAccount(e.target.value.replace(/\D/g, ''));
+                              setTransferBank('OXXO Pay México');
+                            }}
+                            placeholder="Ex: 9234 5678 9012 34"
+                            className="w-full px-3.5 py-2.5 rounded-xl border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800 text-xs font-mono focus:ring-2 focus:ring-amber-500"
+                          />
+                        </div>
+                      </>
+                    );
+                  }
+
+                  if (isMercado) {
+                    return (
+                      <>
+                        <div>
+                          <label className="block text-xs font-semibold text-slate-700 dark:text-slate-300 mb-1">
+                            Nom du titulaire Mercado Pago *
+                          </label>
+                          <input
+                            type="text"
+                            required
+                            value={transferRecipient}
+                            onChange={(e) => setTransferRecipient(e.target.value)}
+                            placeholder="Ex: Maria Rodriguez"
+                            className="w-full px-3.5 py-2.5 rounded-xl border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800 text-xs focus:ring-2 focus:ring-amber-500"
+                          />
+                        </div>
+                        <div>
+                          <label className="block text-xs font-semibold text-slate-700 dark:text-slate-300 mb-1">
+                            E-mail, Téléphone ou Clé CVU Mercado Pago (22 chiffres) *
+                          </label>
+                          <input
+                            type="text"
+                            required
+                            value={transferAccount}
+                            onChange={(e) => {
+                              setTransferAccount(e.target.value);
+                              setTransferBank('Mercado Pago México');
+                            }}
+                            placeholder="Ex: usuario@mercadopago.com ou CVU 00000031000..."
+                            className="w-full px-3.5 py-2.5 rounded-xl border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800 text-xs font-mono focus:ring-2 focus:ring-amber-500"
+                          />
+                        </div>
+                      </>
+                    );
+                  }
+
+                  if (isSpei) {
+                    return (
+                      <>
+                        <div>
+                          <label className="block text-xs font-semibold text-slate-700 dark:text-slate-300 mb-1">
+                            Nom complet du bénéficiaire (Titulaire au Mexique) *
+                          </label>
+                          <input
+                            type="text"
+                            required
+                            value={transferRecipient}
+                            onChange={(e) => setTransferRecipient(e.target.value)}
+                            placeholder="Ex: Alejandro Morales Hernandez"
+                            className="w-full px-3.5 py-2.5 rounded-xl border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800 text-xs focus:ring-2 focus:ring-amber-500"
+                          />
+                        </div>
+                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                          <div>
+                            <label className="block text-xs font-semibold text-slate-700 dark:text-slate-300 mb-1">
+                              CLABE Interbancaire (18 chiffres) *
+                            </label>
+                            <input
+                              type="text"
+                              required
+                              maxLength={18}
+                              value={transferAccount}
+                              onChange={(e) => setTransferAccount(e.target.value.replace(/\D/g, ''))}
+                              placeholder="Ex: 012180004455667788"
+                              className="w-full px-3.5 py-2.5 rounded-xl border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800 text-xs font-mono focus:ring-2 focus:ring-amber-500"
+                            />
+                            <div className="text-[10px] text-slate-400 mt-0.5">Format mexicain officiel à 18 chiffres</div>
+                          </div>
+                          <div>
+                            <label className="block text-xs font-semibold text-slate-700 dark:text-slate-300 mb-1">
+                              Banque réceptrice au Mexique *
+                            </label>
+                            <input
+                              type="text"
+                              required
+                              value={transferBank}
+                              onChange={(e) => setTransferBank(e.target.value)}
+                              placeholder="Ex: BBVA México, Banorte, Santander..."
+                              className="w-full px-3.5 py-2.5 rounded-xl border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800 text-xs focus:ring-2 focus:ring-amber-500"
+                            />
+                          </div>
+                        </div>
+                      </>
+                    );
+                  }
+
+                  if (isFedwire) {
+                    return (
+                      <>
+                        <div>
+                          <label className="block text-xs font-semibold text-slate-700 dark:text-slate-300 mb-1">
+                            Beneficiary Full Legal Name / Corporate Entity *
+                          </label>
+                          <input
+                            type="text"
+                            required
+                            value={transferRecipient}
+                            onChange={(e) => setTransferRecipient(e.target.value)}
+                            placeholder="Ex: Atlantic Strategic Partners LLC"
+                            className="w-full px-3.5 py-2.5 rounded-xl border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800 text-xs focus:ring-2 focus:ring-amber-500"
+                          />
+                        </div>
+                        <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+                          <div>
+                            <label className="block text-xs font-semibold text-slate-700 dark:text-slate-300 mb-1">
+                              Account Number *
+                            </label>
+                            <input
+                              type="text"
+                              required
+                              value={transferAccount}
+                              onChange={(e) => setTransferAccount(e.target.value.trim())}
+                              placeholder="Ex: 8901234567"
+                              className="w-full px-3.5 py-2.5 rounded-xl border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800 text-xs font-mono focus:ring-2 focus:ring-amber-500"
+                            />
+                          </div>
+                          <div>
+                            <label className="block text-xs font-semibold text-slate-700 dark:text-slate-300 mb-1">
+                              ABA Routing Number (9 digits) *
+                            </label>
+                            <input
+                              type="text"
+                              required
+                              maxLength={9}
+                              value={transferRouting}
+                              onChange={(e) => setTransferRouting(e.target.value.replace(/\D/g, ''))}
+                              placeholder="Ex: 021000021"
+                              className="w-full px-3.5 py-2.5 rounded-xl border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800 text-xs font-mono focus:ring-2 focus:ring-amber-500"
+                            />
+                          </div>
+                          <div>
+                            <label className="block text-xs font-semibold text-slate-700 dark:text-slate-300 mb-1">
+                              US Bank Name *
+                            </label>
+                            <input
+                              type="text"
+                              required
+                              value={transferBank}
+                              onChange={(e) => setTransferBank(e.target.value)}
+                              placeholder="Ex: JPMorgan Chase Bank, N.A."
+                              className="w-full px-3.5 py-2.5 rounded-xl border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800 text-xs focus:ring-2 focus:ring-amber-500"
+                            />
+                          </div>
+                        </div>
+                      </>
+                    );
+                  }
+
+                  if (isCanadaEft) {
+                    return (
+                      <>
+                        <div>
+                          <label className="block text-xs font-semibold text-slate-700 dark:text-slate-300 mb-1">
+                            Nom du bénéficiaire au Canada *
+                          </label>
+                          <input
+                            type="text"
+                            required
+                            value={transferRecipient}
+                            onChange={(e) => setTransferRecipient(e.target.value)}
+                            placeholder="Ex: Horizon Holdings Corp"
+                            className="w-full px-3.5 py-2.5 rounded-xl border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800 text-xs focus:ring-2 focus:ring-amber-500"
+                          />
+                        </div>
+                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                          <div>
+                            <label className="block text-xs font-semibold text-slate-700 dark:text-slate-300 mb-1">
+                              Numéro de compte ou E-mail Interac *
+                            </label>
+                            <input
+                              type="text"
+                              required
+                              value={transferAccount}
+                              onChange={(e) => setTransferAccount(e.target.value)}
+                              placeholder="Ex: 1234567 ou paiement@domaine.ca"
+                              className="w-full px-3.5 py-2.5 rounded-xl border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800 text-xs font-mono focus:ring-2 focus:ring-amber-500"
+                            />
+                          </div>
+                          <div>
+                            <label className="block text-xs font-semibold text-slate-700 dark:text-slate-300 mb-1">
+                              Banque & Numéros Transit / Institution *
+                            </label>
+                            <input
+                              type="text"
+                              required
+                              value={transferBank}
+                              onChange={(e) => setTransferBank(e.target.value)}
+                              placeholder="Ex: RBC Royal Bank (Inst: 003, Transit: 12345)"
+                              className="w-full px-3.5 py-2.5 rounded-xl border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800 text-xs focus:ring-2 focus:ring-amber-500"
+                            />
+                          </div>
+                        </div>
+                      </>
+                    );
+                  }
+
+                  // Standard International SWIFT / SEPA / Swiss SIC / UAEFTS
+                  return (
+                    <>
+                      <div>
+                        <label className="block text-xs font-semibold text-slate-700 dark:text-slate-300 mb-1">
+                          {currentLang === 'fr' ? 'Nom complet ou Raison sociale du bénéficiaire *' : 'Beneficiary Full Legal Name *'}
+                        </label>
+                        <input
+                          type="text"
+                          required
+                          value={transferRecipient}
+                          onChange={(e) => setTransferRecipient(e.target.value)}
+                          placeholder="Ex: Meridian Maritime Holdings LLC ou Jean Dupont"
+                          className="w-full px-3.5 py-2.5 rounded-xl border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800 text-xs focus:ring-2 focus:ring-amber-500"
+                        />
+                      </div>
+                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                        <div>
+                          <label className="block text-xs font-semibold text-slate-700 dark:text-slate-300 mb-1">
+                            {currentLang === 'fr' ? 'IBAN ou Compte du bénéficiaire (Confirmé) *' : 'Beneficiary IBAN / Account *'}
+                          </label>
+                          <input
+                            type="text"
+                            required
+                            value={transferAccount}
+                            onChange={(e) => setTransferAccount(e.target.value.toUpperCase())}
+                            placeholder="Ex: ES91 2100 0418 4502 0005 1332"
+                            className="w-full px-3.5 py-2.5 rounded-xl border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800 text-xs font-mono uppercase focus:ring-2 focus:ring-amber-500"
+                          />
+                        </div>
+                        <div>
+                          <label className="block text-xs font-semibold text-slate-700 dark:text-slate-300 mb-1">
+                            {currentLang === 'fr' ? 'Code BIC / SWIFT & Banque réceptrice *' : 'BIC / SWIFT & Recipient Bank *'}
+                          </label>
+                          <input
+                            type="text"
+                            required
+                            value={transferBank}
+                            onChange={(e) => setTransferBank(e.target.value.toUpperCase())}
+                            placeholder="Ex: BNPAFRPPXXX - BNP Paribas"
+                            className="w-full px-3.5 py-2.5 rounded-xl border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800 text-xs font-mono uppercase focus:ring-2 focus:ring-amber-500"
+                          />
+                        </div>
+                      </div>
+                    </>
+                  );
+                })()}
 
                 {/* 5. Montant et Référence */}
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
@@ -2416,7 +2805,7 @@ export const ClientDashboard: React.FC<ClientDashboardProps> = ({
         {/* TAB 5: FINANCING & LOANS (Sections 32-40) */}
         {/* ======================================================== */}
         {activeTab === 'financing' && (
-          <div className="space-y-10">
+          <div className="space-y-8">
             <div>
               <h3 className="text-xl font-bold text-slate-900 dark:text-white">
                 {t.financingTitle}
@@ -2426,8 +2815,134 @@ export const ClientDashboard: React.FC<ClientDashboardProps> = ({
               </p>
             </div>
 
+            {/* 1. Présentation des offres de prêt avant la simulation */}
+            <div className="p-6 sm:p-8 rounded-3xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 shadow-sm space-y-5">
+              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 border-b border-slate-200 dark:border-slate-800 pb-4">
+                <div>
+                  <h4 className="text-base font-bold text-slate-900 dark:text-white flex items-center gap-2">
+                    <Landmark className="w-5 h-5 text-amber-500" />
+                    <span>{currentLang === 'fr' ? 'Nos Formules & Offres de Prêt' : 'Our Loan Facilities & Offers'}</span>
+                  </h4>
+                  <p className="text-xs text-slate-500 mt-0.5">
+                    {currentLang === 'fr'
+                      ? 'Consultez les taux d\'intérêt fixes négociés par Movafi Bank avant de lancer votre simulation personnalisée.'
+                      : 'Review our preferential fixed interest rates before customizing your loan simulation below.'}
+                  </p>
+                </div>
+                <div className="px-3.5 py-1.5 rounded-full bg-amber-500/10 border border-amber-500/30 text-amber-600 dark:text-amber-400 font-bold text-xs self-start sm:self-auto">
+                  {currentLang === 'fr' ? 'Taux fixes de 2.10% à 4.50% / an' : 'Fixed rates from 2.10% to 4.50% p.a.'}
+                </div>
+              </div>
+
+              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                {[
+                  {
+                    category: 'Real Estate',
+                    title: currentLang === 'fr' ? 'Crédit Immobilier & Patrimoine' : 'Real Estate Financing',
+                    icon: Home,
+                    desc: currentLang === 'fr' ? 'Acquisition résidentielle, investissement locatif ou bureaux de prestige.' : 'Prime residential and commercial real estate acquisition.',
+                    durationMax: currentLang === 'fr' ? 'Jusqu\'à 30 ans (360 mois)' : 'Up to 30 years',
+                    defaultRate: 2.45
+                  },
+                  {
+                    category: 'Business',
+                    title: currentLang === 'fr' ? 'Développement Entreprise & LBO' : 'Business Expansion',
+                    icon: Building2,
+                    desc: currentLang === 'fr' ? 'Investissements d\'actifs, croissance externe et modernisation.' : 'Equipment finance, mergers, expansion and growth capital.',
+                    durationMax: currentLang === 'fr' ? 'Jusqu\'à 15 ans (180 mois)' : 'Up to 15 years',
+                    defaultRate: 3.20
+                  },
+                  {
+                    category: 'Automobile',
+                    title: currentLang === 'fr' ? 'Crédit Mobilité & Véhicule' : 'Automobile & Mobility',
+                    icon: Car,
+                    desc: currentLang === 'fr' ? 'Véhicules neufs, hybrides, électriques ou flottes d\'entreprises.' : 'High-spec automotive, hybrid/EV and corporate fleet credit.',
+                    durationMax: currentLang === 'fr' ? 'Jusqu\'à 7 ans (84 mois)' : 'Up to 7 years',
+                    defaultRate: 2.90
+                  },
+                  {
+                    category: 'Renovation',
+                    title: currentLang === 'fr' ? 'Éco-Rénovation & Travaux' : 'Renovation & Works',
+                    icon: Sliders,
+                    desc: currentLang === 'fr' ? 'Travaux de rénovation énergétique, aménagement et valorisation.' : 'Energy efficiency, refurbishment and architectural upgrade.',
+                    durationMax: currentLang === 'fr' ? 'Jusqu\'à 10 ans (120 mois)' : 'Up to 10 years',
+                    defaultRate: 2.65
+                  },
+                  {
+                    category: 'Working Capital',
+                    title: currentLang === 'fr' ? 'Trésorerie & Fonds de Roulement' : 'Working Capital Credit',
+                    icon: DollarSign,
+                    desc: currentLang === 'fr' ? 'Liquidités rapides pour besoins ponctuels ou opportunités de marché.' : 'Immediate working capital for liquidity and market opportunities.',
+                    durationMax: currentLang === 'fr' ? 'Jusqu\'à 5 ans (60 mois)' : 'Up to 5 years',
+                    defaultRate: 3.50
+                  },
+                  {
+                    category: 'Education',
+                    title: currentLang === 'fr' ? 'Family Office & Éducation' : 'Family Office & Education',
+                    icon: Landmark,
+                    desc: currentLang === 'fr' ? 'Financement des grandes écoles, bourses privées et projets d\'avenir.' : 'Higher education, trust funds and private family projects.',
+                    durationMax: currentLang === 'fr' ? 'Jusqu\'à 10 ans (120 mois)' : 'Up to 10 years',
+                    defaultRate: 2.10
+                  }
+                ].map((offer) => {
+                  const Icon = offer.icon;
+                  const activeRate =
+                    rates.find((r) => r.category.toLowerCase() === offer.category.toLowerCase())?.annual_rate_percent ||
+                    offer.defaultRate;
+                  const isSelected = loanProject.toLowerCase() === offer.category.toLowerCase();
+
+                  return (
+                    <div
+                      key={offer.category}
+                      className={`p-4 rounded-2xl border transition-all flex flex-col justify-between ${
+                        isSelected
+                          ? 'border-amber-500 bg-amber-500/5 dark:bg-amber-500/10 shadow-sm'
+                          : 'border-slate-200 dark:border-slate-800 bg-slate-50/50 dark:bg-slate-800/40 hover:border-slate-300 dark:hover:border-slate-700'
+                      }`}
+                    >
+                      <div className="space-y-2">
+                        <div className="flex items-center justify-between">
+                          <div className={`p-2 rounded-xl ${isSelected ? 'bg-amber-500 text-slate-950' : 'bg-slate-200 dark:bg-slate-700 text-slate-700 dark:text-slate-300'}`}>
+                            <Icon className="w-4 h-4" />
+                          </div>
+                          <span className="font-mono font-bold text-xs px-2 py-0.5 rounded-md bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border border-emerald-500/20">
+                            {activeRate.toFixed(2)}% / an
+                          </span>
+                        </div>
+                        <div className="font-bold text-xs text-slate-900 dark:text-white pt-1">
+                          {offer.title}
+                        </div>
+                        <p className="text-[11px] text-slate-500 leading-relaxed">
+                          {offer.desc}
+                        </p>
+                        <div className="text-[10px] text-slate-400 font-mono">
+                          Durée : {offer.durationMax}
+                        </div>
+                      </div>
+
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setLoanProject(offer.category);
+                          const simEl = document.getElementById('credit-simulator-box');
+                          if (simEl) simEl.scrollIntoView({ behavior: 'smooth' });
+                        }}
+                        className={`mt-3 w-full py-2 rounded-xl text-xs font-semibold transition-colors cursor-pointer flex items-center justify-center gap-1.5 ${
+                          isSelected
+                            ? 'bg-amber-500 text-slate-950 font-bold'
+                            : 'border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800 text-slate-700 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-700'
+                        }`}
+                      >
+                        <span>{isSelected ? '✓ Sélectionné' : 'Simuler cette offre'}</span>
+                      </button>
+                    </div>
+                  );
+                })}
+              </div>
+            </div>
+
             {/* Interactive Simulator (Section 34) */}
-            <div className="p-6 sm:p-8 rounded-3xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 shadow-sm space-y-6">
+            <div id="credit-simulator-box" className="p-6 sm:p-8 rounded-3xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 shadow-sm space-y-6">
               <div className="flex items-center justify-between border-b border-slate-200 dark:border-slate-800 pb-4">
                 <div className="font-bold text-base text-slate-900 dark:text-white">
                   {t.simulatorTitle}
@@ -2467,21 +2982,26 @@ export const ClientDashboard: React.FC<ClientDashboardProps> = ({
                     </div>
                     <input
                       type="range"
-                      min={2000}
-                      max={1000000}
-                      step={5000}
+                      min={minLoanAmount}
+                      max={isMxnAccount ? 5000000 : 1000000}
+                      step={isMxnAccount ? 5000 : 5000}
                       value={loanAmount}
-                      onChange={(e) => setLoanAmount(Number(e.target.value))}
+                      onChange={(e) => setLoanAmountInput(e.target.value)}
                       className="w-full accent-amber-600 cursor-pointer"
                     />
                     <input
                       type="number"
-                      min={2000}
-                      max={1000000}
-                      value={loanAmount}
-                      onChange={(e) => setLoanAmount(Number(e.target.value))}
+                      min={minLoanAmount}
+                      max={isMxnAccount ? 5000000 : 1000000}
+                      value={loanAmountInput}
+                      onChange={(e) => setLoanAmountInput(e.target.value)}
+                      placeholder={String(minLoanAmount)}
                       className="mt-2 w-full px-3 py-1.5 rounded-lg border border-slate-200 dark:border-slate-700 text-xs font-mono"
                     />
+                    <div className="flex justify-between text-[10px] text-slate-400 mt-1">
+                      <span>{currentLang === 'fr' ? 'Montant minimal :' : 'Minimum:'} {formatCurrency(minLoanAmount, account.currency)}</span>
+                      <span>{currentLang === 'fr' ? 'Plafond :' : 'Maximum:'} {formatCurrency(isMxnAccount ? 5000000 : 1000000, account.currency)}</span>
+                    </div>
                   </div>
 
                   {/* Duration Slider & Manual Input */}
@@ -2498,17 +3018,22 @@ export const ClientDashboard: React.FC<ClientDashboardProps> = ({
                       max={360}
                       step={3}
                       value={loanDuration}
-                      onChange={(e) => setLoanDuration(Number(e.target.value))}
+                      onChange={(e) => setLoanDurationInput(e.target.value)}
                       className="w-full accent-amber-600 cursor-pointer"
                     />
                     <input
                       type="number"
                       min={3}
                       max={360}
-                      value={loanDuration}
-                      onChange={(e) => setLoanDuration(Number(e.target.value))}
+                      value={loanDurationInput}
+                      onChange={(e) => setLoanDurationInput(e.target.value)}
+                      placeholder="120"
                       className="mt-2 w-full px-3 py-1.5 rounded-lg border border-slate-200 dark:border-slate-700 text-xs font-mono"
                     />
+                    <div className="flex justify-between text-[10px] text-slate-400 mt-1">
+                      <span>3 mois</span>
+                      <span>360 mois (30 ans)</span>
+                    </div>
                   </div>
 
                   <div className="flex items-center gap-3 pt-2">
@@ -2761,7 +3286,7 @@ export const ClientDashboard: React.FC<ClientDashboardProps> = ({
                         </tr>
                       </thead>
                       <tbody className="divide-y divide-slate-100 dark:divide-slate-800">
-                        {amortizationCalculation.schedule.slice(0, 48).map((row) => (
+                        {amortizationCalculation.schedule.map((row) => (
                           <tr key={row.month} className="hover:bg-slate-50 dark:hover:bg-slate-800/40">
                             <td className="py-1.5 px-2">{row.month}</td>
                             <td className="py-1.5 px-2">{formatCurrency(row.payment, account.currency)}</td>

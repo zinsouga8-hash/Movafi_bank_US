@@ -205,6 +205,145 @@ export async function syncAccountToSupabase(account: any): Promise<SupabaseOpRes
 }
 
 /**
+ * Inserts or Upserts a Bank Card into Supabase
+ */
+export async function syncCardToSupabase(card: any): Promise<SupabaseOpResult> {
+  if (!supabase) return { success: false, data: null };
+  const payload = {
+    id: card.id,
+    account_id: card.account_id,
+    cardholder_name: card.cardholder_name,
+    card_number_masked: card.card_number_masked,
+    card_number_mock_full: card.card_number_mock_full || null,
+    expiry_month: card.expiry_month,
+    expiry_year: card.expiry_year,
+    cvc_mock: card.cvc_mock || '982',
+    network: card.network || 'visa',
+    tier: card.tier || 'gold',
+    status: card.status || 'active',
+    creation_status: card.creation_status || 'approved',
+    is_active: card.is_active !== false,
+    daily_limit: card.daily_limit || 5000,
+    monthly_limit: card.monthly_limit || 10000,
+    balance: card.balance || 0,
+    allow_balance_transfer: Boolean(card.allow_balance_transfer),
+    is_physical: Boolean(card.is_physical),
+    created_at: card.created_at || new Date().toISOString()
+  };
+  const { data, error } = await supabase.from('cards').upsert(payload, { onConflict: 'id' }).select();
+  if (error) {
+    console.error('[CARD_SYNC:ERROR]', error);
+    return { success: false, data: null, error: { code: error.code, message: error.message, details: error.details, hint: error.hint, table: 'cards', operation: 'UPSERT' } };
+  }
+  return { success: true, data };
+}
+
+/**
+ * Inserts or Upserts a Loan Application into Supabase
+ */
+export async function syncLoanToSupabase(loan: any): Promise<SupabaseOpResult> {
+  if (!supabase) return { success: false, data: null };
+  const payload = {
+    id: loan.id,
+    account_id: loan.account_id,
+    borrower_name: loan.borrower_name || null,
+    borrower_email: loan.borrower_email || null,
+    project_type: loan.project_type,
+    amount: loan.amount,
+    currency: loan.currency || 'USD',
+    duration_months: loan.duration_months,
+    rate_percent: loan.rate_percent,
+    monthly_payment: loan.monthly_payment,
+    total_cost: loan.total_cost,
+    terms_accepted: loan.terms_accepted !== false,
+    terms_accepted_at: loan.terms_accepted_at || new Date().toISOString(),
+    credit_parameters_agreed: Boolean(loan.credit_parameters_agreed),
+    credit_parameters_agreed_at: loan.credit_parameters_agreed_at || null,
+    status: loan.status || 'pending',
+    admin_notes: loan.admin_notes || null,
+    funds_released_at: loan.funds_released_at || null,
+    created_at: loan.created_at || new Date().toISOString()
+  };
+  const { data, error } = await supabase.from('loan_applications').upsert(payload, { onConflict: 'id' }).select();
+  if (error) {
+    console.error('[LOAN_SYNC:ERROR]', error);
+    return { success: false, data: null, error: { code: error.code, message: error.message, details: error.details, hint: error.hint, table: 'loan_applications', operation: 'UPSERT' } };
+  }
+  return { success: true, data };
+}
+
+/**
+ * Inserts or Upserts a Transaction into Supabase
+ */
+export async function syncTransactionToSupabase(tx: any): Promise<SupabaseOpResult> {
+  if (!supabase) return { success: false, data: null };
+  const payload = {
+    id: tx.id,
+    account_id: tx.account_id,
+    user_id: tx.user_id || null,
+    type: tx.type,
+    category: tx.category || 'Bank Transfer',
+    amount: tx.amount,
+    currency: tx.currency || 'USD',
+    recipient_name: tx.recipient_name || null,
+    recipient_account: tx.recipient_account || null,
+    recipient_bank: tx.recipient_bank || null,
+    reference: tx.reference,
+    description: tx.description || '',
+    status: tx.status || 'completed',
+    fee: tx.fee || 0,
+    approved_at: tx.approved_at || null,
+    approved_by: tx.approved_by || null,
+    created_at: tx.created_at || new Date().toISOString()
+  };
+  const { data, error } = await supabase.from('transactions').upsert(payload, { onConflict: 'id' }).select();
+  if (error) {
+    console.error('[TRANSACTION_SYNC:ERROR]', error);
+    return { success: false, data: null, error: { code: error.code, message: error.message, details: error.details, hint: error.hint, table: 'transactions', operation: 'UPSERT' } };
+  }
+  return { success: true, data };
+}
+
+/**
+ * Inserts or Upserts a Transaction Request into Supabase
+ */
+export async function syncTransactionRequestToSupabase(req: any): Promise<SupabaseOpResult> {
+  if (!supabase) return { success: false, data: null };
+  const payload = {
+    id: req.id,
+    account_id: req.account_id,
+    user_id: req.user_id || null,
+    client_name: req.client_name || null,
+    client_email: req.client_email || null,
+    type: req.type || 'deposit',
+    amount: req.amount,
+    currency: req.currency || 'USD',
+    payment_method: req.payment_method,
+    payout_method: req.payout_method || null,
+    sender_name: req.sender_name || null,
+    beneficiary_name: req.beneficiary_name || null,
+    beneficiary_account: req.beneficiary_account || null,
+    beneficiary_bank: req.beneficiary_bank || null,
+    source_reference: req.source_reference || null,
+    proof_document_url: req.proof_document_url || null,
+    status: req.status || 'pending',
+    admin_notes: req.admin_notes || null,
+    rejection_reason: req.rejection_reason || null,
+    processed_by: req.processed_by || null,
+    processed_at: req.processed_at || null,
+    approved_at: req.approved_at || null,
+    approved_by: req.approved_by || null,
+    created_at: req.created_at || new Date().toISOString()
+  };
+  const { data, error } = await supabase.from('transaction_requests').upsert(payload, { onConflict: 'id' }).select();
+  if (error) {
+    console.error('[TX_REQUEST_SYNC:ERROR]', error);
+    return { success: false, data: null, error: { code: error.code, message: error.message, details: error.details, hint: error.hint, table: 'transaction_requests', operation: 'UPSERT' } };
+  }
+  return { success: true, data };
+}
+
+/**
  * Loads all tables from Supabase on startup into memory
  */
 export async function loadStateFromSupabase(): Promise<{

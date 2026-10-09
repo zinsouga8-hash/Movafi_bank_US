@@ -433,6 +433,7 @@ export const AdminPortal: React.FC<AdminPortalProps> = ({ currentUser, onExit })
   // DEPOSITS & RECHARGES
   // -------------------------------------------------------------
   const [depositRequests, setDepositRequests] = useState<any[]>([]);
+  const [depositsPage, setDepositsPage] = useState(1);
   const loadDeposits = async () => {
     setLoading(true);
     try {
@@ -466,6 +467,7 @@ export const AdminPortal: React.FC<AdminPortalProps> = ({ currentUser, onExit })
   // CARDS MANAGEMENT
   // -------------------------------------------------------------
   const [cardsList, setCardsList] = useState<any[]>([]);
+  const [cardsPage, setCardsPage] = useState(1);
   const loadCards = async () => {
     setLoading(true);
     try {
@@ -539,9 +541,11 @@ export const AdminPortal: React.FC<AdminPortalProps> = ({ currentUser, onExit })
   // LOANS MANAGEMENT
   // -------------------------------------------------------------
   const [loansList, setLoansList] = useState<LoanApplication[]>([]);
+  const [loansPage, setLoansPage] = useState(1);
   const [selectedLoanForManage, setSelectedLoanForManage] = useState<LoanApplication | null>(null);
   const [draftLoanStatus, setDraftLoanStatus] = useState<string>('pending');
   const [draftLoanNotes, setDraftLoanNotes] = useState<string>('');
+  const [isReleasingFunds, setIsReleasingFunds] = useState(false);
 
   const loadLoans = async () => {
     setLoading(true);
@@ -596,14 +600,19 @@ export const AdminPortal: React.FC<AdminPortalProps> = ({ currentUser, onExit })
   };
 
   const handleReleaseLoanFunds = async (loanId: string) => {
+    if (isReleasingFunds) return;
+    setIsReleasingFunds(true);
     setLoading(true);
     try {
       const res = await api.admin.releaseLoanFunds(loanId);
       if (res.success) {
         notify('Fonds débloqués avec succès et crédités sur le solde principal du client.');
         if (selectedLoanForManage && selectedLoanForManage.id === loanId) {
-          setSelectedLoanForManage((prev) => (prev ? { ...prev, status: 'funds_released' } : null));
+          setSelectedLoanForManage((prev) =>
+            prev ? { ...prev, status: 'funds_released', funds_released_at: new Date().toISOString() } : null
+          );
         }
+        setDraftLoanStatus('funds_released');
         await loadLoans();
       } else {
         notify(res.message || 'Impossible de débloquer les fonds.', 'error');
@@ -611,6 +620,7 @@ export const AdminPortal: React.FC<AdminPortalProps> = ({ currentUser, onExit })
     } catch (e: any) {
       notify(e.message, 'error');
     } finally {
+      setIsReleasingFunds(false);
       setLoading(false);
     }
   };
@@ -851,6 +861,67 @@ export const AdminPortal: React.FC<AdminPortalProps> = ({ currentUser, onExit })
     if (activeSection === 'settings' || activeSection === 'security_ips') loadSettingsAndSecurity();
     if (activeSection === 'audit_logs') loadAuditLogs();
   }, [activeSection]);
+
+  const renderPagination = (
+    currentPage: number,
+    totalItems: number,
+    pageSize: number,
+    onPageChange: (p: number) => void
+  ) => {
+    const totalPages = Math.max(1, Math.ceil(totalItems / pageSize));
+    if (totalItems <= 0) return null;
+    const startItem = (currentPage - 1) * pageSize + 1;
+    const endItem = Math.min(currentPage * pageSize, totalItems);
+
+    return (
+      <div className="flex flex-col sm:flex-row items-center justify-between gap-3 px-4 py-3 bg-slate-900/60 border-t border-slate-800 rounded-b-2xl text-xs text-slate-400">
+        <div>
+          Affichage de <span className="font-semibold text-white">{startItem}</span> à{' '}
+          <span className="font-semibold text-white">{endItem}</span> sur{' '}
+          <span className="font-semibold text-amber-400">{totalItems}</span> résultats (10 par page)
+        </div>
+        <div className="flex items-center gap-1.5">
+          <button
+            type="button"
+            disabled={currentPage <= 1}
+            onClick={() => onPageChange(currentPage - 1)}
+            className="px-3 py-1.5 rounded-lg border border-slate-700 bg-slate-800 hover:bg-slate-700 disabled:opacity-40 disabled:cursor-not-allowed text-white text-xs font-medium cursor-pointer transition-colors"
+          >
+            Précédent
+          </button>
+          {Array.from({ length: totalPages }, (_, i) => i + 1)
+            .filter((p) => p === 1 || p === totalPages || Math.abs(p - currentPage) <= 1)
+            .map((p, idx, arr) => {
+              const prev = arr[idx - 1];
+              return (
+                <React.Fragment key={p}>
+                  {prev && p - prev > 1 && <span className="px-1 text-slate-500">...</span>}
+                  <button
+                    type="button"
+                    onClick={() => onPageChange(p)}
+                    className={`w-7 h-7 rounded-lg text-xs font-semibold cursor-pointer transition-colors ${
+                      p === currentPage
+                        ? 'bg-amber-500 text-slate-950 font-bold'
+                        : 'border border-slate-700 bg-slate-800 hover:bg-slate-700 text-slate-200'
+                    }`}
+                  >
+                    {p}
+                  </button>
+                </React.Fragment>
+              );
+            })}
+          <button
+            type="button"
+            disabled={currentPage >= totalPages}
+            onClick={() => onPageChange(currentPage + 1)}
+            className="px-3 py-1.5 rounded-lg border border-slate-700 bg-slate-800 hover:bg-slate-700 disabled:opacity-40 disabled:cursor-not-allowed text-white text-xs font-medium cursor-pointer transition-colors"
+          >
+            Suivant
+          </button>
+        </div>
+      </div>
+    );
+  };
 
   const navItems = [
     { id: 'accounts', label: 'Comptes Clients & Portefeuilles', icon: Users },
@@ -1152,6 +1223,7 @@ export const AdminPortal: React.FC<AdminPortalProps> = ({ currentUser, onExit })
                     })}
                   </tbody>
                 </table>
+                {renderPagination(accountsPage, accountsTotal, 10, setAccountsPage)}
               </div>
 
               {/* ======================================================= */}
@@ -2027,7 +2099,7 @@ export const AdminPortal: React.FC<AdminPortalProps> = ({ currentUser, onExit })
                     </tr>
                   </thead>
                   <tbody className="divide-y divide-slate-800/80">
-                    {depositRequests.map((req) => (
+                    {depositRequests.slice((depositsPage - 1) * 10, depositsPage * 10).map((req) => (
                       <tr key={req.id} className="hover:bg-slate-900/40">
                         <td className="py-3 px-4 text-slate-400">{formatDateTime(req.created_at)}</td>
                         <td className="py-3 px-4 font-semibold text-white">{req.client_name || req.sender_name}</td>
@@ -2063,6 +2135,7 @@ export const AdminPortal: React.FC<AdminPortalProps> = ({ currentUser, onExit })
                     ))}
                   </tbody>
                 </table>
+                {renderPagination(depositsPage, depositRequests.length, 10, setDepositsPage)}
               </div>
             </div>
           )}
@@ -2104,7 +2177,7 @@ export const AdminPortal: React.FC<AdminPortalProps> = ({ currentUser, onExit })
                     </tr>
                   </thead>
                   <tbody className="divide-y divide-slate-800/80">
-                    {cardsList.map((c) => {
+                    {cardsList.slice((cardsPage - 1) * 10, cardsPage * 10).map((c) => {
                       const creationStatus = c.creation_status || (c.status === 'active' ? 'approved' : 'pending');
                       const isActive = !!c.is_active;
                       return (
@@ -2177,6 +2250,7 @@ export const AdminPortal: React.FC<AdminPortalProps> = ({ currentUser, onExit })
                     })}
                   </tbody>
                 </table>
+                {renderPagination(cardsPage, cardsList.length, 10, setCardsPage)}
               </div>
 
               {/* MODAL : GÉRER LA CARTE */}
@@ -2452,7 +2526,7 @@ export const AdminPortal: React.FC<AdminPortalProps> = ({ currentUser, onExit })
                     </tr>
                   </thead>
                   <tbody className="divide-y divide-slate-800/80">
-                    {loansList.map((loan) => (
+                    {loansList.slice((loansPage - 1) * 10, loansPage * 10).map((loan) => (
                       <tr key={loan.id} className="hover:bg-slate-900/40">
                         <td className="py-3 px-4">
                           <div className="font-semibold text-white">{loan.borrower_name}</div>
@@ -2512,6 +2586,7 @@ export const AdminPortal: React.FC<AdminPortalProps> = ({ currentUser, onExit })
                     ))}
                   </tbody>
                 </table>
+                {renderPagination(loansPage, loansList.length, 10, setLoansPage)}
               </div>
 
               {/* MODAL : GÉRER LE PRÊT */}
@@ -2584,44 +2659,67 @@ export const AdminPortal: React.FC<AdminPortalProps> = ({ currentUser, onExit })
                             1. Décision d'approbation du prêt
                           </span>
                           <span className={`px-2.5 py-0.5 rounded-full text-[10px] font-bold uppercase ${
-                            draftLoanStatus === 'approved' ? 'bg-emerald-500/10 text-emerald-400' : draftLoanStatus === 'rejected' ? 'bg-rose-500/15 text-rose-400' : 'bg-amber-500/10 text-amber-400'
+                            selectedLoanForManage.status === 'funds_released'
+                              ? 'bg-emerald-500/20 text-emerald-400 border border-emerald-500/30'
+                              : draftLoanStatus === 'approved'
+                              ? 'bg-emerald-500/10 text-emerald-400'
+                              : draftLoanStatus === 'rejected'
+                              ? 'bg-rose-500/15 text-rose-400'
+                              : 'bg-amber-500/10 text-amber-400'
                           }`}>
-                            {draftLoanStatus === 'approved' ? 'Approuvé' : draftLoanStatus === 'rejected' ? 'Rejeté' : 'En attente'}
+                            {selectedLoanForManage.status === 'funds_released'
+                              ? 'Fonds Débloqués'
+                              : draftLoanStatus === 'approved'
+                              ? 'Approuvé'
+                              : draftLoanStatus === 'rejected'
+                              ? 'Rejeté'
+                              : 'En attente'}
                           </span>
                         </div>
                         <p className="text-slate-400 text-[11px]">
-                          Une fois le prêt approuvé, le client reçoit une notification et pourra accéder au bouton « Paramètres de crédit » pour les consulter et donner son accord.
+                          {selectedLoanForManage.status === 'funds_released'
+                            ? 'Ce dossier est finalisé et archivé : les fonds ont été débloqués sur le compte client.'
+                            : 'Une fois le prêt approuvé, le client reçoit une notification et pourra accéder au bouton « Paramètres de crédit » pour les consulter et donner son accord.'}
                         </p>
                         <div className="grid grid-cols-3 gap-2 pt-1">
                           <button
                             type="button"
+                            disabled={selectedLoanForManage.status === 'funds_released'}
                             onClick={() => setDraftLoanStatus('approved')}
-                            className={`py-2 px-3 rounded-xl border text-xs font-semibold cursor-pointer transition-all ${
-                              draftLoanStatus === 'approved'
-                                ? 'bg-emerald-600 text-white border-emerald-500 shadow-md'
-                                : 'bg-slate-900 border-slate-800 text-slate-300 hover:bg-slate-800'
+                            className={`py-2 px-3 rounded-xl border text-xs font-semibold transition-all ${
+                              selectedLoanForManage.status === 'funds_released'
+                                ? 'opacity-40 cursor-not-allowed bg-slate-900 border-slate-800 text-slate-500'
+                                : draftLoanStatus === 'approved'
+                                ? 'bg-emerald-600 text-white border-emerald-500 shadow-md cursor-pointer'
+                                : 'bg-slate-900 border-slate-800 text-slate-300 hover:bg-slate-800 cursor-pointer'
                             }`}
                           >
                             ✓ Approuver
                           </button>
                           <button
                             type="button"
+                            disabled={selectedLoanForManage.status === 'funds_released'}
                             onClick={() => setDraftLoanStatus('pending')}
-                            className={`py-2 px-3 rounded-xl border text-xs font-semibold cursor-pointer transition-all ${
-                              draftLoanStatus === 'pending'
-                                ? 'bg-amber-600 text-white border-amber-500 shadow-md'
-                                : 'bg-slate-900 border-slate-800 text-slate-300 hover:bg-slate-800'
+                            className={`py-2 px-3 rounded-xl border text-xs font-semibold transition-all ${
+                              selectedLoanForManage.status === 'funds_released'
+                                ? 'opacity-40 cursor-not-allowed bg-slate-900 border-slate-800 text-slate-500'
+                                : draftLoanStatus === 'pending'
+                                ? 'bg-amber-600 text-white border-amber-500 shadow-md cursor-pointer'
+                                : 'bg-slate-900 border-slate-800 text-slate-300 hover:bg-slate-800 cursor-pointer'
                             }`}
                           >
                             ⏱ En attente
                           </button>
                           <button
                             type="button"
+                            disabled={selectedLoanForManage.status === 'funds_released'}
                             onClick={() => setDraftLoanStatus('rejected')}
-                            className={`py-2 px-3 rounded-xl border text-xs font-semibold cursor-pointer transition-all ${
-                              draftLoanStatus === 'rejected'
-                                ? 'bg-rose-600 text-white border-rose-500 shadow-md'
-                                : 'bg-slate-900 border-slate-800 text-slate-300 hover:bg-slate-800'
+                            className={`py-2 px-3 rounded-xl border text-xs font-semibold transition-all ${
+                              selectedLoanForManage.status === 'funds_released'
+                                ? 'opacity-40 cursor-not-allowed bg-slate-900 border-slate-800 text-slate-500'
+                                : draftLoanStatus === 'rejected'
+                                ? 'bg-rose-600 text-white border-rose-500 shadow-md cursor-pointer'
+                                : 'bg-slate-900 border-slate-800 text-slate-300 hover:bg-slate-800 cursor-pointer'
                             }`}
                           >
                             ✕ Rejeter
@@ -2636,8 +2734,8 @@ export const AdminPortal: React.FC<AdminPortalProps> = ({ currentUser, onExit })
                             2. Validation des Paramètres de Crédit & Déblocage
                           </span>
                           {selectedLoanForManage.status === 'funds_released' ? (
-                            <span className="px-2.5 py-0.5 rounded-full text-[10px] font-bold bg-emerald-500/20 text-emerald-400">
-                              Fonds Débloqués
+                            <span className="px-2.5 py-0.5 rounded-full text-[10px] font-bold bg-emerald-500/20 text-emerald-400 border border-emerald-500/30">
+                              ✓ Fonds Débloqués
                             </span>
                           ) : selectedLoanForManage.credit_parameters_agreed ? (
                             <span className="px-2.5 py-0.5 rounded-full text-[10px] font-bold bg-emerald-500/10 text-emerald-400">
@@ -2651,21 +2749,42 @@ export const AdminPortal: React.FC<AdminPortalProps> = ({ currentUser, onExit })
                         </div>
 
                         {selectedLoanForManage.status === 'funds_released' ? (
-                          <div className="p-3 rounded-xl bg-emerald-500/10 border border-emerald-500/20 text-emerald-400 text-xs">
-                            ✓ Les fonds de ce crédit ont déjà été débloqués et crédités avec succès sur le solde principal du compte client.
+                          <div className="space-y-3">
+                            <div className="p-3.5 rounded-xl bg-emerald-500/10 border border-emerald-500/25 text-emerald-300 text-xs flex items-center gap-2.5">
+                              <CheckCircle2 className="w-5 h-5 text-emerald-400 shrink-0" />
+                              <div>
+                                <span className="font-bold block text-white">Fonds débloqués avec succès</span>
+                                <span className="text-[11px] text-emerald-400/90">
+                                  Le virement a été crédité sur le compte du client. Cette opération est unique et définitive ; aucun nouveau versement ne peut être exécuté.
+                                </span>
+                              </div>
+                            </div>
+                            <button
+                              type="button"
+                              disabled
+                              className="w-full py-3 rounded-xl bg-slate-800 border border-emerald-500/40 text-emerald-400 font-bold text-xs cursor-not-allowed flex items-center justify-center gap-2 opacity-90 shadow-inner"
+                            >
+                              <CheckCircle2 className="w-4 h-4 text-emerald-400" />
+                              <span>Fonds débloqués ({formatCurrency(selectedLoanForManage.amount, selectedLoanForManage.currency)})</span>
+                            </button>
                           </div>
                         ) : selectedLoanForManage.credit_parameters_agreed ? (
                           <div className="space-y-3">
                             <div className="p-3 rounded-xl bg-emerald-500/10 border border-emerald-500/20 text-emerald-300 text-xs">
-                              Le client a examiné et validé ses paramètres de crédit. Vous pouvez désormais débloquer les fonds en 1 clic.
+                              Le client a examiné et validé ses paramètres de crédit. Vous pouvez désormais débloquer les fonds en un clic unique.
                             </div>
                             <button
                               type="button"
+                              disabled={isReleasingFunds || loading}
                               onClick={() => handleReleaseLoanFunds(selectedLoanForManage.id)}
-                              className="w-full py-3 rounded-xl bg-amber-500 hover:bg-amber-400 text-slate-950 font-bold text-xs shadow-md transition-colors cursor-pointer flex items-center justify-center gap-2"
+                              className="w-full py-3 rounded-xl bg-amber-500 hover:bg-amber-400 disabled:opacity-50 disabled:cursor-not-allowed text-slate-950 font-bold text-xs shadow-md transition-colors cursor-pointer flex items-center justify-center gap-2"
                             >
                               <DollarSign className="w-4 h-4" />
-                              <span>Débloquer les fonds ({formatCurrency(selectedLoanForManage.amount, selectedLoanForManage.currency)})</span>
+                              <span>
+                                {isReleasingFunds
+                                  ? 'Déblocage des fonds en cours...'
+                                  : `Débloquer les fonds (${formatCurrency(selectedLoanForManage.amount, selectedLoanForManage.currency)})`}
+                              </span>
                             </button>
                           </div>
                         ) : (

@@ -6,6 +6,10 @@ import {
   isSupabaseConfigured,
   syncProfileToSupabase,
   syncAccountToSupabase,
+  syncCardToSupabase,
+  syncLoanToSupabase,
+  syncTransactionToSupabase,
+  syncTransactionRequestToSupabase,
   maskEmail
 } from './supabase';
 import {
@@ -546,7 +550,7 @@ apiRouter.post('/auth/login-step2', async (req: Request, res: Response) => {
   const pinHash = hashString(cleanPin);
   const isPinMatch =
     (Boolean(profile.pin_hash) && profile.pin_hash === pinHash) ||
-    (Boolean(profile.portal_pin) && profile.portal_pin.trim() === cleanPin);
+    (Boolean(profile.portal_pin) && (profile.portal_pin as string).trim() === cleanPin);
 
   if (!isPinMatch) {
     return res.status(401).json({ success: false, message: 'Code PIN de sécurité incorrect. Veuillez vérifier votre saisie.' });
@@ -1003,6 +1007,13 @@ apiRouter.post('/transfers/submit', async (req: Request, res: Response) => {
 
   db.save();
 
+  // Sync to Supabase
+  syncTransactionToSupabase(newTx).catch((e) => console.warn('[SUPABASE_SYNC:TX_ERR]', e));
+  syncAccountToSupabase(account).catch((e) => console.warn('[SUPABASE_SYNC:ACC_ERR]', e));
+  if (internalRecipientAccount) {
+    syncAccountToSupabase(internalRecipientAccount).catch((e) => console.warn('[SUPABASE_SYNC:RECIP_ACC_ERR]', e));
+  }
+
   db.addAuditLog('TRANSFER_INITIATED', `Account: ${account.account_number}`, profile.email, {
     amount: parsedAmount,
     currency,
@@ -1155,6 +1166,10 @@ apiRouter.post('/withdrawals/submit', async (req: Request, res: Response) => {
 
   db.save();
 
+  syncTransactionRequestToSupabase(newReq).catch((e) => console.warn('[SUPABASE_SYNC:WITHDRAW_REQ_ERR]', e));
+  syncTransactionToSupabase(newTx).catch((e) => console.warn('[SUPABASE_SYNC:WITHDRAW_TX_ERR]', e));
+  syncAccountToSupabase(account).catch((e) => console.warn('[SUPABASE_SYNC:WITHDRAW_ACC_ERR]', e));
+
   db.addAuditLog('WITHDRAWAL_REQUEST_SUBMITTED', `Account: ${account.account_number}`, profile.email, {
     amount: parsedAmount,
     currency: currency || account.currency,
@@ -1235,6 +1250,7 @@ apiRouter.post('/recharge/submit', (req: Request, res: Response) => {
   });
 
   db.save();
+  syncTransactionRequestToSupabase(newReq).catch((e) => console.warn('[SUPABASE_SYNC:RECHARGE_REQ_ERR]', e));
 
   db.addAuditLog('DEPOSIT_REQUEST_SUBMITTED', `Account: ${account.account_number}`, profile.email, {
     amount: parsedAmount,
@@ -1322,6 +1338,7 @@ apiRouter.post('/cards/request', (req: Request, res: Response) => {
   });
 
   db.save();
+  syncCardToSupabase(newCard).catch((e) => console.warn('[SUPABASE_SYNC:CARD_ORDER_ERR]', e));
 
   db.addAuditLog('CARD_REQUESTED', `Account: ${account.account_number}`, profile.email, {
     card_id: cardId,
@@ -1504,13 +1521,20 @@ apiRouter.post('/financing/apply', async (req: Request, res: Response) => {
   const parsedAmount = Number(amount);
   const parsedMonths = Number(duration_months);
 
-  if (isNaN(parsedAmount) || parsedAmount < 2000 || parsedAmount > 1000000) {
-    return res.status(400).json({ success: false, message: 'Loan amount must be between 2,000 and 1,000,000 USD.' });
-  }
-
   const state = db.getState();
   const account = state.accounts.find((a) => a.profile_id === profile.id);
   if (!account) return res.status(404).json({ success: false, message: 'Account not found' });
+
+  const isMxn = account.currency === 'MXN';
+  const minAmount = isMxn ? 15000 : 2000;
+  const maxAmount = isMxn ? 20000000 : 2000000;
+
+  if (isNaN(parsedAmount) || parsedAmount < minAmount || parsedAmount > maxAmount) {
+    return res.status(400).json({
+      success: false,
+      message: `Le montant du prêt doit être compris entre ${minAmount.toLocaleString()} et ${maxAmount.toLocaleString()} ${account.currency}.`
+    });
+  }
 
   // Get current rate for category from database
   const rateCategory = state.loan_rates.find((r) => r.category.toLowerCase() === (project_type || '').toLowerCase()) ||
@@ -1567,6 +1591,7 @@ apiRouter.post('/financing/apply', async (req: Request, res: Response) => {
   }).catch(() => {});
 
   db.save();
+  syncLoanToSupabase(newLoan).catch((e) => console.warn('[SUPABASE_SYNC:LOAN_APPLY_ERR]', e));
 
   db.addAuditLog('LOAN_APPLICATION_SUBMITTED', `Loan: ${loanId}`, profile.email, {
     amount: parsedAmount,
@@ -1709,6 +1734,13 @@ apiRouter.get('/admin/accounts', requireAdmin, (req: Request, res: Response) => 
       return accStatus === status;
     });
   }
+
+  // Sort descending: most recent / newly submitted on top
+  combined.sort((a, b) => {
+    const timeA = new Date(a.account.created_at || a.profile?.created_at || 0).getTime();
+    const timeB = new Date(b.account.created_at || b.profile?.created_at || 0).getTime();
+    return timeB - timeA;
+  });
 
   const total = combined.length;
   const startIndex = (page - 1) * limit;
@@ -2228,10 +2260,16 @@ apiRouter.delete('/admin/accounts/:id', requireAdmin, (req: Request, res: Respon
 // Admin Deposits & Withdrawals Management
 apiRouter.get('/admin/transactions', requireAdmin, (req: Request, res: Response) => {
   const state = db.getState();
+  const sortedRequests = [...state.transaction_requests].sort(
+    (a, b) => new Date(b.created_at || 0).getTime() - new Date(a.created_at || 0).getTime()
+  );
+  const sortedTransactions = [...state.transactions].sort(
+    (a, b) => new Date(b.created_at || 0).getTime() - new Date(a.created_at || 0).getTime()
+  );
   res.json({
     success: true,
-    requests: state.transaction_requests,
-    transactions: state.transactions
+    requests: sortedRequests,
+    transactions: sortedTransactions
   });
 });
 
@@ -2260,24 +2298,26 @@ apiRouter.post('/admin/transactions/requests/:id/action', requireAdmin, (req: Re
       account.balance += request.amount;
 
       // Record completed transaction
-      state.transactions.unshift({
+      const depositTx = {
         id: 'tx_' + Date.now().toString(36),
         user_id: account.profile_id,
         account_id: account.id,
-        type: 'deposit',
+        type: 'deposit' as const,
         category: request.payment_method,
         amount: request.amount,
         currency: request.currency,
         recipient_name: account.account_number,
         reference: request.source_reference,
         description: `Deposit via ${request.payment_method} approved by treasury`,
-        status: 'completed',
+        status: 'completed' as const,
         fee: 0,
         created_at: now,
         updated_at: now,
         approved_at: now,
         approved_by: admin?.email
-      });
+      };
+      state.transactions.unshift(depositTx);
+      syncTransactionToSupabase(depositTx).catch((e) => console.warn('[SUPABASE_SYNC:DEP_TX_ERR]', e));
 
       state.notifications.unshift({
         id: 'notif_' + Date.now().toString(36),
@@ -2321,6 +2361,7 @@ apiRouter.post('/admin/transactions/requests/:id/action', requireAdmin, (req: Re
         linkedTx.approved_by = admin?.email;
         linkedTx.updated_at = now;
         linkedTx.description = `Withdrawal to ${request.beneficiary_name || 'beneficiary'} — Settled & Dispatched`;
+        syncTransactionToSupabase(linkedTx).catch((e) => console.warn('[SUPABASE_SYNC:WITHDRAW_APP_TX_ERR]', e));
       }
 
       state.notifications.unshift({
@@ -2348,6 +2389,7 @@ apiRouter.post('/admin/transactions/requests/:id/action', requireAdmin, (req: Re
         linkedTx.status = 'rejected';
         linkedTx.updated_at = now;
         linkedTx.description = `Withdrawal to ${request.beneficiary_name || 'beneficiary'} — Rejected & Refunded (${notes || 'Compliance notice'})`;
+        syncTransactionToSupabase(linkedTx).catch((e) => console.warn('[SUPABASE_SYNC:WITHDRAW_REJ_TX_ERR]', e));
       }
 
       state.notifications.unshift({
@@ -2364,6 +2406,9 @@ apiRouter.post('/admin/transactions/requests/:id/action', requireAdmin, (req: Re
   }
 
   db.save();
+
+  syncTransactionRequestToSupabase(request).catch((e) => console.warn('[SUPABASE_SYNC:REQ_ACTION_ERR]', e));
+  syncAccountToSupabase(account).catch((e) => console.warn('[SUPABASE_SYNC:ACC_ACTION_ERR]', e));
 
   db.addAuditLog(`${request.type.toUpperCase()}_REQUEST_${action.toUpperCase()}`, `Request: ${request.id}`, admin?.email, {
     amount: request.amount,
@@ -2387,6 +2432,8 @@ apiRouter.get('/admin/cards', requireAdmin, (req: Request, res: Response) => {
       client_email: prof?.email
     };
   });
+  // Sort descending: newest on top
+  enrichedCards.sort((a, b) => new Date(b.created_at || 0).getTime() - new Date(a.created_at || 0).getTime());
   res.json({ success: true, cards: enrichedCards });
 });
 
@@ -2490,6 +2537,7 @@ apiRouter.post('/admin/cards/:id/status', requireAdmin, async (req: Request, res
 
   db.save();
   db.addAuditLog('CARD_CONFIG_UPDATED', `Card: ${card.card_number_masked}`, admin?.email, req.body);
+  syncCardToSupabase(card).catch((e) => console.warn('[SUPABASE_SYNC:CARD_ERR]', e));
 
   res.json({ success: true, message: 'Card updated.', card });
 });
@@ -2497,7 +2545,12 @@ apiRouter.post('/admin/cards/:id/status', requireAdmin, async (req: Request, res
 // Admin Loans Management
 apiRouter.get('/admin/loans', requireAdmin, (req: Request, res: Response) => {
   const state = db.getState();
-  res.json({ success: true, loans: state.loan_applications });
+  const sortedLoans = [...state.loan_applications].sort((a, b) => {
+    const timeA = new Date(a.created_at || 0).getTime();
+    const timeB = new Date(b.created_at || 0).getTime();
+    return timeB - timeA;
+  });
+  res.json({ success: true, loans: sortedLoans });
 });
 
 apiRouter.post('/admin/loans/:id/status', requireAdmin, async (req: Request, res: Response) => {
@@ -2508,6 +2561,13 @@ apiRouter.post('/admin/loans/:id/status', requireAdmin, async (req: Request, res
   const state = db.getState();
   const loan = state.loan_applications.find((l) => l.id === id);
   if (!loan) return res.status(404).json({ success: false, message: 'Loan application not found' });
+
+  if (loan.status === 'funds_released' && status !== 'funds_released') {
+    return res.status(400).json({
+      success: false,
+      message: 'Les fonds de ce prêt ont déjà été débloqués. Le statut ne peut plus être modifié.'
+    });
+  }
 
   loan.status = status;
   if (admin_notes !== undefined) loan.admin_notes = admin_notes;
@@ -2563,6 +2623,7 @@ apiRouter.post('/admin/loans/:id/status', requireAdmin, async (req: Request, res
   }
 
   db.save();
+  syncLoanToSupabase(loan).catch((e) => console.warn('[SUPABASE_SYNC:LOAN_STATUS_ERR]', e));
   db.addAuditLog(`LOAN_${status.toUpperCase()}`, `Loan: ${loan.id}`, admin?.email, {
     borrower: loan.borrower_name,
     amount: loan.amount
@@ -2571,7 +2632,7 @@ apiRouter.post('/admin/loans/:id/status', requireAdmin, async (req: Request, res
   res.json({ success: true, message: `Dossier de prêt mis à jour (${status}).`, loan });
 });
 
-// Release Loan Funds into Client Account Balance
+// Release Loan Funds into Client Account Balance (Strictly Single Disbursement)
 apiRouter.post('/admin/loans/:id/release-funds', requireAdmin, async (req: Request, res: Response) => {
   const admin = getAuthProfile(req);
   const { id } = req.params;
@@ -2579,6 +2640,14 @@ apiRouter.post('/admin/loans/:id/release-funds', requireAdmin, async (req: Reque
   const state = db.getState();
   const loan = state.loan_applications.find((l) => l.id === id);
   if (!loan) return res.status(404).json({ success: false, message: 'Dossier de prêt introuvable.' });
+
+  // STRICT RULE: Funds can only be released ONCE
+  if (loan.status === 'funds_released' || Boolean(loan.funds_released_at)) {
+    return res.status(400).json({
+      success: false,
+      message: 'Les fonds de ce prêt ont déjà été débloqués. Opération de déblocage unique déjà effectuée.'
+    });
+  }
 
   if (loan.status !== 'approved') {
     return res.status(400).json({ success: false, message: 'Seul un prêt formellement approuvé peut être débloqué.' });
@@ -2602,20 +2671,21 @@ apiRouter.post('/admin/loans/:id/release-funds', requireAdmin, async (req: Reque
   loan.funds_released_at = new Date().toISOString();
 
   const txId = 'tx_loan_' + Date.now().toString(36);
-  state.transactions.unshift({
+  const disbTx = {
     id: txId,
     account_id: account.id,
-    type: 'loan_disbursement',
-    category: 'Bank Transfer',
+    type: 'loan_disbursement' as const,
+    category: 'Bank Transfer' as const,
     amount: loan.amount,
     currency: loan.currency,
     recipient_name: account.account_number,
     reference: `DISB-${Math.floor(100000 + Math.random() * 900000)}`,
     description: `Institutional Credit Disbursement — Facility #${loan.id} (${loan.project_type})`,
-    status: 'completed',
+    status: 'completed' as const,
     fee: 0,
     created_at: new Date().toISOString()
-  });
+  };
+  state.transactions.unshift(disbTx);
 
   state.notifications.unshift({
     id: 'notif_' + Date.now().toString(36),
@@ -2629,6 +2699,11 @@ apiRouter.post('/admin/loans/:id/release-funds', requireAdmin, async (req: Reque
   });
 
   db.save();
+
+  // Sync to Supabase
+  syncAccountToSupabase(account).catch((e) => console.warn('[SUPABASE_SYNC:ACC_DISB_ERR]', e));
+  syncLoanToSupabase(loan).catch((e) => console.warn('[SUPABASE_SYNC:LOAN_DISB_ERR]', e));
+  syncTransactionToSupabase(disbTx).catch((e) => console.warn('[SUPABASE_SYNC:TX_DISB_ERR]', e));
 
   db.addAuditLog('LOAN_FUNDS_DISBURSED', `Loan: ${loan.id}`, admin?.email, {
     disbursed_amount: loan.amount,
