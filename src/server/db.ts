@@ -18,7 +18,17 @@ import {
   isSupabaseConfigured,
   loadStateFromSupabase,
   syncProfileToSupabase,
-  syncAccountToSupabase
+  syncAccountToSupabase,
+  syncCardToSupabase,
+  syncCardDeliveryToSupabase,
+  syncLoanToSupabase,
+  syncTransactionToSupabase,
+  syncTransactionRequestToSupabase,
+  syncNotificationToSupabase,
+  syncAuditLogToSupabase,
+  syncPaymentMethodToSupabase,
+  syncReferralRecordToSupabase,
+  syncReferralCodeToSupabase
 } from './supabase';
 import {
   UserProfile,
@@ -554,15 +564,13 @@ class DatabaseService {
   public async hydrateFromSupabase(): Promise<void> {
     if (!isSupabaseConfigured) return;
     try {
+      console.log('[DB] Loading full persistent state from Supabase...');
       const supa = await loadStateFromSupabase();
-      if (!supa || supa.error) {
-        if (supa?.error?.code === '42501') {
-          console.warn('[SUPABASE_PERMISSION_ALERT] Supabase returned 42501 (permission denied). The PostgreSQL schema requires GRANT permissions.');
-        }
-        return;
-      }
+      if (!supa) return;
 
       let countAdded = 0;
+
+      // 1. PROFILES
       if (supa.profiles && supa.profiles.length > 0) {
         for (const sp of supa.profiles) {
           const pass = sp.portal_password || sp.password;
@@ -609,6 +617,14 @@ class DatabaseService {
         }
       }
 
+      // Sync local profiles to Supabase if not yet present
+      for (const lp of this.state.profiles) {
+        if (!supa.profiles?.some((p) => p.id === lp.id || p.email?.toLowerCase() === lp.email?.toLowerCase())) {
+          syncProfileToSupabase(lp).catch((e) => console.warn('[DB:PUSH_PROFILE_ERR]', e));
+        }
+      }
+
+      // 2. ACCOUNTS
       if (supa.accounts && supa.accounts.length > 0) {
         for (const sa of supa.accounts) {
           const idx = this.state.accounts.findIndex(
@@ -623,6 +639,14 @@ class DatabaseService {
         }
       }
 
+      // Sync local accounts to Supabase if not yet present
+      for (const la of this.state.accounts) {
+        if (!supa.accounts?.some((a) => a.id === la.id)) {
+          syncAccountToSupabase(la).catch((e) => console.warn('[DB:PUSH_ACCOUNT_ERR]', e));
+        }
+      }
+
+      // 3. CARDS (including delivery records)
       if (supa.cards && supa.cards.length > 0) {
         for (const sc of supa.cards) {
           const idx = this.state.cards.findIndex((c) => c.id === sc.id);
@@ -635,6 +659,14 @@ class DatabaseService {
         }
       }
 
+      // Sync local cards to Supabase if not yet present
+      for (const lc of this.state.cards) {
+        if (!supa.cards?.some((c) => c.id === lc.id)) {
+          syncCardToSupabase(lc).catch((e) => console.warn('[DB:PUSH_CARD_ERR]', e));
+        }
+      }
+
+      // 4. LOAN APPLICATIONS
       if (supa.loan_applications && supa.loan_applications.length > 0) {
         for (const sl of supa.loan_applications) {
           const idx = this.state.loan_applications.findIndex((l) => l.id === sl.id);
@@ -647,6 +679,14 @@ class DatabaseService {
         }
       }
 
+      // Sync local loans to Supabase if not yet present
+      for (const ll of this.state.loan_applications) {
+        if (!supa.loan_applications?.some((l) => l.id === ll.id)) {
+          syncLoanToSupabase(ll).catch((e) => console.warn('[DB:PUSH_LOAN_ERR]', e));
+        }
+      }
+
+      // 5. TRANSACTIONS
       if (supa.transactions && supa.transactions.length > 0) {
         for (const st of supa.transactions) {
           const idx = this.state.transactions.findIndex(
@@ -661,6 +701,14 @@ class DatabaseService {
         }
       }
 
+      // Sync local transactions to Supabase if not yet present
+      for (const lt of this.state.transactions) {
+        if (!supa.transactions?.some((t) => t.id === lt.id)) {
+          syncTransactionToSupabase(lt).catch((e) => console.warn('[DB:PUSH_TX_ERR]', e));
+        }
+      }
+
+      // 6. TRANSACTION REQUESTS
       if (supa.transaction_requests && supa.transaction_requests.length > 0) {
         for (const str of supa.transaction_requests) {
           const idx = this.state.transaction_requests.findIndex((tr) => tr.id === str.id);
@@ -673,11 +721,160 @@ class DatabaseService {
         }
       }
 
+      // Sync local transaction requests to Supabase if not yet present
+      for (const ltr of this.state.transaction_requests) {
+        if (!supa.transaction_requests?.some((tr) => tr.id === ltr.id)) {
+          syncTransactionRequestToSupabase(ltr).catch((e) => console.warn('[DB:PUSH_TR_ERR]', e));
+        }
+      }
+
+      // 7. NOTIFICATIONS
+      if (supa.notifications && supa.notifications.length > 0) {
+        for (const sn of supa.notifications) {
+          const idx = this.state.notifications.findIndex((n) => n.id === sn.id);
+          if (idx !== -1) {
+            this.state.notifications[idx] = { ...this.state.notifications[idx], ...sn };
+          } else {
+            this.state.notifications.push(sn);
+            countAdded++;
+          }
+        }
+      }
+
+      // 8. AUDIT LOGS
+      if (supa.audit_logs && supa.audit_logs.length > 0) {
+        for (const sa of supa.audit_logs) {
+          if (!this.state.audit_logs.some((a) => a.id === sa.id)) {
+            this.state.audit_logs.push(sa);
+          }
+        }
+      }
+
+      // 9. PAYMENT METHODS
+      if (supa.payment_methods && supa.payment_methods.length > 0) {
+        for (const spm of supa.payment_methods) {
+          const idx = this.state.payment_methods.findIndex((pm) => pm.id === spm.id);
+          if (idx !== -1) {
+            this.state.payment_methods[idx] = { ...this.state.payment_methods[idx], ...spm };
+          } else {
+            this.state.payment_methods.push(spm);
+          }
+        }
+      }
+
+      // 10. REFERRALS & REFERRAL CODES
+      if (supa.referrals && supa.referrals.length > 0) {
+        for (const sr of supa.referrals) {
+          const idx = this.state.referrals.findIndex((r) => r.id === sr.id);
+          if (idx !== -1) {
+            this.state.referrals[idx] = { ...this.state.referrals[idx], ...sr };
+          } else {
+            this.state.referrals.push(sr);
+          }
+        }
+      }
+      if (supa.referral_codes && supa.referral_codes.length > 0) {
+        for (const src of supa.referral_codes) {
+          const idx = this.state.referral_codes.findIndex((rc) => rc.id === src.id);
+          if (idx !== -1) {
+            this.state.referral_codes[idx] = { ...this.state.referral_codes[idx], ...src };
+          } else {
+            this.state.referral_codes.push(src);
+          }
+        }
+      }
+
       this.save();
       console.log(`[DB] Successfully hydrated from Supabase (${countAdded} new records merged, state saved).`);
     } catch (err: any) {
       console.warn('[DB] Supabase hydration error:', err.message);
     }
+  }
+
+  // ATOMIC PERSISTENCE HELPERS (writes to JSON cache & permanently syncs to Supabase)
+
+  public async saveProfile(profile: any): Promise<void> {
+    const idx = this.state.profiles.findIndex((p) => p.id === profile.id);
+    if (idx !== -1) {
+      this.state.profiles[idx] = profile;
+    } else {
+      this.state.profiles.push(profile);
+    }
+    this.save();
+    await syncProfileToSupabase(profile).catch((e) => console.warn('[DB:SAVE_PROFILE_SYNC_ERR]', e));
+  }
+
+  public async saveAccount(account: BankAccount): Promise<void> {
+    const idx = this.state.accounts.findIndex((a) => a.id === account.id);
+    if (idx !== -1) {
+      this.state.accounts[idx] = account;
+    } else {
+      this.state.accounts.push(account);
+    }
+    this.save();
+    await syncAccountToSupabase(account).catch((e) => console.warn('[DB:SAVE_ACCOUNT_SYNC_ERR]', e));
+  }
+
+  public async addTransaction(tx: Transaction): Promise<void> {
+    this.state.transactions.unshift(tx);
+    this.save();
+    await syncTransactionToSupabase(tx).catch((e) => console.warn('[DB:ADD_TX_SYNC_ERR]', e));
+  }
+
+  public async updateTransaction(tx: Transaction): Promise<void> {
+    const idx = this.state.transactions.findIndex((t) => t.id === tx.id);
+    if (idx !== -1) {
+      this.state.transactions[idx] = tx;
+    } else {
+      this.state.transactions.unshift(tx);
+    }
+    this.save();
+    await syncTransactionToSupabase(tx).catch((e) => console.warn('[DB:UPDATE_TX_SYNC_ERR]', e));
+  }
+
+  public async addTransactionRequest(req: TransactionRequest): Promise<void> {
+    this.state.transaction_requests.unshift(req);
+    this.save();
+    await syncTransactionRequestToSupabase(req).catch((e) => console.warn('[DB:ADD_TR_SYNC_ERR]', e));
+  }
+
+  public async updateTransactionRequest(req: TransactionRequest): Promise<void> {
+    const idx = this.state.transaction_requests.findIndex((r) => r.id === req.id);
+    if (idx !== -1) {
+      this.state.transaction_requests[idx] = req;
+    } else {
+      this.state.transaction_requests.unshift(req);
+    }
+    this.save();
+    await syncTransactionRequestToSupabase(req).catch((e) => console.warn('[DB:UPDATE_TR_SYNC_ERR]', e));
+  }
+
+  public async saveCard(card: BankCard): Promise<void> {
+    const idx = this.state.cards.findIndex((c) => c.id === card.id);
+    if (idx !== -1) {
+      this.state.cards[idx] = card;
+    } else {
+      this.state.cards.push(card);
+    }
+    this.save();
+    await syncCardToSupabase(card).catch((e) => console.warn('[DB:SAVE_CARD_SYNC_ERR]', e));
+  }
+
+  public async saveLoan(loan: LoanApplication): Promise<void> {
+    const idx = this.state.loan_applications.findIndex((l) => l.id === loan.id);
+    if (idx !== -1) {
+      this.state.loan_applications[idx] = loan;
+    } else {
+      this.state.loan_applications.unshift(loan);
+    }
+    this.save();
+    await syncLoanToSupabase(loan).catch((e) => console.warn('[DB:SAVE_LOAN_SYNC_ERR]', e));
+  }
+
+  public async addNotification(notif: NotificationItem): Promise<void> {
+    this.state.notifications.unshift(notif);
+    this.save();
+    await syncNotificationToSupabase(notif).catch((e) => console.warn('[DB:ADD_NOTIF_SYNC_ERR]', e));
   }
 
   public addAuditLog(
@@ -704,6 +901,7 @@ class DatabaseService {
     };
     this.state.audit_logs.unshift(log);
     this.save();
+    syncAuditLogToSupabase(log).catch((e) => console.warn('[DB:AUDIT_SYNC_ERR]', e));
   }
 
   public getOrCreateReferralCode(profileId: string): ReferralCode {

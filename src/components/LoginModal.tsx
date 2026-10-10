@@ -34,7 +34,7 @@ export const LoginModal: React.FC<LoginModalProps> = ({
   onSwitchToRegister,
   supportEmail = 'support@movafi-groupes.com'
 }) => {
-  const t = translations[currentLang] || translations.en;
+  const t = translations[currentLang] || translations.es || translations.en;
   const isRtl = currentLang === 'ar';
   const [step, setStep] = useState<1 | 2>(1);
   const [email, setEmail] = useState('');

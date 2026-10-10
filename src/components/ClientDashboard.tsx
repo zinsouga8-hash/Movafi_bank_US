@@ -70,7 +70,7 @@ export const ClientDashboard: React.FC<ClientDashboardProps> = ({
   initialTab,
   onTabChange
 }) => {
-  const t = translations[currentLang];
+  const t = translations[currentLang] || translations.es || translations.en;
   const [activeTab, setActiveTab] = useState<'overview' | 'transfer' | 'recharge' | 'withdraw' | 'cards' | 'financing' | 'profile' | 'referrals'>(() => {
     const saved = localStorage.getItem('movafi_client_tab') as any;
     if (saved && ['overview', 'transfer', 'recharge', 'withdraw', 'cards', 'financing', 'profile', 'referrals'].includes(saved)) {

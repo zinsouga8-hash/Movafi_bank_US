@@ -8,25 +8,25 @@ import { db } from './src/server/db';
 dotenv.config();
 
 const isProduction = process.env.NODE_ENV === 'production';
-const PORT = process.env.PORT ? parseInt(process.env.PORT) : 3000;
+const PORT = process.env.PORT ? parseInt(process.env.PORT, 10) : 3000;
 
 async function startServer() {
   const app = express();
 
-  // Parse JSON bodies (up to 50mb for documents/base64 uploads)
   app.use(express.json({ limit: '50mb' }));
   app.use(express.urlencoded({ extended: true, limit: '50mb' }));
 
-  // Mount API router
   app.use('/api', apiRouter);
 
-  // Health check endpoint
   app.get('/health', (req, res) => {
-    res.json({ status: 'ok', timestamp: new Date().toISOString(), bank: 'MOVAFI BANK' });
+    res.json({
+      status: 'ok',
+      timestamp: new Date().toISOString(),
+      bank: 'MOVAFI BANK'
+    });
   });
 
   if (!isProduction) {
-    // Development mode: Mount Vite middleware without watching database files
     const vite = await createViteServer({
       server: {
         middlewareMode: true,
@@ -38,13 +38,10 @@ async function startServer() {
       },
       appType: 'spa'
     });
-
     app.use(vite.middlewares);
   } else {
-    // Production mode: Serve built static files
     const distPath = path.resolve(process.cwd(), 'dist');
     app.use(express.static(distPath));
-
     app.get('*', (req, res) => {
       res.sendFile(path.resolve(distPath, 'index.html'));
     });
@@ -60,3 +57,4 @@ startServer().catch((err) => {
   console.error('[MOVAFI BANK] Server startup failure:', err);
   process.exit(1);
 });
+

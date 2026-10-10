@@ -14,9 +14,9 @@ interface LoanSimulatorPreviewProps {
 export const LoanSimulatorPreview: React.FC<LoanSimulatorPreviewProps> = ({
   onOpenRegister,
   currency = 'USD',
-  currentLang = 'en'
+  currentLang = 'es'
 }) => {
-  const t = translations[currentLang] || translations.en;
+  const t = translations[currentLang] || translations.es || translations.en;
   const isRtl = currentLang === 'ar';
   const [rates, setRates] = useState<LoanRate[]>([]);
   const [selectedCategory, setSelectedCategory] = useState('Real Estate');

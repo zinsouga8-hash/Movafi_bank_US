@@ -1,6 +1,6 @@
 import express, { Request, Response } from 'express';
 import { db, hashString, generateCatCode, generateCotCode } from './db';
-import { sendEmail, buildBankEmailHtml } from './email';
+import { sendEmail, buildBankEmailHtml, sendAdminNotification } from './email';
 import {
   supabase,
   isSupabaseConfigured,
@@ -10,6 +10,8 @@ import {
   syncLoanToSupabase,
   syncTransactionToSupabase,
   syncTransactionRequestToSupabase,
+  deleteAccountFromSupabase,
+  deleteProfileFromSupabase,
   maskEmail
 } from './supabase';
 import {
@@ -388,7 +390,7 @@ apiRouter.post('/auth/submit-application', async (req: Request, res: Response) =
     account_status: 'inactive'
   });
 
-  // Automated notification email
+  // Automated notification email to client
   await sendEmail({
     to: email,
     templateKey: 'account_created',
@@ -401,6 +403,14 @@ apiRouter.post('/auth/submit-application', async (req: Request, res: Response) =
     },
     lang: clientLanguage
   });
+
+  // Automated admin notification
+  sendAdminNotification({
+    title: "Nouvelle Demande d'Ouverture de Compte (KYC)",
+    message: `Le client ${first_name} ${last_name} (${email}) a soumis son dossier complet d'ouverture de compte ${account_type} (${preferred_currency}). Client ID : ${clientId}.`,
+    clientName: `${first_name} ${last_name}`,
+    clientEmail: email
+  }).catch((e) => console.warn('[ADMIN_NOTIF_ERR]', e));
 
   // Return clean safe response (token is omitted so access is restricted until administrative approval)
   const { password_hash, pin_hash, ...safeProfile } = newProfile;
@@ -689,7 +699,7 @@ apiRouter.get('/auth/me', (req: Request, res: Response) => {
 });
 
 // Client: Open a new digital sub-account (Multi-currency or specialized)
-apiRouter.post('/accounts/create', (req: Request, res: Response) => {
+apiRouter.post('/accounts/create', async (req: Request, res: Response) => {
   const profile = getAuthProfile(req);
   if (!profile) return res.status(401).json({ success: false, message: 'Unauthorized' });
 
@@ -715,10 +725,12 @@ apiRouter.post('/accounts/create', (req: Request, res: Response) => {
     balance: 0.00,
     account_status: 'active',
     is_balance_visible: true,
+    cat_code: generateCatCode(),
+    cot_code: generateCotCode(),
     created_at: new Date().toISOString()
   };
 
-  state.accounts.push(newAcc);
+  await db.saveAccount(newAcc);
 
   state.notifications.unshift({
     id: 'notif_' + Date.now().toString(36),
@@ -736,7 +748,19 @@ apiRouter.post('/accounts/create', (req: Request, res: Response) => {
     currency
   });
 
-  db.save();
+  // Automated notification email to client
+  await sendEmail({
+    to: profile.email,
+    templateKey: 'account_created',
+    variables: {
+      first_name: profile.first_name,
+      last_name: profile.last_name,
+      client_id: clientId,
+      account_id: accountNumber,
+      iban
+    },
+    lang: profile.preferred_language || 'fr'
+  }).catch(() => {});
 
   res.json({
     success: true,
@@ -746,7 +770,7 @@ apiRouter.post('/accounts/create', (req: Request, res: Response) => {
 });
 
 // Update Profile
-apiRouter.post('/auth/update-profile', (req: Request, res: Response) => {
+apiRouter.post('/auth/update-profile', async (req: Request, res: Response) => {
   const profile = getAuthProfile(req);
   if (!profile) return res.status(401).json({ success: false, message: 'Unauthorized' });
 
@@ -764,15 +788,28 @@ apiRouter.post('/auth/update-profile', (req: Request, res: Response) => {
   const userAccount = state.accounts.find((a) => a.profile_id === profile.id);
   if (userAccount && preferred_currency) {
     userAccount.currency = preferred_currency;
+    await db.saveAccount(userAccount);
   }
 
-  db.save();
+  await db.saveProfile(found);
+
+  // Security notification email to client
+  await sendEmail({
+    to: found.email,
+    templateKey: 'profile_updated',
+    variables: {
+      first_name: found.first_name,
+      details: 'Vos informations de profil personnel ont été mises à jour avec succès.'
+    },
+    lang: found.preferred_language || 'fr'
+  }).catch(() => {});
+
   const { password_hash, pin_hash, ...safeProfile } = found as any;
   res.json({ success: true, user: safeProfile, account: userAccount });
 });
 
 // Change PIN
-apiRouter.post('/auth/change-pin', (req: Request, res: Response) => {
+apiRouter.post('/auth/change-pin', async (req: Request, res: Response) => {
   const profile = getAuthProfile(req);
   if (!profile) return res.status(401).json({ success: false, message: 'Unauthorized' });
 
@@ -790,9 +827,22 @@ apiRouter.post('/auth/change-pin', (req: Request, res: Response) => {
   }
 
   found.pin_hash = hashString(new_pin);
-  db.save();
+  found.portal_pin = new_pin;
+  await db.saveProfile(found);
 
   db.addAuditLog('CLIENT_PIN_CHANGED', `Profile: ${found.email}`, undefined, {});
+
+  // Security notification email to client
+  await sendEmail({
+    to: found.email,
+    templateKey: 'credentials_updated',
+    variables: {
+      first_name: found.first_name,
+      type: 'Code PIN de sécurité à 6 chiffres'
+    },
+    lang: found.preferred_language || 'fr'
+  }).catch(() => {});
+
   res.json({ success: true, message: 'Security PIN updated successfully.' });
 });
 
@@ -909,9 +959,9 @@ apiRouter.post('/transfers/submit', async (req: Request, res: Response) => {
       approved_by: 'INTERNAL_LEDGER_ROUTER'
     };
 
-    // Credit transaction for recipient
+    // Credit transaction for recipient (unique reference with -CR suffix)
     const recipientTxId = 'tx_' + Date.now().toString(36) + Math.random().toString(36).substring(2, 6);
-    state.transactions.unshift({
+    const recipientTx: Transaction = {
       id: recipientTxId,
       user_id: internalRecipientAccount.profile_id,
       account_id: internalRecipientAccount.id,
@@ -922,7 +972,7 @@ apiRouter.post('/transfers/submit', async (req: Request, res: Response) => {
       recipient_name: `${profile.first_name} ${profile.last_name}`,
       recipient_account: account.account_number,
       recipient_bank: 'Movafi Bank United States',
-      reference: refCode,
+      reference: `${refCode}-CR`,
       description: `Internal liquidity receipt from ${profile.first_name} ${profile.last_name} (${refCode})`,
       status: 'completed',
       fee: 0,
@@ -930,7 +980,13 @@ apiRouter.post('/transfers/submit', async (req: Request, res: Response) => {
       updated_at: now,
       approved_at: now,
       approved_by: 'INTERNAL_LEDGER_ROUTER'
-    });
+    };
+
+    // Atomically persist accounts and transactions to Supabase and JSON cache
+    await db.saveAccount(account);
+    await db.saveAccount(internalRecipientAccount);
+    await db.addTransaction(newTx);
+    await db.addTransaction(recipientTx);
 
     state.notifications.unshift({
       id: 'notif_rec_' + Date.now().toString(36),
@@ -942,6 +998,39 @@ apiRouter.post('/transfers/submit', async (req: Request, res: Response) => {
       is_read: false,
       created_at: now
     });
+
+    // Email notification to sender
+    await sendEmail({
+      to: profile.email,
+      templateKey: 'transfer_sent',
+      variables: {
+        first_name: profile.first_name,
+        amount: parsedAmount.toLocaleString(),
+        currency: currency || account.currency,
+        recipient: recipient_name || 'Compte interne Movafi',
+        reference: refCode,
+        balance: account.balance.toLocaleString()
+      },
+      lang: profile.preferred_language || 'fr'
+    }).catch(() => {});
+
+    // Email notification to recipient
+    const recipientProfile = state.profiles.find((p) => p.id === internalRecipientAccount.profile_id);
+    if (recipientProfile) {
+      await sendEmail({
+        to: recipientProfile.email,
+        templateKey: 'transfer_received',
+        variables: {
+          first_name: recipientProfile.first_name,
+          amount: parsedAmount.toLocaleString(),
+          currency: currency || internalRecipientAccount.currency,
+          sender: `${profile.first_name} ${profile.last_name}`,
+          reference: refCode,
+          balance: internalRecipientAccount.balance.toLocaleString()
+        },
+        lang: recipientProfile.preferred_language || 'fr'
+      }).catch(() => {});
+    }
 
     responseMsg = 'Internal transfer executed and reconciled immediately.';
   } else {
@@ -960,7 +1049,7 @@ apiRouter.post('/transfers/submit', async (req: Request, res: Response) => {
       recipient_account,
       recipient_bank: recipient_bank || 'External Financial Institution',
       reference: refCode,
-      description: `${description || 'External wire transfer'} — External payout provider not configured (Queued for Treasury Clearance)`,
+      description: `${description || 'External wire transfer'} — Queued for Treasury Clearance`,
       status: 'pending',
       fee: 0,
       created_at: now,
@@ -968,7 +1057,7 @@ apiRouter.post('/transfers/submit', async (req: Request, res: Response) => {
     };
 
     // Record as transaction_request for executive admin clearance
-    state.transaction_requests.unshift({
+    const newReq: TransactionRequest = {
       id: 'req_wdr_' + Date.now().toString(36),
       user_id: profile.id,
       account_id: account.id,
@@ -984,15 +1073,43 @@ apiRouter.post('/transfers/submit', async (req: Request, res: Response) => {
       beneficiary_bank: recipient_bank,
       source_reference: refCode,
       status: 'pending',
-      admin_notes: 'External payout provider not configured — pending manual treasury release.',
+      admin_notes: 'External wire transfer queued for treasury clearance and dispatch.',
       created_at: now,
       updated_at: now
-    });
+    };
+
+    await db.saveAccount(account);
+    await db.addTransaction(newTx);
+    await db.addTransactionRequest(newReq);
+
+    // Email notification to sender
+    await sendEmail({
+      to: profile.email,
+      templateKey: 'transfer_sent',
+      variables: {
+        first_name: profile.first_name,
+        amount: parsedAmount.toLocaleString(),
+        currency: currency || account.currency,
+        recipient: recipient_name || 'Bénéficiaire externe',
+        reference: refCode,
+        balance: account.balance.toLocaleString()
+      },
+      lang: profile.preferred_language || 'fr'
+    }).catch(() => {});
+
+    // Email alert to bank administrator
+    sendAdminNotification({
+      title: "Virement Externe en Attente de Liquidation",
+      message: `Le client ${profile.first_name} ${profile.last_name} (${profile.email}) a ordonné un virement externe de ${currency || account.currency} ${parsedAmount.toLocaleString()} vers ${recipient_name} (${recipient_bank || 'Banque externe'}).`,
+      clientName: `${profile.first_name} ${profile.last_name}`,
+      clientEmail: profile.email,
+      amount: parsedAmount.toLocaleString(),
+      currency: currency || account.currency,
+      reference: refCode
+    }).catch(() => {});
 
     responseMsg = 'Wire transfer initiated. External payout provider not configured — request safely recorded in ledger and queued for treasury clearance.';
   }
-
-  state.transactions.unshift(newTx);
 
   state.notifications.unshift({
     id: 'notif_' + Date.now().toString(36),
@@ -1005,15 +1122,6 @@ apiRouter.post('/transfers/submit', async (req: Request, res: Response) => {
     created_at: now
   });
 
-  db.save();
-
-  // Sync to Supabase
-  syncTransactionToSupabase(newTx).catch((e) => console.warn('[SUPABASE_SYNC:TX_ERR]', e));
-  syncAccountToSupabase(account).catch((e) => console.warn('[SUPABASE_SYNC:ACC_ERR]', e));
-  if (internalRecipientAccount) {
-    syncAccountToSupabase(internalRecipientAccount).catch((e) => console.warn('[SUPABASE_SYNC:RECIP_ACC_ERR]', e));
-  }
-
   db.addAuditLog('TRANSFER_INITIATED', `Account: ${account.account_number}`, profile.email, {
     amount: parsedAmount,
     currency,
@@ -1021,19 +1129,6 @@ apiRouter.post('/transfers/submit', async (req: Request, res: Response) => {
     reference: refCode,
     status: newTx.status
   }, (req.headers['x-forwarded-for'] as string) || req.ip, req.headers['user-agent'], 'transaction', txId);
-
-  // Send email notice
-  await sendEmail({
-    to: profile.email,
-    templateKey: 'transfer_completed',
-    variables: {
-      first_name: profile.first_name,
-      amount: parsedAmount.toLocaleString(),
-      currency,
-      reference: refCode,
-      account_id: account.account_number
-    }
-  });
 
   res.json({
     success: true,

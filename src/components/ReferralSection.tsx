@@ -39,7 +39,7 @@ interface ReferralSectionProps {
 }
 
 export const ReferralSection: React.FC<ReferralSectionProps> = ({ user, currentLang }) => {
-  const t = translations[currentLang];
+  const t = translations[currentLang] || translations.es || translations.en;
 
   // States
   const [code, setCode] = useState<string>('MOV-8K4P2X');

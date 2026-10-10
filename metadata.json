@@ -1,6 +1,6 @@
 {
   "name": "MOVAFI BANK UNITED STATES",
-  "description": "Ouvrez votre compte bancaire en ligne avec Movafi Bank. Services financiers rapides, sécurisés et sans frontières pour particuliers et professionnels.",
+  "description": "Abra su cuenta bancaria digital privada con MOVAFI BANK. Soluciones seguras, internacionales y exclusivas para particulares y corporaciones.",
   "requestFramePermissions": [],
   "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
 }

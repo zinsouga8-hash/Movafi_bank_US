@@ -1,185 +1,68 @@
-import {
-  UserProfile,
-  BankAccount,
-  Transaction,
-  BankCard,
-  LoanApplication,
-  PaymentMethod,
-  NotificationItem,
-  BankSettings,
-  LoanRate,
-  ReferralStats,
-  ReferralRecord,
-  ReferralProgramSettings
-} from '../types/banking';
-
 const API_BASE = '/api';
 
-function getAuthHeaders(): HeadersInit {
+function getAuthHeader(): Record<string, string> {
   const token = localStorage.getItem('movafi_token');
-  return {
+  return token ? { Authorization: `Bearer ${token}` } : {};
+}
+
+async function request<T = any>(endpoint: string, options: RequestInit = {}): Promise<T> {
+  const headers = {
     'Content-Type': 'application/json',
-    ...(token ? { Authorization: `Bearer ${token}` } : {})
+    ...getAuthHeader(),
+    ...(options.headers || {})
   };
+
+  const res = await fetch(`${API_BASE}${endpoint}`, {
+    ...options,
+    headers
+  });
+
+  const data = await res.json().catch(() => ({}));
+  if (!res.ok) {
+    throw new Error(data.message || `Request failed with status ${res.status}`);
+  }
+  return data;
 }
 
 export const api = {
-  // Public & Settings
-  async getSettings(): Promise<{ success: boolean; settings: BankSettings }> {
-    const res = await fetch(`${API_BASE}/settings`);
-    return res.json();
-  },
+  // Authentication
+  loginStep1: (payload: { email: string; password?: string }) =>
+    request('/auth/login-step1', { method: 'POST', body: JSON.stringify(payload) }),
 
-  // Auth
-  async registerStep1(email: string, password: string): Promise<{ success: boolean; message: string }> {
-    const res = await fetch(`${API_BASE}/auth/register-step1`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ email, password })
-    });
-    return res.json();
-  },
+  loginStep2: (payload: { user_id: string; pin: string }) =>
+    request('/auth/login-step2', { method: 'POST', body: JSON.stringify(payload) }),
 
-  async verifyOtp(email: string, otp: string): Promise<{ success: boolean; message?: string }> {
-    const res = await fetch(`${API_BASE}/auth/verify-otp`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ email, otp })
-    });
-    return res.json();
-  },
+  register: (payload: any) =>
+    request('/auth/onboarding', { method: 'POST', body: JSON.stringify(payload) }),
 
-  async submitApplication(payload: any): Promise<{
-    success: boolean;
-    message?: string;
-    user?: UserProfile;
-    account?: BankAccount;
-    token?: string;
-  }> {
-    const res = await fetch(`${API_BASE}/auth/submit-application`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(payload)
-    });
-    return res.json();
-  },
+  getMe: () => request('/auth/me'),
 
-  async loginStep1(email: string, password: string): Promise<{
-    success: boolean;
-    require_pin?: boolean;
-    user_id?: string;
-    first_name?: string;
-    is_admin?: boolean;
-    message?: string;
-  }> {
-    const res = await fetch(`${API_BASE}/auth/login-step1`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ email, password })
-    });
-    return res.json();
-  },
+  // Account & Banking
+  getAccountDetails: (accountId?: string) =>
+    request(`/account${accountId ? `?account_id=${accountId}` : ''}`),
 
-  async loginStep2(user_id: string, pin: string): Promise<{
-    success: boolean;
-    user?: UserProfile;
-    account?: BankAccount;
-    token?: string;
-    message?: string;
-    is_inactive?: boolean;
-    is_suspended?: boolean;
-    support_email?: string;
-  }> {
-    const res = await fetch(`${API_BASE}/auth/login-step2`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ user_id, pin })
-    });
-    return res.json();
-  },
+  executeTransfer: (payload: {
+    recipient_name: string;
+    recipient_account: string;
+    recipient_bank?: string;
+    routing_number?: string;
+    amount: number;
+    currency?: string;
+    description?: string;
+    pin: string;
+    transfer_rail?: string;
+  }) => request('/transfers/execute', { method: 'POST', body: JSON.stringify(payload) }),
 
-  async getMe(): Promise<{
-    success: boolean;
-    user?: UserProfile;
-    account?: BankAccount;
-    accounts?: BankAccount[];
-    cards?: BankCard[];
-    transactions?: Transaction[];
-    loans?: LoanApplication[];
-    notifications?: NotificationItem[];
-    message?: string;
-  }> {
-    const res = await fetch(`${API_BASE}/auth/me`, {
-      headers: getAuthHeaders()
-    });
-    return res.json();
-  },
+  submitDeposit: (payload: {
+    payment_method: string;
+    amount: number;
+    currency: string;
+    source_reference: string;
+    proof_document_url?: string;
+    sender_name?: string;
+  }) => request('/deposits/declare', { method: 'POST', body: JSON.stringify(payload) }),
 
-  async createSubAccount(payload: { currency: string; account_type?: string }): Promise<{
-    success: boolean;
-    account?: BankAccount;
-    message?: string;
-  }> {
-    const res = await fetch(`${API_BASE}/accounts/create`, {
-      method: 'POST',
-      headers: getAuthHeaders(),
-      body: JSON.stringify(payload)
-    });
-    return res.json();
-  },
-
-  async updateProfile(data: any): Promise<{ success: boolean; user?: UserProfile; account?: BankAccount }> {
-    const res = await fetch(`${API_BASE}/auth/update-profile`, {
-      method: 'POST',
-      headers: getAuthHeaders(),
-      body: JSON.stringify(data)
-    });
-    return res.json();
-  },
-
-  async changePin(current_pin: string, new_pin: string): Promise<{ success: boolean; message?: string }> {
-    const res = await fetch(`${API_BASE}/auth/change-pin`, {
-      method: 'POST',
-      headers: getAuthHeaders(),
-      body: JSON.stringify({ current_pin, new_pin })
-    });
-    return res.json();
-  },
-
-  // Transfers
-  async executeTransfer(payload: any): Promise<{
-    success: boolean;
-    message?: string;
-    transaction?: Transaction;
-    updated_balance?: number;
-  }> {
-    const res = await fetch(`${API_BASE}/transfers/submit`, {
-      method: 'POST',
-      headers: getAuthHeaders(),
-      body: JSON.stringify(payload)
-    });
-    return res.json();
-  },
-
-  // Recharge
-  async getRechargeMethods(): Promise<{ success: boolean; payment_methods: PaymentMethod[] }> {
-    const res = await fetch(`${API_BASE}/recharge/methods`, {
-      headers: getAuthHeaders()
-    });
-    return res.json();
-  },
-
-  async submitRecharge(payload: any): Promise<{ success: boolean; message?: string; request?: any }> {
-    const res = await fetch(`${API_BASE}/recharge/submit`, {
-      method: 'POST',
-      headers: getAuthHeaders(),
-      body: JSON.stringify(payload)
-    });
-    return res.json();
-  },
-
-  // Withdrawals & Payouts
-  async submitWithdrawal(payload: {
+  submitWithdrawal: (payload: {
     amount: number;
     currency: string;
     payout_method: string;
@@ -188,462 +71,129 @@ export const api = {
     beneficiary_bank?: string;
     beneficiary_country?: string;
     reference?: string;
-    description?: string;
-    pin: string;
-  }): Promise<{
-    success: boolean;
-    message?: string;
-    request?: any;
-    transaction?: Transaction;
-    updated_balance?: number;
-  }> {
-    const res = await fetch(`${API_BASE}/withdrawals/submit`, {
-      method: 'POST',
-      headers: getAuthHeaders(),
-      body: JSON.stringify(payload)
-    });
-    return res.json();
-  },
+  }) => request('/withdrawals/request', { method: 'POST', body: JSON.stringify(payload) }),
 
   // Cards
-  async requestCard(payload: any): Promise<{ success: boolean; message?: string; card?: BankCard }> {
-    const res = await fetch(`${API_BASE}/cards/request`, {
-      method: 'POST',
-      headers: getAuthHeaders(),
-      body: JSON.stringify(payload)
-    });
-    return res.json();
-  },
+  getCards: () => request('/cards/my-cards'),
 
-  async transferToCard(payload: any): Promise<{
-    success: boolean;
-    message?: string;
-    card_balance?: number;
-    account_balance?: number;
-  }> {
-    const res = await fetch(`${API_BASE}/cards/transfer-from-balance`, {
-      method: 'POST',
-      headers: getAuthHeaders(),
-      body: JSON.stringify(payload)
-    });
-    return res.json();
-  },
+  applyForCard: (payload: {
+    tier: string;
+    network?: string;
+    cardholder_name?: string;
+    currency?: string;
+  }) => request('/cards/apply', { method: 'POST', body: JSON.stringify(payload) }),
 
-  async orderPhysicalCard(payload: any): Promise<{ success: boolean; message?: string; delivery?: any }> {
-    const res = await fetch(`${API_BASE}/cards/order-physical`, {
-      method: 'POST',
-      headers: getAuthHeaders(),
-      body: JSON.stringify(payload)
-    });
-    return res.json();
-  },
+  toggleCard: (cardId: string) =>
+    request(`/cards/${cardId}/toggle`, { method: 'POST' }),
 
-  // Financing
-  async getLoanRates(): Promise<{ success: boolean; rates: LoanRate[] }> {
-    const res = await fetch(`${API_BASE}/financing/rates`);
-    return res.json();
-  },
-
-  async applyForLoan(payload: any): Promise<{ success: boolean; message?: string; loan?: LoanApplication }> {
-    const res = await fetch(`${API_BASE}/financing/apply`, {
+  fundCard: (cardId: string, amount: number, pin: string) =>
+    request(`/cards/${cardId}/load`, {
       method: 'POST',
-      headers: getAuthHeaders(),
-      body: JSON.stringify(payload)
-    });
-    return res.json();
-  },
+      body: JSON.stringify({ amount, pin })
+    }),
 
-  async agreeCreditParameters(loanId: string): Promise<{ success: boolean; message?: string; loan?: LoanApplication }> {
-    const res = await fetch(`${API_BASE}/financing/${loanId}/agree-parameters`, {
-      method: 'POST',
-      headers: getAuthHeaders()
-    });
-    return res.json();
-  },
+  orderPhysicalCard: (payload: {
+    card_id: string;
+    street: string;
+    city: string;
+    country: string;
+    postal_code: string;
+  }) => request('/cards/order-physical', { method: 'POST', body: JSON.stringify(payload) }),
+
+  // Financing & Loans
+  getLoanRates: () => request('/financing/rates'),
+
+  applyForLoan: (payload: {
+    project_type: string;
+    amount: number;
+    duration_months: number;
+    terms_accepted: boolean;
+  }) => request('/financing/apply', { method: 'POST', body: JSON.stringify(payload) }),
+
+  agreeLoanParameters: (loanId: string) =>
+    request(`/financing/loans/${loanId}/agree-parameters`, { method: 'POST' }),
 
   // Notifications
-  async markNotificationRead(id: string): Promise<{ success: boolean }> {
-    const res = await fetch(`${API_BASE}/notifications/${id}/read`, {
-      method: 'POST',
-      headers: getAuthHeaders()
-    });
-    return res.json();
-  },
+  getNotifications: (category?: string) =>
+    request(`/notifications${category ? `?category=${category}` : ''}`),
 
-  async markAllNotificationsRead(): Promise<{ success: boolean }> {
-    const res = await fetch(`${API_BASE}/notifications/mark-all-read`, {
-      method: 'POST',
-      headers: getAuthHeaders()
-    });
-    return res.json();
-  },
+  markNotificationAsRead: (id: string) =>
+    request(`/notifications/${id}/read`, { method: 'POST' }),
 
-  // Referral Program
-  referrals: {
-    async checkCode(code: string): Promise<{ success: boolean; valid: boolean; code?: string; referrer_name?: string; message?: string }> {
-      const res = await fetch(`${API_BASE}/referrals/check/${encodeURIComponent(code)}`);
-      return res.json();
-    },
-    async getMyCode(): Promise<{ success: boolean; code: string; total_uses: number; created_at: string; settings?: any }> {
-      const res = await fetch(`${API_BASE}/referrals/my-code`, {
-        headers: getAuthHeaders()
-      });
-      return res.json();
-    },
-    async generateNewCode(): Promise<{ success: boolean; code: string; message: string }> {
-      const res = await fetch(`${API_BASE}/referrals/generate-code`, {
-        method: 'POST',
-        headers: getAuthHeaders()
-      });
-      return res.json();
-    },
-    async getStats(): Promise<{
-      success: boolean;
-      stats: ReferralStats;
-      code: string;
-      referrals: ReferralRecord[];
-      settings: ReferralProgramSettings;
-    }> {
-      const res = await fetch(`${API_BASE}/referrals/stats`, {
-        headers: getAuthHeaders()
-      });
-      return res.json();
-    },
-    async invite(payload: { email: string; name?: string; custom_message?: string }): Promise<{
-      success: boolean;
-      message: string;
-      referral?: any;
-    }> {
-      const res = await fetch(`${API_BASE}/referrals/invite`, {
-        method: 'POST',
-        headers: getAuthHeaders(),
-        body: JSON.stringify(payload)
-      });
-      return res.json();
-    }
-  },
+  markAllNotificationsAsRead: () =>
+    request('/notifications/read-all', { method: 'POST' }),
 
-  // ADMIN ENDPOINTS
+  // Referrals
+  getReferralStats: () => request('/referrals/stats'),
+
+  sendReferralInvitation: (payload: { email: string; name?: string; message?: string }) =>
+    request('/referrals/invite', { method: 'POST', body: JSON.stringify(payload) }),
+
+  // Admin Management Portal
   admin: {
-    async getAccounts(query?: { search?: string; status?: string; page?: number; limit?: number }) {
+    getAccounts: (params?: { search?: string; status?: string; page?: number; limit?: number }) => {
       const q = new URLSearchParams();
-      if (query?.search) q.append('search', query.search);
-      if (query?.status) q.append('status', query.status);
-      if (query?.page) q.append('page', String(query.page));
-      if (query?.limit) q.append('limit', String(query.limit));
-
-      const res = await fetch(`${API_BASE}/admin/accounts?${q.toString()}`, {
-        headers: getAuthHeaders()
-      });
-      return res.json();
+      if (params?.search) q.set('search', params.search);
+      if (params?.status) q.set('status', params.status);
+      if (params?.page) q.set('page', String(params.page));
+      if (params?.limit) q.set('limit', String(params.limit));
+      return request(`/admin/accounts?${q.toString()}`);
     },
 
-    async getAccountDetail(id: string) {
-      const res = await fetch(`${API_BASE}/admin/accounts/${id}`, {
-        headers: getAuthHeaders()
-      });
-      return res.json();
-    },
+    getAccountDetail: (id: string) => request(`/admin/accounts/${id}`),
 
-    async adjustBalance(id: string, type: 'credit' | 'debit', amount: number, reason: string) {
-      const res = await fetch(`${API_BASE}/admin/accounts/${id}/adjust-balance`, {
+    updateAccount: (id: string, payload: any) =>
+      request(`/admin/accounts/${id}/update`, { method: 'POST', body: JSON.stringify(payload) }),
+
+    getTransactions: () => request('/admin/transactions'),
+
+    approveDeposit: (requestId: string, action: 'approve' | 'reject') =>
+      request(`/admin/transactions/${requestId}/action`, {
         method: 'POST',
-        headers: getAuthHeaders(),
-        body: JSON.stringify({ type, amount, reason })
-      });
-      return res.json();
-    },
+        body: JSON.stringify({ action })
+      }),
 
-    async updateAccountStatus(id: string, status: string, notes?: string) {
-      const res = await fetch(`${API_BASE}/admin/accounts/${id}/status`, {
+    getCards: () => request('/admin/cards'),
+
+    updateCardStatus: (cardId: string, payload: any) =>
+      request(`/admin/cards/${cardId}/status`, { method: 'POST', body: JSON.stringify(payload) }),
+
+    getLoans: () => request('/admin/loans'),
+
+    updateLoanStatus: (loanId: string, status: string, notes?: string) =>
+      request(`/admin/loans/${loanId}/status`, {
         method: 'POST',
-        headers: getAuthHeaders(),
-        body: JSON.stringify({ status, notes })
-      });
-      return res.json();
+        body: JSON.stringify({ status, admin_notes: notes })
+      }),
+
+    releaseLoanFunds: (loanId: string) =>
+      request(`/admin/loans/${loanId}/release-funds`, { method: 'POST' }),
+
+    getRates: () => request('/admin/rates'),
+
+    updateRate: (payload: any) =>
+      request('/admin/rates/update', { method: 'POST', body: JSON.stringify(payload) }),
+
+    getAuditLogs: () => request('/admin/audit-logs'),
+
+    getReferrals: () => request('/admin/referrals'),
+
+    getNotifications: (params?: { priority?: string; status?: string }) => {
+      const q = new URLSearchParams();
+      if (params?.priority) q.set('priority', params.priority);
+      if (params?.status) q.set('status', params.status);
+      return request(`/admin/notifications?${q.toString()}`);
     },
 
-    async regenerateCatCode(id: string) {
-      const res = await fetch(`${API_BASE}/admin/accounts/${id}/regenerate-cat`, {
-        method: 'POST',
-        headers: getAuthHeaders()
-      });
-      return res.json();
-    },
-
-    async regenerateCotCode(id: string) {
-      const res = await fetch(`${API_BASE}/admin/accounts/${id}/regenerate-cot`, {
-        method: 'POST',
-        headers: getAuthHeaders()
-      });
-      return res.json();
-    },
-
-    async saveClientFile(id: string, payload: any) {
-      const res = await fetch(`${API_BASE}/admin/accounts/${id}/save-client-file`, {
-        method: 'POST',
-        headers: getAuthHeaders(),
-        body: JSON.stringify(payload)
-      });
-      return res.json();
-    },
-
-    async deleteAccount(id: string) {
-      const res = await fetch(`${API_BASE}/admin/accounts/${id}`, {
-        method: 'DELETE',
-        headers: getAuthHeaders()
-      });
-      return res.json();
-    },
-
-    async regenerateSecurityCodes(id: string) {
-      const res = await fetch(`${API_BASE}/admin/accounts/${id}/regenerate-security-codes`, {
-        method: 'POST',
-        headers: getAuthHeaders()
-      });
-      return res.json();
-    },
-
-    async updateProfile(id: string, payload: any) {
-      const res = await fetch(`${API_BASE}/admin/accounts/${id}/update-profile`, {
-        method: 'POST',
-        headers: getAuthHeaders(),
-        body: JSON.stringify(payload)
-      });
-      return res.json();
-    },
-
-    async getTransactions() {
-      const res = await fetch(`${API_BASE}/admin/transactions`, {
-        headers: getAuthHeaders()
-      });
-      return res.json();
-    },
-
-    async handleDepositRequest(id: string, action: 'approve' | 'reject', notes?: string) {
-      const res = await fetch(`${API_BASE}/admin/transactions/requests/${id}/action`, {
-        method: 'POST',
-        headers: getAuthHeaders(),
-        body: JSON.stringify({ action, notes })
-      });
-      return res.json();
-    },
-
-    async getCards() {
-      const res = await fetch(`${API_BASE}/admin/cards`, {
-        headers: getAuthHeaders()
-      });
-      return res.json();
-    },
-
-    async updateCard(id: string, payload: any) {
-      const res = await fetch(`${API_BASE}/admin/cards/${id}/status`, {
-        method: 'POST',
-        headers: getAuthHeaders(),
-        body: JSON.stringify(payload)
-      });
-      return res.json();
-    },
-
-    async getLoans() {
-      const res = await fetch(`${API_BASE}/admin/loans`, {
-        headers: getAuthHeaders()
-      });
-      return res.json();
-    },
-
-    async updateLoanStatus(id: string, status: string, admin_notes?: string) {
-      const res = await fetch(`${API_BASE}/admin/loans/${id}/status`, {
-        method: 'POST',
-        headers: getAuthHeaders(),
-        body: JSON.stringify({ status, admin_notes })
-      });
-      return res.json();
-    },
-
-    async releaseLoanFunds(id: string) {
-      const res = await fetch(`${API_BASE}/admin/loans/${id}/release-funds`, {
-        method: 'POST',
-        headers: getAuthHeaders()
-      });
-      return res.json();
-    },
-
-    async getRates() {
-      const res = await fetch(`${API_BASE}/admin/rates`, {
-        headers: getAuthHeaders()
-      });
-      return res.json();
-    },
-
-    async updateRate(payload: any) {
-      const res = await fetch(`${API_BASE}/admin/rates/update`, {
-        method: 'POST',
-        headers: getAuthHeaders(),
-        body: JSON.stringify(payload)
-      });
-      return res.json();
-    },
-
-    async getPaymentMethods() {
-      const res = await fetch(`${API_BASE}/admin/payment-methods`, {
-        headers: getAuthHeaders()
-      });
-      return res.json();
-    },
-
-    async savePaymentMethod(payload: any) {
-      const res = await fetch(`${API_BASE}/admin/payment-methods/save`, {
-        method: 'POST',
-        headers: getAuthHeaders(),
-        body: JSON.stringify(payload)
-      });
-      return res.json();
-    },
-
-    async deletePaymentMethod(id: string) {
-      const res = await fetch(`${API_BASE}/admin/payment-methods/${id}`, {
-        method: 'DELETE',
-        headers: getAuthHeaders()
-      });
-      return res.json();
-    },
-
-    async getEmailHistory() {
-      const res = await fetch(`${API_BASE}/admin/emails/history`, {
-        headers: getAuthHeaders()
-      });
-      return res.json();
-    },
-
-    async getEmailTemplates() {
-      const res = await fetch(`${API_BASE}/admin/emails/templates`, {
-        headers: getAuthHeaders()
-      });
-      return res.json();
-    },
-
-    async saveEmailTemplate(payload: any) {
-      const res = await fetch(`${API_BASE}/admin/emails/templates/save`, {
-        method: 'POST',
-        headers: getAuthHeaders(),
-        body: JSON.stringify(payload)
-      });
-      return res.json();
-    },
-
-    async sendManualEmail(payload: any) {
-      const res = await fetch(`${API_BASE}/admin/emails/send`, {
-        method: 'POST',
-        headers: getAuthHeaders(),
-        body: JSON.stringify(payload)
-      });
-      return res.json();
-    },
-
-    async getSettings() {
-      const res = await fetch(`${API_BASE}/admin/settings`, {
-        headers: getAuthHeaders()
-      });
-      return res.json();
-    },
-
-    async updateSettings(payload: any) {
-      const res = await fetch(`${API_BASE}/admin/settings/update`, {
-        method: 'POST',
-        headers: getAuthHeaders(),
-        body: JSON.stringify(payload)
-      });
-      return res.json();
-    },
-
-    async getBlockedIps() {
-      const res = await fetch(`${API_BASE}/admin/security/ips`, {
-        headers: getAuthHeaders()
-      });
-      return res.json();
-    },
-
-    async addBlockedIp(ip_address: string, reason: string) {
-      const res = await fetch(`${API_BASE}/admin/security/ips/add`, {
-        method: 'POST',
-        headers: getAuthHeaders(),
-        body: JSON.stringify({ ip_address, reason })
-      });
-      return res.json();
-    },
-
-    async deleteBlockedIp(id: string) {
-      const res = await fetch(`${API_BASE}/admin/security/ips/${id}`, {
-        method: 'DELETE',
-        headers: getAuthHeaders()
-      });
-      return res.json();
-    },
-
-    async getTeam() {
-      const res = await fetch(`${API_BASE}/admin/team`, {
-        headers: getAuthHeaders()
-      });
-      return res.json();
-    },
-
-    async inviteTeamMember(payload: any) {
-      const res = await fetch(`${API_BASE}/admin/team/invite`, {
-        method: 'POST',
-        headers: getAuthHeaders(),
-        body: JSON.stringify(payload)
-      });
-      return res.json();
-    },
-
-    async getAuditLogs(limit = 50) {
-      const res = await fetch(`${API_BASE}/admin/audit-logs?limit=${limit}`, {
-        headers: getAuthHeaders()
-      });
-      return res.json();
-    },
-
-    // Referral Program Admin
-    async getReferrals() {
-      const res = await fetch(`${API_BASE}/admin/referrals`, {
-        headers: getAuthHeaders()
-      });
-      return res.json();
-    },
-
-    async getReferralSettings() {
-      const res = await fetch(`${API_BASE}/admin/referral-settings`, {
-        headers: getAuthHeaders()
-      });
-      return res.json();
-    },
-
-    async updateReferralSettings(payload: any) {
-      const res = await fetch(`${API_BASE}/admin/referral-settings`, {
-        method: 'PUT',
-        headers: getAuthHeaders(),
-        body: JSON.stringify(payload)
-      });
-      return res.json();
-    },
-
-    async updateReferral(id: string, payload: any) {
-      const res = await fetch(`${API_BASE}/admin/referrals/${id}`, {
-        method: 'PUT',
-        headers: getAuthHeaders(),
-        body: JSON.stringify(payload)
-      });
-      return res.json();
-    },
-
-    async regenerateUserReferralCode(profile_id: string) {
-      const res = await fetch(`${API_BASE}/admin/referrals/regenerate-user-code`, {
-        method: 'POST',
-        headers: getAuthHeaders(),
-        body: JSON.stringify({ profile_id })
-      });
-      return res.json();
-    }
+    broadcastNotification: (payload: {
+      title: string;
+      message: string;
+      target: 'all' | 'specific';
+      profile_id?: string;
+      category?: string;
+      priority?: string;
+      send_email?: boolean;
+      send_sms?: boolean;
+    }) => request('/admin/notifications/broadcast', { method: 'POST', body: JSON.stringify(payload) })
   }
 };

@@ -918,8 +918,475 @@ Atención al Cliente: ${replyToEmail}`;
       });
     }
 
-  } else {
-    // Custom or stored template fallback
+  } else if (templateKey === 'transfer_sent') {
+    const firstName = String(variables.first_name || 'Client');
+    const amount = String(variables.amount || '0');
+    const currency = String(variables.currency || 'USD');
+    const recipient = String(variables.recipient || 'Bénéficiaire');
+    const reference = String(variables.reference || '');
+    const balance = variables.balance !== undefined ? String(variables.balance) : '';
+
+    finalSubject = isEs
+      ? `MOVAFI BANK · Transferencia emitida: ${currency} ${amount} (Ref: ${reference})`
+      : `Movafi Bank · Virement émis : ${currency} ${amount} (Réf : ${reference})`;
+
+    const contentHtml = `
+      <h2 style="font-size: 18px; font-weight: 800; color: #ffffff; margin: 0 0 12px;">
+        ${isEs ? 'Transferencia Bancaria Emitida' : 'Virement Bancaire Émis'}
+      </h2>
+      <p style="font-size: 13px; color: #cbd5e1; margin-bottom: 20px;">
+        ${isEs ? `Estimado/a <strong>${firstName}</strong>, su orden de transferencia ha sido registrada y procesada.` : `Cher(e) <strong>${firstName}</strong>, votre ordre de virement a été enregistré et traité avec succès.`}
+      </p>
+      <div style="background-color: #080d19; border: 1px solid #1a273f; border-radius: 12px; padding: 18px 20px; margin-bottom: 20px;">
+        <table role="presentation" width="100%" cellpadding="6" cellspacing="0" style="font-size: 13px; color: #cbd5e1;">
+          <tr><td><strong style="color: #94a3b8;">${isEs ? 'Monto' : 'Montant'} :</strong></td><td align="right" style="color: #fbbf24; font-weight: 700;">${currency} ${amount}</td></tr>
+          <tr><td><strong style="color: #94a3b8;">${isEs ? 'Beneficiario' : 'Bénéficiaire'} :</strong></td><td align="right" style="color: #ffffff;">${recipient}</td></tr>
+          <tr><td><strong style="color: #94a3b8;">${isEs ? 'Referencia' : 'Référence'} :</strong></td><td align="right" style="font-family: monospace; color: #e2e8f0;">${reference}</td></tr>
+          ${balance ? `<tr><td><strong style="color: #94a3b8;">${isEs ? 'Nuevo saldo' : 'Nouveau solde'} :</strong></td><td align="right" style="color: #10b981; font-weight: 700;">${currency} ${balance}</td></tr>` : ''}
+        </table>
+      </div>
+    `;
+
+    finalHtml = buildBankEmailHtml({ title: finalSubject, contentHtml, supportEmail: replyToEmail, lang });
+
+  } else if (templateKey === 'transfer_received') {
+    const firstName = String(variables.first_name || 'Client');
+    const amount = String(variables.amount || '0');
+    const currency = String(variables.currency || 'USD');
+    const sender = String(variables.sender || 'Expéditeur');
+    const reference = String(variables.reference || '');
+    const balance = variables.balance !== undefined ? String(variables.balance) : '';
+
+    finalSubject = isEs
+      ? `MOVAFI BANK · Fondos recibidos: +${currency} ${amount} (Ref: ${reference})`
+      : `Movafi Bank · Fonds reçus : +${currency} ${amount} (Réf : ${reference})`;
+
+    const contentHtml = `
+      <h2 style="font-size: 18px; font-weight: 800; color: #10b981; margin: 0 0 12px;">
+        ${isEs ? 'Fondos Acreditados en su Cuenta' : 'Fonds Crédités sur votre Compte'}
+      </h2>
+      <p style="font-size: 13px; color: #cbd5e1; margin-bottom: 20px;">
+        ${isEs ? `Estimado/a <strong>${firstName}</strong>, ha recibido una transferencia directa de liquidez en su cuenta.` : `Cher(e) <strong>${firstName}</strong>, vous avez reçu un virement créditeur direct sur votre compte.`}
+      </p>
+      <div style="background-color: #080d19; border: 1px solid #1a273f; border-radius: 12px; padding: 18px 20px; margin-bottom: 20px;">
+        <table role="presentation" width="100%" cellpadding="6" cellspacing="0" style="font-size: 13px; color: #cbd5e1;">
+          <tr><td><strong style="color: #94a3b8;">${isEs ? 'Monto acreditado' : 'Montant crédité'} :</strong></td><td align="right" style="color: #10b981; font-weight: 800; font-size: 15px;">+${currency} ${amount}</td></tr>
+          <tr><td><strong style="color: #94a3b8;">${isEs ? 'Ordenante' : 'Émetteur'} :</strong></td><td align="right" style="color: #ffffff;">${sender}</td></tr>
+          <tr><td><strong style="color: #94a3b8;">${isEs ? 'Referencia' : 'Référence'} :</strong></td><td align="right" style="font-family: monospace; color: #e2e8f0;">${reference}</td></tr>
+          ${balance ? `<tr><td><strong style="color: #94a3b8;">${isEs ? 'Saldo disponible' : 'Solde disponible'} :</strong></td><td align="right" style="color: #fbbf24; font-weight: 700;">${currency} ${balance}</td></tr>` : ''}
+        </table>
+      </div>
+    `;
+
+    finalHtml = buildBankEmailHtml({ title: finalSubject, contentHtml, supportEmail: replyToEmail, lang });
+
+  } else if (templateKey === 'withdrawal_submitted') {
+    const firstName = String(variables.first_name || 'Client');
+    const amount = String(variables.amount || '0');
+    const currency = String(variables.currency || 'USD');
+    const method = String(variables.method || 'Virement bancaire');
+    const reference = String(variables.reference || '');
+
+    finalSubject = isEs
+      ? `MOVAFI BANK · Solicitud de retiro registrada (${currency} ${amount})`
+      : `Movafi Bank · Demande de retrait enregistrée (${currency} ${amount})`;
+
+    const contentHtml = `
+      <h2 style="font-size: 18px; font-weight: 800; color: #ffffff; margin: 0 0 12px;">
+        ${isEs ? 'Solicitud de Retiro en Curso' : 'Demande de Retrait en Cours'}
+      </h2>
+      <p style="font-size: 13px; color: #cbd5e1; margin-bottom: 20px;">
+        ${isEs ? `Estimado/a <strong>${firstName}</strong>, su solicitud de retiro por <strong>${currency} ${amount}</strong> ha sido registrada y está en proceso de verificación por la tesorería.` : `Cher(e) <strong>${firstName}</strong>, votre demande de retrait de <strong>${currency} ${amount}</strong> a été enregistrée et est en attente de vérification par notre service trésorerie.`}
+      </p>
+      <div style="background-color: #080d19; border: 1px solid #1a273f; border-radius: 12px; padding: 18px 20px; margin-bottom: 20px;">
+        <table role="presentation" width="100%" cellpadding="6" cellspacing="0" style="font-size: 13px; color: #cbd5e1;">
+          <tr><td><strong style="color: #94a3b8;">${isEs ? 'Monto solicitado' : 'Montant demandé'} :</strong></td><td align="right" style="color: #fbbf24; font-weight: 700;">${currency} ${amount}</td></tr>
+          <tr><td><strong style="color: #94a3b8;">${isEs ? 'Método' : 'Méthode'} :</strong></td><td align="right" style="color: #ffffff;">${method}</td></tr>
+          <tr><td><strong style="color: #94a3b8;">${isEs ? 'Referencia' : 'Référence'} :</strong></td><td align="right" style="font-family: monospace; color: #e2e8f0;">${reference}</td></tr>
+          <tr><td><strong style="color: #94a3b8;">${isEs ? 'Estado' : 'Statut'} :</strong></td><td align="right" style="color: #38bdf8;">${isEs ? 'Pendiente de autorización' : 'En attente d’autorisation'}</td></tr>
+        </table>
+      </div>
+    `;
+
+    finalHtml = buildBankEmailHtml({ title: finalSubject, contentHtml, supportEmail: replyToEmail, lang });
+
+  } else if (templateKey === 'withdrawal_approved') {
+    const firstName = String(variables.first_name || 'Client');
+    const amount = String(variables.amount || '0');
+    const currency = String(variables.currency || 'USD');
+    const reference = String(variables.reference || '');
+
+    finalSubject = isEs
+      ? `MOVAFI BANK · Retiro APROBADO y liquidado (${currency} ${amount})`
+      : `Movafi Bank · Retrait APPROUVÉ et exécuté (${currency} ${amount})`;
+
+    const contentHtml = `
+      <h2 style="font-size: 18px; font-weight: 800; color: #10b981; margin: 0 0 12px;">
+        ${isEs ? 'Retiro Autorizado y Ejecutado' : 'Retrait Autorisé et Exécuté'}
+      </h2>
+      <p style="font-size: 13px; color: #cbd5e1; margin-bottom: 20px;">
+        ${isEs ? `Estimado/a <strong>${firstName}</strong>, su solicitud de retiro de <strong>${currency} ${amount}</strong> ha sido formalmente aprobada y liquidada por el departamento de tesorería.` : `Cher(e) <strong>${firstName}</strong>, votre demande de retrait de <strong>${currency} ${amount}</strong> a été formellement approuvée et décaissée par la trésorerie.`}
+      </p>
+      <div style="background-color: rgba(16, 185, 129, 0.08); border-left: 3px solid #10b981; padding: 14px 16px; margin-bottom: 20px; font-size: 13px; color: #e2e8f0;">
+        ${isEs ? `Los fondos han sido enviados conforme a las instrucciones facilitadas (Ref: ${reference}).` : `Les fonds ont été émis conformément à vos instructions de règlement (Réf : ${reference}).`}
+      </div>
+    `;
+
+    finalHtml = buildBankEmailHtml({ title: finalSubject, contentHtml, supportEmail: replyToEmail, lang });
+
+  } else if (templateKey === 'withdrawal_rejected') {
+    const firstName = String(variables.first_name || 'Client');
+    const amount = String(variables.amount || '0');
+    const currency = String(variables.currency || 'USD');
+    const reference = String(variables.reference || '');
+    const reason = String(variables.reason || 'Conformité bancaire');
+
+    finalSubject = isEs
+      ? `MOVAFI BANK · Solicitud de retiro rechazada - Fondos devueltos (${currency} ${amount})`
+      : `Movafi Bank · Demande de retrait refusée - Fonds recrédités (${currency} ${amount})`;
+
+    const contentHtml = `
+      <h2 style="font-size: 18px; font-weight: 800; color: #ef4444; margin: 0 0 12px;">
+        ${isEs ? 'Solicitud de Retiro No Procesada' : 'Demande de Retrait Non Traitée'}
+      </h2>
+      <p style="font-size: 13px; color: #cbd5e1; margin-bottom: 20px;">
+        ${isEs ? `Estimado/a <strong>${firstName}</strong>, su solicitud de retiro de <strong>${currency} ${amount}</strong> (Ref: ${reference}) no ha podido ser procesada.` : `Cher(e) <strong>${firstName}</strong>, votre demande de retrait de <strong>${currency} ${amount}</strong> (Réf : ${reference}) n'a pas pu être exécutée.`}
+      </p>
+      <div style="background-color: rgba(239, 68, 68, 0.08); border-left: 3px solid #ef4444; padding: 14px 16px; margin-bottom: 20px; font-size: 13px; color: #e2e8f0;">
+        <strong>${isEs ? 'Motivo' : 'Motif'} :</strong> ${reason}<br><br>
+        <strong>${isEs ? 'Aviso importante' : 'Information importante'} :</strong> ${isEs ? 'El importe ha sido devuelto íntegramente a su saldo disponible.' : 'Le montant a été intégralement restitué sur votre solde disponible.'}
+      </div>
+    `;
+
+    finalHtml = buildBankEmailHtml({ title: finalSubject, contentHtml, supportEmail: replyToEmail, lang });
+
+  } else if (templateKey === 'deposit_submitted') {
+    const firstName = String(variables.first_name || 'Client');
+    const amount = String(variables.amount || '0');
+    const currency = String(variables.currency || 'USD');
+    const method = String(variables.method || 'Dépôt');
+    const reference = String(variables.reference || '');
+
+    finalSubject = isEs
+      ? `MOVAFI BANK · Notificación de depósito recibida (${currency} ${amount})`
+      : `Movafi Bank · Déclaration de dépôt enregistrée (${currency} ${amount})`;
+
+    const contentHtml = `
+      <h2 style="font-size: 18px; font-weight: 800; color: #ffffff; margin: 0 0 12px;">
+        ${isEs ? 'Aviso de Depósito Registrado' : 'Avis de Dépôt Enregistré'}
+      </h2>
+      <p style="font-size: 13px; color: #cbd5e1; margin-bottom: 20px;">
+        ${isEs ? `Estimado/a <strong>${firstName}</strong>, hemos recibido su declaración de depósito por <strong>${currency} ${amount}</strong> vía ${method}.` : `Cher(e) <strong>${firstName}</strong>, nous avons bien pris en compte votre déclaration de versement de <strong>${currency} ${amount}</strong> via ${method}.`}
+      </p>
+      <div style="background-color: #080d19; border: 1px solid #1a273f; border-radius: 12px; padding: 18px 20px; margin-bottom: 20px; font-size: 13px; color: #cbd5e1;">
+        ${isEs ? `Su solicitud (Ref: ${reference}) será reconciliada por la tesorería a la recepción de los fondos.` : `Votre opération (Réf : ${reference}) sera créditée sur votre solde dès constatation de la réception effective des fonds.`}
+      </div>
+    `;
+
+    finalHtml = buildBankEmailHtml({ title: finalSubject, contentHtml, supportEmail: replyToEmail, lang });
+
+  } else if (templateKey === 'deposit_approved') {
+    const firstName = String(variables.first_name || 'Client');
+    const amount = String(variables.amount || '0');
+    const currency = String(variables.currency || 'USD');
+    const balance = variables.balance !== undefined ? String(variables.balance) : '';
+
+    finalSubject = isEs
+      ? `MOVAFI BANK · Depósito APROBADO y acreditado (+${currency} ${amount})`
+      : `Movafi Bank · Dépôt APPROUVÉ et crédité (+${currency} ${amount})`;
+
+    const contentHtml = `
+      <h2 style="font-size: 18px; font-weight: 800; color: #10b981; margin: 0 0 12px;">
+        ${isEs ? 'Depósito Reconciliado y Acreditado' : 'Dépôt Réconcilié et Crédité'}
+      </h2>
+      <p style="font-size: 13px; color: #cbd5e1; margin-bottom: 20px;">
+        ${isEs ? `Estimado/a <strong>${firstName}</strong>, su depósito de <strong>${currency} ${amount}</strong> ha sido validado y acreditado con éxito en su saldo principal.` : `Cher(e) <strong>${firstName}</strong>, votre dépôt de <strong>${currency} ${amount}</strong> a été validé et crédité sur votre solde principal.`}
+      </p>
+      ${balance ? `<div style="background-color: #080d19; border: 1px solid #1a273f; border-radius: 12px; padding: 18px 20px; margin-bottom: 20px; font-size: 14px; color: #ffffff;"><strong>${isEs ? 'Nuevo saldo disponible' : 'Nouveau solde disponible'} :</strong> <span style="color: #10b981; font-weight: 800;">${currency} ${balance}</span></div>` : ''}
+    `;
+
+    finalHtml = buildBankEmailHtml({ title: finalSubject, contentHtml, supportEmail: replyToEmail, lang });
+
+  } else if (templateKey === 'deposit_rejected') {
+    const firstName = String(variables.first_name || 'Client');
+    const amount = String(variables.amount || '0');
+    const currency = String(variables.currency || 'USD');
+    const reason = String(variables.reason || 'Dépôt non réceptionné ou non conforme');
+
+    finalSubject = isEs
+      ? `MOVAFI BANK · Aviso de depósito rechazado (${currency} ${amount})`
+      : `Movafi Bank · Déclaration de dépôt non validée (${currency} ${amount})`;
+
+    const contentHtml = `
+      <h2 style="font-size: 18px; font-weight: 800; color: #ef4444; margin: 0 0 12px;">
+        ${isEs ? 'Aviso de Depósito No Conciliado' : 'Déclaration de Dépôt Non Conciliée'}
+      </h2>
+      <p style="font-size: 13px; color: #cbd5e1; margin-bottom: 20px;">
+        ${isEs ? `Estimado/a <strong>${firstName}</strong>, su declaración de depósito de ${currency} ${amount} no ha podido ser validada.` : `Cher(e) <strong>${firstName}</strong>, votre avis de versement de ${currency} ${amount} n'a pas pu être validé.`}
+      </p>
+      <div style="background-color: rgba(239, 68, 68, 0.08); border-left: 3px solid #ef4444; padding: 14px 16px; margin-bottom: 20px; font-size: 13px; color: #e2e8f0;">
+        <strong>${isEs ? 'Motivo' : 'Motif'} :</strong> ${reason}
+      </div>
+    `;
+
+    finalHtml = buildBankEmailHtml({ title: finalSubject, contentHtml, supportEmail: replyToEmail, lang });
+
+  } else if (templateKey === 'card_requested') {
+    const firstName = String(variables.first_name || 'Client');
+    const tier = String(variables.tier || 'Gold').toUpperCase();
+    const network = String(variables.network || 'Visa').toUpperCase();
+
+    finalSubject = isEs
+      ? `MOVAFI BANK · Solicitud de tarjeta ${tier} ${network} recibida`
+      : `Movafi Bank · Demande de carte ${tier} ${network} bien reçue`;
+
+    const contentHtml = `
+      <h2 style="font-size: 18px; font-weight: 800; color: #ffffff; margin: 0 0 12px;">
+        ${isEs ? 'Solicitud de Tarjeta Registrada' : 'Demande de Carte Bancaire Reçue'}
+      </h2>
+      <p style="font-size: 13px; color: #cbd5e1; margin-bottom: 20px;">
+        ${isEs ? `Estimado/a <strong>${firstName}</strong>, hemos recibido su solicitud para una tarjeta bancaria <strong>${tier} ${network}</strong>.` : `Cher(e) <strong>${firstName}</strong>, votre demande pour une carte <strong>${tier} ${network}</strong> a bien été transmise à notre service monétique.`}
+      </p>
+      <div style="background-color: #080d19; border: 1px solid #1a273f; border-radius: 12px; padding: 18px 20px; margin-bottom: 20px; font-size: 13px; color: #94a3b8;">
+        ${isEs ? 'Su solicitud será examinada por la administración bancaria para su validación.' : 'Votre dossier sera examiné par l’administration pour approbation et activation.'}
+      </div>
+    `;
+
+    finalHtml = buildBankEmailHtml({ title: finalSubject, contentHtml, supportEmail: replyToEmail, lang });
+
+  } else if (templateKey === 'card_physical_ordered') {
+    const firstName = String(variables.first_name || 'Client');
+    const tracking = String(variables.tracking || '');
+    const address = String(variables.address || '');
+
+    finalSubject = isEs
+      ? `MOVAFI BANK · Envío de tarjeta física solicitado (Seguimiento: ${tracking})`
+      : `Movafi Bank · Livraison de carte physique commandée (Suivi : ${tracking})`;
+
+    const contentHtml = `
+      <h2 style="font-size: 18px; font-weight: 800; color: #ffffff; margin: 0 0 12px;">
+        ${isEs ? 'Fabricación y Envío de Tarjeta Física' : 'Fabrication et Livraison de Carte Physique'}
+      </h2>
+      <p style="font-size: 13px; color: #cbd5e1; margin-bottom: 20px;">
+        ${isEs ? `Estimado/a <strong>${firstName}</strong>, su solicitud de fabricación y entrega prioritaria de tarjeta física ha sido activada.` : `Cher(e) <strong>${firstName}</strong>, votre commande de fabrication et livraison de carte physique sécurisée a été activée.`}
+      </p>
+      <div style="background-color: #080d19; border: 1px solid #1a273f; border-radius: 12px; padding: 18px 20px; margin-bottom: 20px; font-size: 13px; color: #cbd5e1;">
+        <strong>${isEs ? 'Número de seguimiento' : 'Numéro de suivi'} :</strong> <span style="color: #fbbf24; font-family: monospace;">${tracking}</span><br><br>
+        <strong>${isEs ? 'Dirección de destino' : 'Adresse de destination'} :</strong> ${address}
+      </div>
+    `;
+
+    finalHtml = buildBankEmailHtml({ title: finalSubject, contentHtml, supportEmail: replyToEmail, lang });
+
+  } else if (templateKey === 'card_status_updated') {
+    const firstName = String(variables.first_name || 'Client');
+    const cardMasked = String(variables.card_masked || '');
+    const status = String(variables.status || '').toUpperCase();
+    const reason = String(variables.reason || '');
+
+    finalSubject = isEs
+      ? `MOVAFI BANK · Estado de su tarjeta ${cardMasked}: ${status}`
+      : `Movafi Bank · Statut de votre carte ${cardMasked} : ${status}`;
+
+    const contentHtml = `
+      <h2 style="font-size: 18px; font-weight: 800; color: #ffffff; margin: 0 0 12px;">
+        ${isEs ? 'Actualización de Tarjeta Bancaria' : 'Mise à Jour de votre Carte'}
+      </h2>
+      <p style="font-size: 13px; color: #cbd5e1; margin-bottom: 20px;">
+        ${isEs ? `Estimado/a <strong>${firstName}</strong>, el estado de su tarjeta <strong>${cardMasked}</strong> ha sido modificado a <strong>${status}</strong> por la administración.` : `Cher(e) <strong>${firstName}</strong>, le statut administratif de votre carte <strong>${cardMasked}</strong> est désormais : <strong>${status}</strong>.`}
+      </p>
+      ${reason ? `<div style="background-color: #080d19; border: 1px solid #1a273f; border-radius: 12px; padding: 18px 20px; margin-bottom: 20px; font-size: 13px; color: #e2e8f0;"><strong>${isEs ? 'Detalle' : 'Précisions'} :</strong> ${reason}</div>` : ''}
+    `;
+
+    finalHtml = buildBankEmailHtml({ title: finalSubject, contentHtml, supportEmail: replyToEmail, lang });
+
+  } else if (templateKey === 'card_funded') {
+    const firstName = String(variables.first_name || 'Client');
+    const amount = String(variables.amount || '0');
+    const currency = String(variables.currency || 'USD');
+    const cardMasked = String(variables.card_masked || '');
+    const cardBalance = String(variables.card_balance || '0');
+
+    finalSubject = isEs
+      ? `MOVAFI BANK · Tarjeta recargada: +${currency} ${amount}`
+      : `Movafi Bank · Carte rechargée : +${currency} ${amount}`;
+
+    const contentHtml = `
+      <h2 style="font-size: 18px; font-weight: 800; color: #10b981; margin: 0 0 12px;">
+        ${isEs ? 'Recarga de Tarjeta Confirmada' : 'Rechargement de Carte Confirmé'}
+      </h2>
+      <p style="font-size: 13px; color: #cbd5e1; margin-bottom: 20px;">
+        ${isEs ? `Estimado/a <strong>${firstName}</strong>, ha transferido exitosamente <strong>${currency} ${amount}</strong> a su tarjeta <strong>${cardMasked}</strong>.` : `Cher(e) <strong>${firstName}</strong>, vous avez rechargé avec succès votre carte <strong>${cardMasked}</strong> à hauteur de <strong>${currency} ${amount}</strong>.`}
+      </p>
+      <div style="background-color: #080d19; border: 1px solid #1a273f; border-radius: 12px; padding: 18px 20px; margin-bottom: 20px; font-size: 13px; color: #cbd5e1;">
+        <strong>${isEs ? 'Nuevo saldo de la tarjeta' : 'Nouveau solde de la carte'} :</strong> <span style="color: #fbbf24; font-weight: 700;">${currency} ${cardBalance}</span>
+      </div>
+    `;
+
+    finalHtml = buildBankEmailHtml({ title: finalSubject, contentHtml, supportEmail: replyToEmail, lang });
+
+  } else if (templateKey === 'balance_adjusted') {
+    const firstName = String(variables.first_name || 'Client');
+    const type = String(variables.type || 'crédit');
+    const amount = String(variables.amount || '0');
+    const currency = String(variables.currency || 'USD');
+    const reason = String(variables.reason || 'Régularisation administrative');
+    const newBalance = String(variables.new_balance || '');
+
+    finalSubject = isEs
+      ? `MOVAFI BANK · Regularización de saldo (${type === 'credit' ? '+' : '-'}${currency} ${amount})`
+      : `Movafi Bank · Régularisation administrative de solde (${type === 'credit' ? '+' : '-'}${currency} ${amount})`;
+
+    const contentHtml = `
+      <h2 style="font-size: 18px; font-weight: 800; color: #ffffff; margin: 0 0 12px;">
+        ${isEs ? 'Ajuste Administrativo de Saldo' : 'Régularisation Administrative de Solde'}
+      </h2>
+      <p style="font-size: 13px; color: #cbd5e1; margin-bottom: 20px;">
+        ${isEs ? `Estimado/a <strong>${firstName}</strong>, la administración ha efectuado una operación de <strong>${type === 'credit' ? 'abono (crédito)' : 'cargo (débito)'}</strong> por un importe de <strong>${currency} ${amount}</strong>.` : `Cher(e) <strong>${firstName}</strong>, une opération de <strong>${type === 'credit' ? 'crédit' : 'débit'}</strong> de régularisation administrative a été appliquée à votre compte pour un montant de <strong>${currency} ${amount}</strong>.`}
+      </p>
+      <div style="background-color: #080d19; border: 1px solid #1a273f; border-radius: 12px; padding: 18px 20px; margin-bottom: 20px; font-size: 13px; color: #cbd5e1;">
+        <strong>${isEs ? 'Motivo justificado' : 'Motif / Justification'} :</strong> ${reason}<br><br>
+        ${newBalance ? `<strong>${isEs ? 'Saldo disponible actualizado' : 'Nouveau solde disponible'} :</strong> <span style="color: #10b981; font-weight: 800;">${currency} ${newBalance}</span>` : ''}
+      </div>
+    `;
+
+    finalHtml = buildBankEmailHtml({ title: finalSubject, contentHtml, supportEmail: replyToEmail, lang });
+
+  } else if (templateKey === 'account_status_changed') {
+    const firstName = String(variables.first_name || 'Client');
+    const status = String(variables.status || '').toUpperCase();
+    const notes = String(variables.notes || '');
+
+    finalSubject = isEs
+      ? `MOVAFI BANK · Actualización del estado de su cuenta (${status})`
+      : `Movafi Bank · Mise à jour du statut de votre compte (${status})`;
+
+    const contentHtml = `
+      <h2 style="font-size: 18px; font-weight: 800; color: #ffffff; margin: 0 0 12px;">
+        ${isEs ? 'Estado de Cuenta Actualizado' : 'Statut de Compte Mis à Jour'}
+      </h2>
+      <p style="font-size: 13px; color: #cbd5e1; margin-bottom: 20px;">
+        ${isEs ? `Estimado/a <strong>${firstName}</strong>, el estado operativo de su cuenta bancaria ha sido establecido como: <strong>${status}</strong>.` : `Cher(e) <strong>${firstName}</strong>, le statut de votre compte bancaire a été mis à jour par l'administration : <strong>${status}</strong>.`}
+      </p>
+      ${notes ? `<div style="background-color: #080d19; border: 1px solid #1a273f; border-radius: 12px; padding: 18px 20px; margin-bottom: 20px; font-size: 13px; color: #e2e8f0;"><strong>${isEs ? 'Nota' : 'Remarque'} :</strong> ${notes}</div>` : ''}
+    `;
+
+    finalHtml = buildBankEmailHtml({ title: finalSubject, contentHtml, supportEmail: replyToEmail, lang });
+
+  } else if (templateKey === 'profile_updated') {
+    const firstName = String(variables.first_name || 'Client');
+    const details = String(variables.details || 'Vos informations de compte ont été mises à jour.');
+
+    finalSubject = isEs
+      ? `MOVAFI BANK · Modificación de datos del perfil registrada`
+      : `Movafi Bank · Modification des informations de votre profil`;
+
+    const contentHtml = `
+      <h2 style="font-size: 18px; font-weight: 800; color: #ffffff; margin: 0 0 12px;">
+        ${isEs ? 'Información de Perfil Actualizada' : 'Informations du Profil Mises à Jour'}
+      </h2>
+      <p style="font-size: 13px; color: #cbd5e1; margin-bottom: 20px;">
+        ${isEs ? `Estimado/a <strong>${firstName}</strong>, se han registrado modificaciones en la información de su perfil de cliente.` : `Cher(e) <strong>${firstName}</strong>, des modifications ont été enregistrées sur vos données de profil.`}
+      </p>
+      <div style="background-color: #080d19; border: 1px solid #1a273f; border-radius: 12px; padding: 18px 20px; margin-bottom: 20px; font-size: 13px; color: #cbd5e1;">
+        ${details}
+      </div>
+    `;
+
+    finalHtml = buildBankEmailHtml({ title: finalSubject, contentHtml, supportEmail: replyToEmail, lang });
+
+  } else if (templateKey === 'credentials_updated') {
+    const firstName = String(variables.first_name || 'Client');
+    const updatedType = String(variables.type || 'mot de passe / code PIN');
+
+    finalSubject = isEs
+      ? `MOVAFI BANK · Aviso de seguridad: credenciales de acceso actualizadas`
+      : `Movafi Bank · Alerte sécurité : identifiants d'accès mis à jour`;
+
+    const contentHtml = `
+      <h2 style="font-size: 18px; font-weight: 800; color: #fbbf24; margin: 0 0 12px;">
+        ${isEs ? 'Credenciales de Seguridad Modificadas' : 'Identifiants de Sécurité Modifiés'}
+      </h2>
+      <p style="font-size: 13px; color: #cbd5e1; margin-bottom: 20px;">
+        ${isEs ? `Estimado/a <strong>${firstName}</strong>, le informamos de que sus credenciales (${updatedType}) han sido actualizadas con éxito.` : `Cher(e) <strong>${firstName}</strong>, nous vous confirmons que vos identifiants (${updatedType}) ont été modifiés avec succès.`}
+      </p>
+      <div style="background-color: rgba(217, 119, 6, 0.08); border-left: 3px solid #d97706; padding: 14px 16px; margin-bottom: 20px; font-size: 12px; color: #e2e8f0;">
+        ${isEs ? 'Si usted no ha solicitado esta modificación, comuníquese urgentemente con nuestro equipo de seguridad.' : 'Si vous n’êtes pas à l’origine de cette modification, contactez immédiatement notre département sécurité.'}
+      </div>
+    `;
+
+    finalHtml = buildBankEmailHtml({ title: finalSubject, contentHtml, supportEmail: replyToEmail, lang });
+
+  } else if (templateKey === 'codes_regenerated') {
+    const firstName = String(variables.first_name || 'Client');
+    const catCode = variables.cat_code ? String(variables.cat_code) : '';
+    const cotCode = variables.cot_code ? String(variables.cot_code) : '';
+
+    finalSubject = isEs
+      ? `MOVAFI BANK · Códigos de seguridad CAT/COT actualizados`
+      : `Movafi Bank · Nouveaux codes de sécurité CAT/COT générés`;
+
+    const contentHtml = `
+      <h2 style="font-size: 18px; font-weight: 800; color: #ffffff; margin: 0 0 12px;">
+        ${isEs ? 'Nuevos Códigos de Autorización' : 'Nouveaux Codes d’Autorisation'}
+      </h2>
+      <p style="font-size: 13px; color: #cbd5e1; margin-bottom: 20px;">
+        ${isEs ? `Estimado/a <strong>${firstName}</strong>, la administración ha regenerado sus códigos de autorización para sus transferencias bancarias.` : `Cher(e) <strong>${firstName}</strong>, de nouveaux codes sécurisés d'autorisation ont été générés pour votre compte.`}
+      </p>
+      <div style="background-color: #080d19; border: 1px solid #1a273f; border-radius: 12px; padding: 18px 20px; margin-bottom: 20px; font-size: 13px; color: #cbd5e1;">
+        ${catCode ? `<p style="margin: 0 0 8px;"><strong>Code CAT :</strong> <span style="color: #fbbf24; font-family: monospace; font-size: 15px;">${catCode}</span></p>` : ''}
+        ${cotCode ? `<p style="margin: 0;"><strong>Code COT :</strong> <span style="color: #fbbf24; font-family: monospace; font-size: 15px;">${cotCode}</span></p>` : ''}
+      </div>
+    `;
+
+    finalHtml = buildBankEmailHtml({ title: finalSubject, contentHtml, supportEmail: replyToEmail, lang });
+
+  } else if (templateKey === 'admin_alert') {
+    const alertTitle = String(variables.title || 'Alerte Opérationnelle');
+    const clientName = String(variables.client_name || 'Client');
+    const clientEmail = String(variables.client_email || '');
+    const amount = variables.amount ? `${variables.currency || 'USD'} ${variables.amount}` : '';
+    const reference = String(variables.reference || '');
+    const eventMessage = String(variables.message || '');
+
+    finalSubject = `[ADMIN MOVAFI] · ${alertTitle} — ${clientName}${amount ? ` (${amount})` : ''}`;
+
+    const contentHtml = `
+      <div style="margin-bottom: 20px;">
+        <span style="display: inline-block; padding: 4px 12px; background-color: rgba(239, 68, 68, 0.15); border: 1px solid rgba(239, 68, 68, 0.4); border-radius: 20px; font-size: 10px; font-weight: 800; color: #f87171; letter-spacing: 1.5px; text-transform: uppercase;">
+          Action Requise · Portail d'Administration
+        </span>
+        <h1 style="font-size: 20px; font-weight: 800; color: #ffffff; margin: 14px 0 6px;">
+          ${alertTitle}
+        </h1>
+        <p style="font-size: 13px; color: #cbd5e1; margin: 0; line-height: 1.5;">
+          ${eventMessage}
+        </p>
+      </div>
+
+      <div style="background-color: #080d19; border: 1px solid #1a273f; border-radius: 12px; padding: 18px 20px; margin-bottom: 24px;">
+        <table role="presentation" width="100%" cellpadding="6" cellspacing="0" style="font-size: 13px; color: #cbd5e1;">
+          <tr><td><strong style="color: #94a3b8;">Client :</strong></td><td align="right" style="color: #ffffff; font-weight: 700;">${clientName}</td></tr>
+          ${clientEmail ? `<tr><td><strong style="color: #94a3b8;">Email :</strong></td><td align="right" style="color: #fbbf24;">${clientEmail}</td></tr>` : ''}
+          ${amount ? `<tr><td><strong style="color: #94a3b8;">Montant :</strong></td><td align="right" style="color: #10b981; font-weight: 800;">${amount}</td></tr>` : ''}
+          ${reference ? `<tr><td><strong style="color: #94a3b8;">Référence :</strong></td><td align="right" style="font-family: monospace; color: #e2e8f0;">${reference}</td></tr>` : ''}
+          <tr><td><strong style="color: #94a3b8;">Date & Heure :</strong></td><td align="right" style="color: #94a3b8;">${new Date().toLocaleString('fr-FR', { timeZone: 'UTC' })} UTC</td></tr>
+        </table>
+      </div>
+
+      <div style="text-align: center; margin: 24px 0 10px;">
+        <span style="display: inline-block; padding: 10px 24px; background: linear-gradient(90deg, #d97706 0%, #b45309 100%); border-radius: 8px; color: #ffffff; font-weight: 800; font-size: 13px;">
+          Veuillez vous connecter sur le portail administrateur pour examiner cette demande.
+        </span>
+      </div>
+    `;
+
+    finalHtml = buildBankEmailHtml({
+      title: finalSubject,
+      contentHtml,
+      supportEmail: replyToEmail,
+      lang: 'fr'
+    });
     if (!finalText) {
       finalText = isEs
         ? `Estimado/a Cliente,\n\nGracias por su confianza en MOVAFI BANK.\n\nAtención al Cliente: ${replyToEmail}`
@@ -1000,3 +1467,41 @@ Atención al Cliente: ${replyToEmail}`;
     error: errorMsg
   };
 }
+
+/**
+ * Dispatches an automated executive email alert to the bank administrator
+ */
+export async function sendAdminNotification({
+  title,
+  message,
+  clientName,
+  clientEmail,
+  amount,
+  currency,
+  reference
+}: {
+  title: string;
+  message: string;
+  clientName?: string;
+  clientEmail?: string;
+  amount?: string | number;
+  currency?: string;
+  reference?: string;
+}): Promise<{ success: boolean; messageId?: string; error?: string }> {
+  const adminEmail = process.env.ADMIN_ALERT_EMAIL || 'support@movafi-groupes.com';
+  return sendEmail({
+    to: adminEmail,
+    templateKey: 'admin_alert',
+    variables: {
+      title,
+      message,
+      client_name: clientName || 'Client',
+      client_email: clientEmail || '',
+      amount: amount !== undefined ? String(amount) : '',
+      currency: currency || 'USD',
+      reference: reference || ''
+    },
+    lang: 'fr'
+  });
+}
+

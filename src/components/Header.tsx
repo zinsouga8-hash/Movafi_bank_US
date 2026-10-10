@@ -84,7 +84,7 @@ export const Header: React.FC<HeaderProps> = ({
   const mobileThemeRef = useRef<HTMLDivElement>(null);
   const userMenuRef = useRef<HTMLDivElement>(null);
 
-  const t = translations[currentLang] || translations.en;
+  const t = translations[currentLang] || translations.es || translations.en;
   const isRtl = currentLang === 'ar';
 
   const currentTheme: AppTheme = theme || (isDark ? 'dark' : 'light');
@@ -141,9 +141,9 @@ export const Header: React.FC<HeaderProps> = ({
   }, []);
 
   const languages: { code: SupportedLanguage; label: string; flag: string; native: string }[] = [
+    { code: 'es', label: 'Español', flag: '🇪🇸', native: 'Español' },
     { code: 'en', label: 'English', flag: '🇺🇸', native: 'English (US)' },
     { code: 'fr', label: 'Français', flag: '🇫🇷', native: 'Français' },
-    { code: 'es', label: 'Español', flag: '🇪🇸', native: 'Español' },
     { code: 'ar', label: 'العربية', flag: '🇦🇪', native: 'العربية' }
   ];
 

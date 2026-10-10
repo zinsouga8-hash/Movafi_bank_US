@@ -17,7 +17,7 @@ export const Hero: React.FC<HeroProps> = ({
   onOpenRegister,
   onOpenLogin
 }) => {
-  const t = translations[currentLang];
+  const t = translations[currentLang] || translations.es || translations.en;
 
   return (
     <section className="relative overflow-hidden pt-10 pb-20 lg:pt-16 lg:pb-28 border-b border-slate-200/80 dark:border-slate-800/80 transition-colors">

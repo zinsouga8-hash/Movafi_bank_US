@@ -43,7 +43,7 @@ export const OnboardingModal: React.FC<OnboardingModalProps> = ({
   onSuccess,
   supportEmail = 'support@movafi-groupes.com'
 }) => {
-  const t = translations[currentLang] || translations.en;
+  const t = translations[currentLang] || translations.es || translations.en;
   const isRtl = currentLang === 'ar';
 
   const [step, setStep] = useState<1 | 2 | 3 | 4 | 5 | 6>(1);

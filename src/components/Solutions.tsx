@@ -30,7 +30,7 @@ export const Solutions: React.FC<SolutionsProps> = ({
   supportEmail,
   supportPhone
 }) => {
-  const t = translations[currentLang] || translations.en;
+  const t = translations[currentLang] || translations.es || translations.en;
   const [imageError, setImageError] = useState(false);
 
   return (

@@ -21,7 +21,7 @@ export const Footer: React.FC<FooterProps> = ({
   onOpenAdmin,
   onNavigateSection
 }) => {
-  const t = translations[currentLang] || translations.en;
+  const t = translations[currentLang] || translations.es || translations.en;
   const isRtl = currentLang === 'ar';
 
   return (

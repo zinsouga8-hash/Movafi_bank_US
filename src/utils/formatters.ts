@@ -1,67 +1,3 @@
-import { SupportedCurrency } from '../types/banking';
-
-export function formatCurrency(
-  amount: number,
-  currency: SupportedCurrency = 'USD',
-  lang?: string
-): string {
-  const currentDocLang = typeof document !== 'undefined' ? document.documentElement.lang : 'en';
-  const activeLang = lang || currentDocLang;
-  const isAr = activeLang === 'ar';
-
-  if (isAr) {
-    const arabicLocales: Record<string, string> = {
-      SAR: 'ar-SA',
-      AED: 'ar-AE',
-      BHD: 'ar-BH',
-      USD: 'ar-US',
-      EUR: 'ar-FR',
-      CAD: 'ar-CA',
-      JPY: 'ar-JP',
-      MXN: 'ar-MX'
-    };
-    try {
-      return new Intl.NumberFormat(arabicLocales[currency] || 'ar-SA', {
-        style: 'currency',
-        currency: currency,
-        minimumFractionDigits: currency === 'JPY' ? 0 : 2,
-        maximumFractionDigits: currency === 'JPY' ? 0 : 2
-      }).format(amount);
-    } catch {
-      return `${amount.toFixed(2)} ${currency}`;
-    }
-  }
-
-  // Non-Arabic: Never display Arabic letters. Display standard symbol or international currency code
-  const numFormatted = new Intl.NumberFormat('en-US', {
-    minimumFractionDigits: currency === 'JPY' ? 0 : 2,
-    maximumFractionDigits: currency === 'JPY' ? 0 : 2
-  }).format(amount);
-
-  if (currency === 'USD') return `$${numFormatted}`;
-  if (currency === 'EUR') return `€${numFormatted}`;
-  if (currency === 'CAD') return `CA$${numFormatted}`;
-
-  // For AED, JPY, SAR, BHD, MXN, etc., use international code: "1,250.00 AED", "5,000.00 MXN"
-  return `${numFormatted} ${currency}`;
-}
-
-export function formatDateTime(isoString: string): string {
-  try {
-    const date = new Date(isoString);
-    return new Intl.DateTimeFormat('en-US', {
-      year: 'numeric',
-      month: 'short',
-      day: '2-digit',
-      hour: '2-digit',
-      minute: '2-digit',
-      hour12: false
-    }).format(date);
-  } catch {
-    return isoString;
-  }
-}
-
 export interface AmortizationRow {
   month: number;
   payment: number;
@@ -70,35 +6,84 @@ export interface AmortizationRow {
   remainingBalance: number;
 }
 
-/**
- * Calculates standard monthly amortizing payment:
- * M = P * [r(1+r)^n] / [(1+r)^n - 1]
- */
+export interface AmortizationCalculation {
+  monthlyPayment: number;
+  totalCost: number;
+  totalInterest: number;
+  schedule: AmortizationRow[];
+}
+
+export function formatCurrency(amount: number | undefined | null, currency: string = 'USD'): string {
+  const numeric = typeof amount === 'number' && !isNaN(amount) ? amount : 0;
+  try {
+    return new Intl.NumberFormat('fr-FR', {
+      style: 'currency',
+      currency: currency.toUpperCase(),
+      minimumFractionDigits: 2,
+      maximumFractionDigits: 2
+    }).format(numeric);
+  } catch {
+    return `${numeric.toLocaleString('fr-FR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })} ${currency}`;
+  }
+}
+
+export function formatDateTime(dateStr?: string | null): string {
+  if (!dateStr) return '—';
+  try {
+    const d = new Date(dateStr);
+    if (isNaN(d.getTime())) return dateStr;
+    return new Intl.DateTimeFormat('fr-FR', {
+      dateStyle: 'medium',
+      timeStyle: 'short'
+    }).format(d);
+  } catch {
+    return dateStr;
+  }
+}
+
+export function formatDateOnly(dateStr?: string | null): string {
+  if (!dateStr) return '—';
+  try {
+    const d = new Date(dateStr);
+    if (isNaN(d.getTime())) return dateStr;
+    return new Intl.DateTimeFormat('fr-FR', {
+      dateStyle: 'medium'
+    }).format(d);
+  } catch {
+    return dateStr;
+  }
+}
+
+export function maskCardNumber(cardNumber?: string): string {
+  if (!cardNumber) return '•••• •••• •••• ••••';
+  const clean = cardNumber.replace(/\s+/g, '');
+  if (clean.length < 4) return cardNumber;
+  const last4 = clean.slice(-4);
+  return `•••• •••• •••• ${last4}`;
+}
+
 export function calculateAmortization(
   principal: number,
   annualRatePercent: number,
-  months: number
-): {
-  monthlyPayment: number;
-  totalInterest: number;
-  totalCost: number;
-  schedule: AmortizationRow[];
-} {
-  const monthlyRate = annualRatePercent / 100 / 12;
-  let monthlyPayment = 0;
+  durationMonths: number
+): AmortizationCalculation {
+  const p = Math.max(0, principal);
+  const n = Math.max(1, durationMonths);
+  const r = annualRatePercent > 0 ? annualRatePercent / 100 / 12 : 0;
 
-  if (monthlyRate === 0) {
-    monthlyPayment = principal / months;
+  let monthlyPayment = 0;
+  if (r === 0) {
+    monthlyPayment = p / n;
   } else {
-    monthlyPayment = (principal * (monthlyRate * Math.pow(1 + monthlyRate, months))) / (Math.pow(1 + monthlyRate, months) - 1);
+    monthlyPayment = (p * (r * Math.pow(1 + r, n))) / (Math.pow(1 + r, n) - 1);
   }
 
-  let remaining = principal;
-  let totalInterest = 0;
   const schedule: AmortizationRow[] = [];
+  let remaining = p;
+  let totalInterest = 0;
 
-  for (let m = 1; m <= months; m++) {
-    const interest = remaining * monthlyRate;
+  for (let m = 1; m <= n; m++) {
+    const interest = remaining * r;
     const principalPaid = monthlyPayment - interest;
     remaining = Math.max(0, remaining - principalPaid);
     totalInterest += interest;
@@ -114,63 +99,16 @@ export function calculateAmortization(
 
   return {
     monthlyPayment: Number(monthlyPayment.toFixed(2)),
+    totalCost: Number((p + totalInterest).toFixed(2)),
     totalInterest: Number(totalInterest.toFixed(2)),
-    totalCost: Number((principal + totalInterest).toFixed(2)),
     schedule
   };
 }
 
-export interface DetailedAmortizationRow extends AmortizationRow {
-  date: string;
-}
-
-export interface LoanCalculationDetails {
-  monthlyPayment: number;
-  totalInterest: number;
-  totalCost: number;
-  baseRatePercent: number;
-  subsidyPercent: number;
-  totalSavings: number;
-  firstPaymentDate: string;
-  schedule: DetailedAmortizationRow[];
-}
-
 export function calculateLoanDetails(
-  principal: number,
-  annualRatePercent: number,
-  months: number,
-  startDate?: string | Date
-): LoanCalculationDetails {
-  const subsidyPercent = 2.0;
-  const baseRatePercent = Number((annualRatePercent + subsidyPercent).toFixed(2));
-
-  const subsidizedAmort = calculateAmortization(principal, annualRatePercent, months);
-  const baseAmort = calculateAmortization(principal, baseRatePercent, months);
-
-  const totalSavings = Number(Math.max(0, baseAmort.totalCost - subsidizedAmort.totalCost).toFixed(2));
-
-  const baseDate = startDate ? new Date(startDate) : new Date();
-  const scheduleWithDates: DetailedAmortizationRow[] = subsidizedAmort.schedule.map((row) => {
-    const payDate = new Date(baseDate.getFullYear(), baseDate.getMonth() + row.month, 1);
-    const day = '01';
-    const month = String(payDate.getMonth() + 1).padStart(2, '0');
-    const year = payDate.getFullYear();
-    return {
-      ...row,
-      date: `${day}/${month}/${year}`
-    };
-  });
-
-  const firstDate = scheduleWithDates[0]?.date || '01/12/2026';
-
-  return {
-    monthlyPayment: subsidizedAmort.monthlyPayment,
-    totalInterest: subsidizedAmort.totalInterest,
-    totalCost: subsidizedAmort.totalCost,
-    baseRatePercent,
-    subsidyPercent,
-    totalSavings,
-    firstPaymentDate: firstDate,
-    schedule: scheduleWithDates
-  };
+  amount: number,
+  ratePercent: number,
+  months: number
+) {
+  return calculateAmortization(amount, ratePercent, months);
 }
